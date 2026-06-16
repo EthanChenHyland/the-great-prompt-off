@@ -2,6 +2,15 @@
 
 This folder is a draft for the future database-backed version. The current app still uses local mock data and localStorage.
 
+## Client setup
+
+The app now has Supabase client helpers available for future work, but they are not wired into the current UI, API routes, scoring, or submission flow.
+
+- `app/lib/supabase/browser.ts` creates a browser-safe client with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+- `app/lib/supabase/admin.ts` creates a server-only admin client with `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+
+Do not import the admin client from client components. The service role key must remain server-only.
+
 ## Tables
 
 - `participants`: Workshop identities and roles. The current participant ID maps to `participant_code`.
