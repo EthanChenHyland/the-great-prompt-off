@@ -1,5 +1,5 @@
 import { ChallengeWorkspace } from "../components/ChallengeWorkspace";
-import { getLeaderboardRows, getSampleReports } from "../lib/challenge-data";
+import { getAnswerKeyItems, getSampleReports } from "../lib/challenge-data";
 
 export default async function ChallengePage({
   searchParams,
@@ -8,12 +8,13 @@ export default async function ChallengePage({
 }) {
   const { participant } = await searchParams;
   const reports = await getSampleReports();
-  const leaderboard = getLeaderboardRows(participant);
+  const answerKeys = getAnswerKeyItems();
 
   return (
     <ChallengeWorkspace
       initialParticipantId={participant ?? ""}
-      leaderboard={leaderboard}
+      privateAnswerKeys={answerKeys.filter((item) => item.split === "private")}
+      publicAnswerKeys={answerKeys.filter((item) => item.split === "public")}
       reports={reports}
     />
   );

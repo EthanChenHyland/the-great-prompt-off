@@ -15,13 +15,24 @@ import {
   useSavedParticipantId,
 } from "../lib/participant-session";
 import { scoreModelOutput } from "../lib/scoring";
+import {
+  createSubmissionId,
+  getLocalLeaderboardRows,
+  getParticipantHistory,
+  getRemainingPublicSubmissions,
+  saveSubmission,
+  useSubmissionStore,
+} from "../lib/submissions";
 import type {
   AnswerKey,
+  AnswerKeyItem,
   FindingKey,
   FindingValue,
   SampleReport,
   ScoreSummary,
   ScoringResult,
+  StoredSubmission,
+  SubmissionKind,
 } from "../lib/types";
 
 type LeaderboardRow = {
@@ -29,6 +40,7 @@ type LeaderboardRow = {
   participant: string;
   score: number;
   final: boolean;
+  submittedAt?: string;
 };
 
 type ReportResult = {
@@ -39,7 +51,8 @@ type ReportResult = {
 
 type ChallengeWorkspaceProps = {
   initialParticipantId: string;
-  leaderboard: LeaderboardRow[];
+  privateAnswerKeys: AnswerKeyItem[];
+  publicAnswerKeys: AnswerKeyItem[];
   reports: SampleReport[];
 };
 
@@ -59,17 +72,25 @@ Use "uncertain" only when the report does not provide enough evidence.`;
 
 export function ChallengeWorkspace({
   initialParticipantId,
-  leaderboard,
+  privateAnswerKeys,
+  publicAnswerKeys,
   reports,
 }: ChallengeWorkspaceProps) {
   const router = useRouter();
   const [participantId, setParticipantId] = useState(initialParticipantId);
   const savedParticipantId = useSavedParticipantId();
+  const submissionStore = useSubmissionStore();
   const [activeReportId, setActiveReportId] = useState(reports[0]?.id ?? "");
   const [prompt, setPrompt] = useState(defaultPrompt);
   const [results, setResults] = useState<ReportResult[]>([]);
-  const [finalSubmitted, setFinalSubmitted] = useState(false);
+  const [submissionMessage, setSubmissionMessage] = useState("");
   const activeParticipantId = participantId || savedParticipantId;
+  const participantHistory = activeParticipantId
+    ? getParticipantHistory(submissionStore, activeParticipantId)
+    : { publicSubmissions: [], finalSubmission: null };
+  const remainingPublicSubmissions =
+    getRemainingPublicSubmissions(participantHistory);
+  const finalSubmissionUsed = Boolean(participantHistory.finalSubmission);
 
   useEffect(() => {
     if (initialParticipantId) {
@@ -80,30 +101,11 @@ export function ChallengeWorkspace({
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const summary = useMemo(() => summarizeResults(results), [results]);
   const currentRows = useMemo(() => {
-    if (!activeParticipantId) {
-      return leaderboard;
-    }
-
-    const withoutParticipant = leaderboard.filter(
-      (row) => row.participant !== activeParticipantId,
-    );
-
-    return [
-      ...withoutParticipant,
-      {
-        rank: withoutParticipant.length + 1,
-        participant: activeParticipantId,
-        score: finalSubmitted ? Math.round(summary.accuracy) : Math.round(summary.accuracy * 0.92),
-        final: finalSubmitted,
-      },
-    ].sort((a, b) => b.score - a.score).map((row, index) => ({
-      ...row,
-      rank: index + 1,
-    }));
-  }, [activeParticipantId, finalSubmitted, leaderboard, summary.accuracy]);
+    return getLocalLeaderboardRows(submissionStore);
+  }, [submissionStore]);
 
   function runSampleReports() {
-    setFinalSubmitted(false);
+    setSubmissionMessage("");
     setResults(
       reports.map((report) => {
         const prediction = createMockPrediction(prompt, report.answer_key);
@@ -117,12 +119,49 @@ export function ChallengeWorkspace({
     );
   }
 
+  function submitPublic() {
+    submitMockScore("public", publicAnswerKeys);
+  }
+
   function submitFinal() {
-    if (results.length === 0) {
-      runSampleReports();
+    submitMockScore("final", privateAnswerKeys);
+  }
+
+  function submitMockScore(kind: SubmissionKind, answerKeys: AnswerKeyItem[]) {
+    if (!activeParticipantId) {
+      setSubmissionMessage("Enter a participant ID before submitting.");
+      return;
     }
 
-    setFinalSubmitted(true);
+    const score = scoreAnswerKeySet(answerKeys, prompt);
+    const submission: StoredSubmission = {
+      id: createSubmissionId(kind),
+      participantId: activeParticipantId,
+      kind,
+      createdAt: new Date().toISOString(),
+      promptSnapshot: prompt,
+      score: score.accuracy,
+      correctFields: score.correct,
+      totalFields: score.total,
+      reportCount: answerKeys.length,
+    };
+    const result = saveSubmission(submission);
+
+    if (!result.ok && result.reason === "public_limit_reached") {
+      setSubmissionMessage("Public submission limit reached for this participant.");
+      return;
+    }
+
+    if (!result.ok && result.reason === "final_already_used") {
+      setSubmissionMessage("Final submission has already been used for this participant.");
+      return;
+    }
+
+    setSubmissionMessage(
+      `${kind === "public" ? "Public" : "Final"} submission saved: ${Math.round(
+        score.accuracy,
+      )}% across ${answerKeys.length} reports.`,
+    );
   }
 
   function handleParticipantChange(value: string) {
@@ -193,9 +232,13 @@ export function ChallengeWorkspace({
           <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <PromptEditor
               onRun={runSampleReports}
-              onSubmitFinal={submitFinal}
               prompt={prompt}
+              remainingPublicSubmissions={remainingPublicSubmissions}
               setPrompt={setPrompt}
+              onSubmitFinal={submitFinal}
+              onSubmitPublic={submitPublic}
+              finalSubmissionUsed={finalSubmissionUsed}
+              participantReady={Boolean(activeParticipantId)}
             />
             {activeReport ? (
               <ReportViewer
@@ -209,6 +252,16 @@ export function ChallengeWorkspace({
 
           <aside className="grid gap-4">
             <ResultsPanel results={results} summary={summary} />
+            <SubmissionPanel
+              finalSubmission={participantHistory.finalSubmission}
+              finalSubmissionUsed={finalSubmissionUsed}
+              message={submissionMessage}
+              onSubmitFinal={submitFinal}
+              onSubmitPublic={submitPublic}
+              participantReady={Boolean(activeParticipantId)}
+              publicSubmissions={participantHistory.publicSubmissions}
+              remainingPublicSubmissions={remainingPublicSubmissions}
+            />
             <Leaderboard
               participantId={activeParticipantId}
               rows={currentRows}
@@ -263,14 +316,22 @@ function TaskSidebar() {
 }
 
 function PromptEditor({
+  finalSubmissionUsed,
   onRun,
   onSubmitFinal,
+  onSubmitPublic,
+  participantReady,
   prompt,
+  remainingPublicSubmissions,
   setPrompt,
 }: {
+  finalSubmissionUsed: boolean;
   onRun: () => void;
   onSubmitFinal: () => void;
+  onSubmitPublic: () => void;
+  participantReady: boolean;
   prompt: string;
+  remainingPublicSubmissions: number;
   setPrompt: (value: string) => void;
 }) {
   return (
@@ -300,14 +361,23 @@ function PromptEditor({
           onClick={onRun}
           className="h-11 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
         >
-          Run sample reports
+          Run sample test
+        </button>
+        <button
+          type="button"
+          onClick={onSubmitPublic}
+          disabled={!participantReady || remainingPublicSubmissions === 0}
+          className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          Submit public
         </button>
         <button
           type="button"
           onClick={onSubmitFinal}
-          className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
+          disabled={!participantReady || finalSubmissionUsed}
+          className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
-          Submit final mock score
+          Submit final
         </button>
       </div>
     </section>
@@ -419,6 +489,92 @@ function ResultsPanel({
   );
 }
 
+function SubmissionPanel({
+  finalSubmission,
+  finalSubmissionUsed,
+  message,
+  onSubmitFinal,
+  onSubmitPublic,
+  participantReady,
+  publicSubmissions,
+  remainingPublicSubmissions,
+}: {
+  finalSubmission: StoredSubmission | null;
+  finalSubmissionUsed: boolean;
+  message: string;
+  onSubmitFinal: () => void;
+  onSubmitPublic: () => void;
+  participantReady: boolean;
+  publicSubmissions: StoredSubmission[];
+  remainingPublicSubmissions: number;
+}) {
+  const latestPublicSubmission =
+    publicSubmissions[publicSubmissions.length - 1] ?? null;
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+        Submissions
+      </p>
+      <h2 className="mt-2 text-xl font-semibold text-slate-950">
+        Public and final
+      </h2>
+      <div className="mt-4 grid gap-3">
+        <div className="rounded-md border border-slate-200 px-3 py-3">
+          <p className="text-sm font-semibold text-slate-700">
+            Public submissions remaining
+          </p>
+          <p className="mt-1 text-2xl font-semibold text-slate-950">
+            {remainingPublicSubmissions}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            {publicSubmissions.length} of 5 attempts used
+          </p>
+          {latestPublicSubmission ? (
+            <p className="mt-2 text-sm text-slate-600">
+              Latest public score: {Math.round(latestPublicSubmission.score)}%
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={onSubmitPublic}
+            disabled={!participantReady || remainingPublicSubmissions === 0}
+            className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            Submit public
+          </button>
+        </div>
+        <div className="rounded-md border border-slate-200 px-3 py-3">
+          <p className="text-sm font-semibold text-slate-700">
+            Final submission
+          </p>
+          <p className="mt-1 text-sm text-slate-600">
+            {finalSubmissionUsed ? "Already used" : "Available"}
+          </p>
+          {finalSubmission ? (
+            <p className="mt-2 text-sm text-slate-600">
+              Final score: {Math.round(finalSubmission.score)}%
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={onSubmitFinal}
+            disabled={!participantReady || finalSubmissionUsed}
+            className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            Submit final
+          </button>
+        </div>
+      </div>
+      {message ? (
+        <p className="mt-4 rounded-md bg-teal-50 p-3 text-sm leading-6 text-teal-900">
+          {message}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function Leaderboard({
   participantId,
   rows,
@@ -432,10 +588,14 @@ function Leaderboard({
         Leaderboard
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
-        Private final scores
+        Local final scores
       </h2>
       <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
-        {rows.map((row) => (
+        {rows.length === 0 ? (
+          <p className="bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+            Final submissions saved in this browser will appear here.
+          </p>
+        ) : rows.map((row) => (
           <div
             key={row.participant}
             className={`grid grid-cols-[46px_minmax(0,1fr)_60px] items-center border-b border-slate-100 px-3 py-3 text-sm last:border-b-0 ${
@@ -553,4 +713,23 @@ function summarizeResults(results: ReportResult[]): ScoreSummary {
 
 function countCorrectFields(score: ScoringResult) {
   return score.per_field.filter((field) => field.correct).length;
+}
+
+function scoreAnswerKeySet(answerKeys: AnswerKeyItem[], prompt: string): ScoreSummary {
+  const scores = answerKeys.map((item) => {
+    const prediction = createMockPrediction(prompt, item.answer_key);
+
+    return scoreModelOutput(JSON.stringify(prediction), item.answer_key);
+  });
+  const correct = scores.reduce(
+    (sum, score) => sum + countCorrectFields(score),
+    0,
+  );
+  const total = scores.length * findingKeys.length;
+
+  return {
+    correct,
+    total,
+    accuracy: total === 0 ? 0 : (correct / total) * 100,
+  };
 }

@@ -55,3 +55,22 @@ export type ScoringResult = {
   field_accuracy: number;
   overall_score: number;
 };
+
+export type SubmissionKind = "public" | "final";
+
+export type StoredSubmission = {
+  id: string;
+  participantId: string;
+  kind: SubmissionKind;
+  createdAt: string;
+  promptSnapshot: string;
+  score: number;
+  correctFields: number;
+  totalFields: number;
+  reportCount: number;
+};
+
+export type ParticipantSubmissionHistory = {
+  publicSubmissions: StoredSubmission[];
+  finalSubmission: StoredSubmission | null;
+};

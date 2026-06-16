@@ -28,3 +28,5 @@ export const challenge = {
 };
 
 export const participantStorageKey = "great-prompt-off-participant-id";
+
+export const submissionStorageKey = "great-prompt-off-submissions";
