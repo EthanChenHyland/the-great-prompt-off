@@ -215,6 +215,13 @@ export function ChallengeWorkspace({
             Please switch to a laptop or desktop browser for the full challenge
             workspace.
           </p>
+          <button
+            type="button"
+            onClick={resetParticipant}
+            className="mt-5 h-11 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
+          >
+            Exit to home
+          </button>
         </div>
       </section>
 
