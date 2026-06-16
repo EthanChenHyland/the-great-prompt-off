@@ -195,7 +195,30 @@ export function ChallengeWorkspace({
 
   return (
     <main className="min-h-screen bg-[#f7f9f8] text-slate-950">
-      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-4 py-4 lg:px-6">
+      <section className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center px-6 py-10 lg:hidden">
+        <Link href="/" className="text-sm font-semibold text-teal-700 hover:text-teal-800">
+          The Great Prompt-Off
+        </Link>
+        <div className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Laptop recommended
+          </p>
+          <h1 className="mt-3 text-2xl font-semibold text-slate-950">
+            This workshop platform is designed for desktop use.
+          </h1>
+          <p className="mt-4 text-sm leading-6 text-slate-600">
+            Radiology reports, prompt editing, result comparisons, and
+            leaderboard panels need more horizontal space than most mobile
+            screens can comfortably provide.
+          </p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Please switch to a laptop or desktop browser for the full challenge
+            workspace.
+          </p>
+        </div>
+      </section>
+
+      <div className="mx-auto hidden w-full max-w-[1500px] flex-col gap-4 px-4 py-4 lg:flex lg:px-6">
         <header className="flex flex-col gap-4 border-b border-slate-200 pb-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <Link href="/" className="text-sm font-semibold text-teal-700 hover:text-teal-800">
