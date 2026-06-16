@@ -85,6 +85,7 @@ export function ChallengeWorkspace({
     mode: "mock" | "real_llm" | null;
     model: string | null;
   }>({ mode: null, model: null });
+  const [sampleRunError, setSampleRunError] = useState("");
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<
     "sample" | "public" | "final" | null
@@ -111,6 +112,7 @@ export function ChallengeWorkspace({
 
   async function runSampleReports() {
     setSubmissionMessage("");
+    setSampleRunError("");
     setPendingAction("sample");
 
     try {
@@ -120,8 +122,12 @@ export function ChallengeWorkspace({
         mode: response.mode,
         model: response.model,
       });
-    } catch {
-      setSubmissionMessage("Sample test failed. Please try again.");
+    } catch (error) {
+      setSampleRunError(
+        error instanceof Error
+          ? error.message
+          : "Sample test failed. Please try again.",
+      );
     } finally {
       setPendingAction(null);
     }
@@ -335,6 +341,7 @@ export function ChallengeWorkspace({
           <aside className="grid gap-4">
             <ResultsPanel
               results={results}
+              sampleRunError={sampleRunError}
               sampleRunMode={sampleRunMode}
               summary={summary}
             />
@@ -569,10 +576,12 @@ function ReportViewer({
 
 function ResultsPanel({
   results,
+  sampleRunError,
   sampleRunMode,
   summary,
 }: {
   results: ReportResult[];
+  sampleRunError: string;
   sampleRunMode: {
     mode: "mock" | "real_llm" | null;
     model: string | null;
@@ -603,24 +612,47 @@ function ResultsPanel({
       <div className="mt-5 grid gap-2">
         {results.length === 0 ? (
           <p className="rounded-md bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            Run the sample reports to populate local mock scoring.
+            {sampleRunError || "Run the sample reports to populate local scoring."}
           </p>
         ) : (
           results.map((result, index) => (
             <div
               key={result.reportId}
-              className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2"
+              className="rounded-md border border-slate-200 px-3 py-2"
             >
-              <span className="text-sm font-semibold text-slate-700">
-                Report {String(index + 1).padStart(3, "0")}
-              </span>
-              <span className="text-sm text-slate-600">
-                {countCorrectFields(result.score)}/{findingKeys.length}
-              </span>
-              {result.error ? (
-                <span className="text-xs font-semibold text-red-700">
-                  JSON issue
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-slate-700">
+                  Report {String(index + 1).padStart(3, "0")}
                 </span>
+                <span className="text-sm text-slate-600">
+                  {countCorrectFields(result.score)}/{findingKeys.length}
+                </span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span
+                  className={`rounded-md px-2 py-1 text-xs font-semibold ${
+                    result.score.valid_json
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "bg-red-50 text-red-800"
+                  }`}
+                >
+                  {result.score.valid_json ? "Valid JSON" : "Invalid JSON"}
+                </span>
+                {result.score.missing_fields.length > 0 ? (
+                  <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                    Missing fields
+                  </span>
+                ) : null}
+                {result.score.invalid_fields.length > 0 ? (
+                  <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                    Invalid values
+                  </span>
+                ) : null}
+              </div>
+              {result.error ? (
+                <p className="mt-2 text-xs leading-5 text-red-700">
+                  {result.error}
+                </p>
               ) : null}
             </div>
           ))
@@ -820,7 +852,13 @@ async function postPrompt<TResponse>(url: string, prompt: string) {
   });
 
   if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`);
+    const errorBody = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+
+    throw new Error(
+      errorBody?.error || `Request failed with status ${response.status}`,
+    );
   }
 
   return (await response.json()) as TResponse;
