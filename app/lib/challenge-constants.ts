@@ -26,3 +26,5 @@ export const challenge = {
   allowedValues: valueOptions,
   sampleRange: "Reports 001-005",
 };
+
+export const participantStorageKey = "great-prompt-off-participant-id";

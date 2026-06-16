@@ -1,13 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   challenge,
   findingKeys,
   findingLabels,
   valueOptions,
 } from "../lib/challenge-constants";
+import {
+  clearParticipantId,
+  saveParticipantId,
+  useSavedParticipantId,
+} from "../lib/participant-session";
 import type { AnswerKey, FindingKey, FindingValue, SampleReport, ScoreSummary } from "../lib/types";
 
 type LeaderboardRow = {
@@ -48,28 +54,37 @@ export function ChallengeWorkspace({
   leaderboard,
   reports,
 }: ChallengeWorkspaceProps) {
+  const router = useRouter();
   const [participantId, setParticipantId] = useState(initialParticipantId);
+  const savedParticipantId = useSavedParticipantId();
   const [activeReportId, setActiveReportId] = useState(reports[0]?.id ?? "");
   const [prompt, setPrompt] = useState(defaultPrompt);
   const [results, setResults] = useState<ReportResult[]>([]);
   const [finalSubmitted, setFinalSubmitted] = useState(false);
+  const activeParticipantId = participantId || savedParticipantId;
+
+  useEffect(() => {
+    if (initialParticipantId) {
+      saveParticipantId(initialParticipantId);
+    }
+  }, [initialParticipantId]);
 
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const summary = useMemo(() => summarizeResults(results), [results]);
   const currentRows = useMemo(() => {
-    if (!participantId) {
+    if (!activeParticipantId) {
       return leaderboard;
     }
 
     const withoutParticipant = leaderboard.filter(
-      (row) => row.participant !== participantId,
+      (row) => row.participant !== activeParticipantId,
     );
 
     return [
       ...withoutParticipant,
       {
         rank: withoutParticipant.length + 1,
-        participant: participantId,
+        participant: activeParticipantId,
         score: finalSubmitted ? Math.round(summary.accuracy) : Math.round(summary.accuracy * 0.92),
         final: finalSubmitted,
       },
@@ -77,7 +92,7 @@ export function ChallengeWorkspace({
       ...row,
       rank: index + 1,
     }));
-  }, [finalSubmitted, leaderboard, participantId, summary.accuracy]);
+  }, [activeParticipantId, finalSubmitted, leaderboard, summary.accuracy]);
 
   function runSampleReports() {
     setFinalSubmitted(false);
@@ -102,6 +117,23 @@ export function ChallengeWorkspace({
     setFinalSubmitted(true);
   }
 
+  function handleParticipantChange(value: string) {
+    setParticipantId(value);
+    const trimmed = value.trim();
+
+    if (trimmed) {
+      saveParticipantId(trimmed);
+    } else {
+      clearParticipantId();
+    }
+  }
+
+  function resetParticipant() {
+    clearParticipantId();
+    setParticipantId("");
+    router.push("/");
+  }
+
   const activeResult = results.find((result) => result.reportId === activeReport?.id);
 
   return (
@@ -116,17 +148,34 @@ export function ChallengeWorkspace({
               {challenge.title}
             </h1>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <label className="text-sm font-semibold text-slate-600" htmlFor="participant">
-              Participant
-            </label>
-            <input
-              id="participant"
-              value={participantId}
-              onChange={(event) => setParticipantId(event.target.value)}
-              placeholder="RAD-021"
-              className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
-            />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Current participant
+              </p>
+              <p className="mt-1 font-mono text-sm font-semibold text-slate-900">
+                {activeParticipantId || "Not set"}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="text-sm font-semibold text-slate-600" htmlFor="participant">
+                Participant
+              </label>
+              <input
+                id="participant"
+                value={activeParticipantId}
+                onChange={(event) => handleParticipantChange(event.target.value)}
+                placeholder="RAD-021"
+                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={resetParticipant}
+              className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
+            >
+              Switch participant
+            </button>
           </div>
         </header>
 
@@ -153,7 +202,7 @@ export function ChallengeWorkspace({
           <aside className="grid gap-4">
             <ResultsPanel results={results} summary={summary} />
             <Leaderboard
-              participantId={participantId}
+              participantId={activeParticipantId}
               rows={currentRows}
             />
           </aside>
