@@ -2,27 +2,70 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveParticipantId, useSavedParticipantId } from "../lib/participant-session";
+import { normalizeParticipantCode } from "../lib/participant-codes";
+import {
+  clearParticipantId,
+  saveParticipantId,
+  useSavedParticipantId,
+} from "../lib/participant-session";
+
+type ParticipantValidationResponse = {
+  source: "supabase" | "mock-file-fallback";
+  valid: boolean;
+  participantCode: string;
+  message: string;
+};
 
 export function LandingPage() {
   const router = useRouter();
   const [participantId, setParticipantId] = useState("");
+  const [validationMessage, setValidationMessage] = useState("");
+  const [isValidating, setIsValidating] = useState(false);
   const savedParticipantId = useSavedParticipantId();
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmed = participantId.trim();
+    const normalized = normalizeParticipantCode(participantId);
 
-    if (!trimmed) {
+    if (!normalized) {
       return;
     }
 
-    saveParticipantId(trimmed);
-    router.push(`/challenge?participant=${encodeURIComponent(trimmed)}`);
+    await validateAndEnter(normalized);
   }
 
-  function continueSavedParticipant() {
-    router.push(`/challenge?participant=${encodeURIComponent(savedParticipantId)}`);
+  async function continueSavedParticipant() {
+    await validateAndEnter(savedParticipantId);
+  }
+
+  async function validateAndEnter(rawCode: string) {
+    const normalized = normalizeParticipantCode(rawCode);
+
+    if (!normalized) {
+      return;
+    }
+
+    setIsValidating(true);
+    setValidationMessage("");
+
+    try {
+      const validation = await validateParticipantCode(normalized);
+
+      if (!validation.valid) {
+        setValidationMessage(validation.message);
+        clearParticipantId();
+        return;
+      }
+
+      saveParticipantId(validation.participantCode);
+      router.push(
+        `/challenge?participant=${encodeURIComponent(validation.participantCode)}`,
+      );
+    } catch {
+      setValidationMessage("Could not validate this participant code. Please try again.");
+    } finally {
+      setIsValidating(false);
+    }
   }
 
   return (
@@ -72,9 +115,10 @@ export function LandingPage() {
                 <button
                   type="button"
                   onClick={continueSavedParticipant}
-                  className="mt-4 h-11 w-full rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
+                  disabled={isValidating}
+                  className="mt-4 h-11 w-full rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  Continue workspace
+                  {isValidating ? "Checking..." : "Continue workspace"}
                 </button>
               </div>
             ) : null}
@@ -90,15 +134,20 @@ export function LandingPage() {
                 id="participant-id"
                 value={participantId}
                 onChange={(event) => setParticipantId(event.target.value)}
-                placeholder="Example: RAD-021"
+                placeholder="Example: P001"
                 className="mt-3 h-12 w-full rounded-md border border-slate-300 px-4 text-base outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
               />
+              {validationMessage ? (
+                <p className="mt-3 rounded-md bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+                  {validationMessage}
+                </p>
+              ) : null}
               <button
                 type="submit"
                 className="mt-4 h-12 w-full rounded-md bg-teal-700 px-5 text-sm font-semibold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-                disabled={!participantId.trim()}
+                disabled={!participantId.trim() || isValidating}
               >
-                Enter workspace
+                {isValidating ? "Checking..." : "Enter workspace"}
               </button>
             </form>
 
@@ -127,4 +176,18 @@ export function LandingPage() {
       </section>
     </main>
   );
+}
+
+async function validateParticipantCode(participantCode: string) {
+  const response = await fetch(
+    `/api/participants/validate?participantCode=${encodeURIComponent(
+      participantCode,
+    )}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(`Participant validation failed with ${response.status}.`);
+  }
+
+  return (await response.json()) as ParticipantValidationResponse;
 }

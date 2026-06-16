@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { participantStorageKey } from "./challenge-constants";
+import { normalizeParticipantCode } from "./participant-codes";
 
 const participantSessionEvent = "great-prompt-off-participant-session";
 
@@ -40,7 +41,10 @@ export function useSavedParticipantId() {
 }
 
 export function saveParticipantId(participantId: string) {
-  window.localStorage.setItem(participantStorageKey, participantId);
+  window.localStorage.setItem(
+    participantStorageKey,
+    normalizeParticipantCode(participantId),
+  );
   emitParticipantSessionChange();
 }
 

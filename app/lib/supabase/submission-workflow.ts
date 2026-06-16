@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAnswerKeyItems } from "@/app/lib/challenge-data";
+import { normalizeParticipantCode } from "@/app/lib/participant-codes";
 import { evaluateAnswerKeySet } from "@/app/lib/mock-evaluation";
 import type { AnswerKeyItem, ReportSplit, ScoreSummary, SubmissionKind } from "@/app/lib/types";
 import { createSupabaseAdminClient } from "./admin";
@@ -108,19 +109,15 @@ export async function getSupabaseSubmissionStatus(
 ): Promise<SubmissionStatusResponse> {
   const supabase = createSupabaseAdminClient();
   const challenge = await getActiveChallenge(supabase);
-  const participant = await getParticipantByCode(supabase, participantCode);
+  const participant = await getParticipantByCode(
+    supabase,
+    normalizeParticipantCode(participantCode),
+  );
 
   if (!participant) {
-    return {
-      source: "supabase",
-      fallbackReason: null,
-      publicSubmissionLimit: challenge.public_submission_limit,
-      publicSubmissionsUsed: 0,
-      remainingPublicSubmissions: challenge.public_submission_limit,
-      latestPublicScore: null,
-      finalSubmissionUsed: false,
-      finalScore: null,
-    };
+    throw new ParticipantValidationError(
+      "Participant code not found. Use a seeded workshop code from P001 through P050.",
+    );
   }
 
   return getSubmissionStatusForParticipant(supabase, challenge, participant.id);
@@ -137,7 +134,17 @@ export async function submitToSupabase({
 }): Promise<SubmitScoreResponse> {
   const supabase = createSupabaseAdminClient();
   const challenge = await getActiveChallenge(supabase);
-  const participant = await upsertParticipant(supabase, participantCode);
+  const participant = await getParticipantByCode(
+    supabase,
+    normalizeParticipantCode(participantCode),
+  );
+
+  if (!participant) {
+    throw new ParticipantValidationError(
+      "Participant code not found. Use a seeded workshop code from P001 through P050.",
+    );
+  }
+
   const currentStatus = await getSubmissionStatusForParticipant(
     supabase,
     challenge,
@@ -275,6 +282,8 @@ export function getFallbackSubmissionScore(
 
 export class SubmissionLimitError extends Error {}
 
+export class ParticipantValidationError extends Error {}
+
 async function getActiveChallenge(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
 ) {
@@ -305,30 +314,6 @@ async function getParticipantByCode(
 
   if (error) {
     throw new Error(`Failed to load participant: ${error.message}`);
-  }
-
-  return data;
-}
-
-async function upsertParticipant(
-  supabase: ReturnType<typeof createSupabaseAdminClient>,
-  participantCode: string,
-) {
-  const { data, error } = await supabase
-    .from("participants")
-    .upsert(
-      {
-        participant_code: participantCode,
-        display_name: participantCode,
-        role: "participant",
-      },
-      { onConflict: "participant_code" },
-    )
-    .select("id, participant_code")
-    .single<Participant>();
-
-  if (error) {
-    throw new Error(`Failed to create participant: ${error.message}`);
   }
 
   return data;

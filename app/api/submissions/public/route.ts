@@ -1,6 +1,7 @@
 import {
   fallbackStatus,
   getFallbackSubmissionScore,
+  ParticipantValidationError,
   SubmissionLimitError,
   submitToSupabase,
 } from "@/app/lib/supabase/submission-workflow";
@@ -26,6 +27,10 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof SubmissionLimitError) {
       return Response.json({ error: error.message }, { status: 409 });
+    }
+
+    if (error instanceof ParticipantValidationError) {
+      return Response.json({ error: error.message }, { status: 400 });
     }
 
     const message = error instanceof Error ? error.message : String(error);

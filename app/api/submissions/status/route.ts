@@ -1,6 +1,7 @@
 import {
   fallbackStatus,
   getSupabaseSubmissionStatus,
+  ParticipantValidationError,
 } from "@/app/lib/supabase/submission-workflow";
 
 export async function GET(request: Request) {
@@ -17,6 +18,10 @@ export async function GET(request: Request) {
   try {
     return Response.json(await getSupabaseSubmissionStatus(participantCode));
   } catch (error) {
+    if (error instanceof ParticipantValidationError) {
+      return Response.json({ error: error.message }, { status: 400 });
+    }
+
     const message = error instanceof Error ? error.message : String(error);
 
     return Response.json(fallbackStatus(message));
