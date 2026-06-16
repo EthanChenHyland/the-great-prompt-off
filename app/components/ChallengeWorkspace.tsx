@@ -51,7 +51,9 @@ type ChallengeWorkspaceProps = {
   reports: SampleReport[];
 };
 
-const defaultPrompt = `You are extracting structured findings from a knee MRI report.
+const initialPrompt = "";
+
+const examplePrompt = `You are extracting structured findings from a knee MRI report.
 
 Return only valid JSON with these exact keys:
 {
@@ -74,7 +76,7 @@ export function ChallengeWorkspace({
   const savedParticipantId = useSavedParticipantId();
   const submissionStore = useSubmissionStore();
   const [activeReportId, setActiveReportId] = useState(reports[0]?.id ?? "");
-  const [prompt, setPrompt] = useState(defaultPrompt);
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [results, setResults] = useState<ReportResult[]>([]);
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<
@@ -346,6 +348,8 @@ function PromptEditor({
   remainingPublicSubmissions: number;
   setPrompt: (value: string) => void;
 }) {
+  const [showExample, setShowExample] = useState(false);
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -364,9 +368,37 @@ function PromptEditor({
       <textarea
         value={prompt}
         onChange={(event) => setPrompt(event.target.value)}
+        placeholder="Write your extraction prompt here..."
         spellCheck={false}
         className="mt-4 h-[470px] w-full resize-none rounded-md border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-50 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
       />
+      <div className="mt-4 rounded-md border border-slate-200 bg-slate-50">
+        <button
+          type="button"
+          onClick={() => setShowExample((current) => !current)}
+          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:text-teal-700"
+          aria-expanded={showExample}
+        >
+          <span>Example prompt</span>
+          <span className="text-xs text-slate-500">
+            {showExample ? "Hide" : "Need help?"}
+          </span>
+        </button>
+        {showExample ? (
+          <div className="border-t border-slate-200 p-4">
+            <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 font-mono text-xs leading-5 text-slate-700">
+              {examplePrompt}
+            </pre>
+            <button
+              type="button"
+              onClick={() => setPrompt(examplePrompt)}
+              className="mt-3 h-10 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
+            >
+              Use this example
+            </button>
+          </div>
+        ) : null}
+      </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
