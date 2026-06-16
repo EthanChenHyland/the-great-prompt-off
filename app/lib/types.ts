@@ -32,3 +32,26 @@ export type ScoreSummary = {
   total: number;
   accuracy: number;
 };
+
+export type FieldScoreResult = {
+  field: FindingKey;
+  expected: FindingValue;
+  actual: FindingValue | null;
+  correct: boolean;
+  missing: boolean;
+  invalid: boolean;
+};
+
+export type InvalidFieldResult = {
+  field: string;
+  value: unknown;
+};
+
+export type ScoringResult = {
+  valid_json: boolean;
+  per_field: FieldScoreResult[];
+  missing_fields: FindingKey[];
+  invalid_fields: InvalidFieldResult[];
+  field_accuracy: number;
+  overall_score: number;
+};

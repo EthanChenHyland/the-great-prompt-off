@@ -14,7 +14,15 @@ import {
   saveParticipantId,
   useSavedParticipantId,
 } from "../lib/participant-session";
-import type { AnswerKey, FindingKey, FindingValue, SampleReport, ScoreSummary } from "../lib/types";
+import { scoreModelOutput } from "../lib/scoring";
+import type {
+  AnswerKey,
+  FindingKey,
+  FindingValue,
+  SampleReport,
+  ScoreSummary,
+  ScoringResult,
+} from "../lib/types";
 
 type LeaderboardRow = {
   rank: number;
@@ -26,7 +34,7 @@ type LeaderboardRow = {
 type ReportResult = {
   reportId: string;
   prediction: AnswerKey;
-  score: ScoreSummary;
+  score: ScoringResult;
 };
 
 type ChallengeWorkspaceProps = {
@@ -103,7 +111,7 @@ export function ChallengeWorkspace({
         return {
           reportId: report.id,
           prediction,
-          score: scorePrediction(prediction, report.answer_key),
+          score: scoreModelOutput(JSON.stringify(prediction), report.answer_key),
         };
       }),
     );
@@ -401,7 +409,7 @@ function ResultsPanel({
                 Report {String(index + 1).padStart(3, "0")}
               </span>
               <span className="text-sm text-slate-600">
-                {result.score.correct}/{result.score.total}
+                {countCorrectFields(result.score)}/{findingKeys.length}
               </span>
             </div>
           ))
@@ -529,23 +537,20 @@ function fallbackValue(key: FindingKey, correct: FindingValue): FindingValue {
   return correct;
 }
 
-function scorePrediction(prediction: AnswerKey, answerKey: AnswerKey): ScoreSummary {
-  const correct = findingKeys.filter((key) => prediction[key] === answerKey[key]).length;
-
-  return {
-    correct,
-    total: findingKeys.length,
-    accuracy: (correct / findingKeys.length) * 100,
-  };
-}
-
 function summarizeResults(results: ReportResult[]): ScoreSummary {
-  const correct = results.reduce((sum, result) => sum + result.score.correct, 0);
-  const total = results.reduce((sum, result) => sum + result.score.total, 0);
+  const correct = results.reduce(
+    (sum, result) => sum + countCorrectFields(result.score),
+    0,
+  );
+  const total = results.length * findingKeys.length;
 
   return {
     correct,
     total,
     accuracy: total === 0 ? 0 : (correct / total) * 100,
   };
+}
+
+function countCorrectFields(score: ScoringResult) {
+  return score.per_field.filter((field) => field.correct).length;
 }
