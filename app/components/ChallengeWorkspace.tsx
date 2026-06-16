@@ -185,7 +185,7 @@ export function ChallengeWorkspace({
   function clearAndExit() {
     clearParticipantId();
     setParticipantId("");
-    router.push("/");
+    window.location.assign("/");
   }
 
   function exitToHome() {
