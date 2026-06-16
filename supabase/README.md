@@ -11,6 +11,21 @@ The app now has Supabase client helpers available for future work, but they are 
 
 Do not import the admin client from client components. The service role key must remain server-only.
 
+## Seeding local mock data
+
+After applying `supabase/schema.sql` to a Supabase project, seed the local mock challenge data with:
+
+```bash
+npm run seed:supabase
+```
+
+Required environment variables:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and report text files from `public/mock-reports/`. It upserts one active challenge, all reports, all answer keys, and mock participants `P001` through `P050`, so it is safe to run more than once.
+
 ## Tables
 
 - `participants`: Workshop identities and roles. The current participant ID maps to `participant_code`.
