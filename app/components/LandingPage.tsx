@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { saveParticipantId, useSavedParticipantId } from "../lib/participant-session";
 
@@ -36,12 +35,14 @@ export function LandingPage() {
             </p>
             <p className="mt-1 text-sm text-slate-500">Static MVP preview</p>
           </div>
-          <Link
-            href="/challenge"
-            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
+          <button
+            type="button"
+            onClick={continueSavedParticipant}
+            disabled={!savedParticipantId}
+            className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
           >
-            View challenge
-          </Link>
+            {savedParticipantId ? "Continue challenge" : "Enter ID to continue"}
+          </button>
         </nav>
 
         <div className="grid flex-1 items-center gap-10 py-12 lg:grid-cols-[1.08fr_0.92fr]">

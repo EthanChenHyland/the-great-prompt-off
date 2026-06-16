@@ -174,24 +174,52 @@ export function ChallengeWorkspace({
     }
   }
 
-  function handleParticipantChange(value: string) {
-    setParticipantId(value);
-    const trimmed = value.trim();
-
-    if (trimmed) {
-      saveParticipantId(trimmed);
-    } else {
-      clearParticipantId();
+  function saveAndExit() {
+    if (activeParticipantId) {
+      saveParticipantId(activeParticipantId);
     }
+
+    router.push("/");
   }
 
-  function resetParticipant() {
+  function clearAndExit() {
     clearParticipantId();
     setParticipantId("");
     router.push("/");
   }
 
+  function exitToHome() {
+    router.push("/");
+  }
+
   const activeResult = results.find((result) => result.reportId === activeReport?.id);
+
+  if (!activeParticipantId) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f9f8] px-6 text-slate-950">
+        <section className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Participant required
+          </p>
+          <h1 className="mt-3 text-2xl font-semibold text-slate-950">
+            Enter a participant ID before opening the challenge.
+          </h1>
+          <p className="mt-4 text-sm leading-6 text-slate-600">
+            The home page is the participant check-in point for this local mock
+            workshop. Return home, enter your assigned ID, then continue to the
+            workspace.
+          </p>
+          <button
+            type="button"
+            onClick={exitToHome}
+            className="mt-5 h-11 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
+          >
+            Return home
+          </button>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-[#f7f9f8] text-slate-950">
@@ -217,7 +245,7 @@ export function ChallengeWorkspace({
           </p>
           <button
             type="button"
-            onClick={resetParticipant}
+            onClick={exitToHome}
             className="mt-5 h-11 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
           >
             Exit to home
@@ -244,27 +272,22 @@ export function ChallengeWorkspace({
                 Current participant
               </p>
               <p className="mt-1 font-mono text-sm font-semibold text-slate-900">
-                {activeParticipantId || "Not set"}
+                {activeParticipantId}
               </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <label className="text-sm font-semibold text-slate-600" htmlFor="participant">
-                Participant
-              </label>
-              <input
-                id="participant"
-                value={activeParticipantId}
-                onChange={(event) => handleParticipantChange(event.target.value)}
-                placeholder="RAD-021"
-                className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
-              />
             </div>
             <button
               type="button"
-              onClick={resetParticipant}
+              onClick={saveAndExit}
               className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
             >
-              Switch participant
+              Save and exit
+            </button>
+            <button
+              type="button"
+              onClick={clearAndExit}
+              className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
+            >
+              Clear and exit
             </button>
           </div>
         </header>
