@@ -234,6 +234,9 @@ export function ChallengeWorkspace({
             <h1 className="mt-1 text-2xl font-semibold text-slate-950">
               {challenge.title}
             </h1>
+            <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
+              Mock mode: local demo only
+            </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
