@@ -98,6 +98,21 @@ export function saveSubmission(submission: StoredSubmission) {
   return { ok: true, reason: null };
 }
 
+export function clearParticipantPublicSubmissions(participantId: string) {
+  const store = readSubmissionStore();
+  const history = store[participantId];
+
+  if (!history) {
+    return;
+  }
+
+  store[participantId] = {
+    ...history,
+    publicSubmissions: [],
+  };
+  writeSubmissionStore(store);
+}
+
 export function getLocalLeaderboardRows(store: SubmissionStore) {
   return Object.values(store)
     .flatMap((history) => (history.finalSubmission ? [history.finalSubmission] : []))

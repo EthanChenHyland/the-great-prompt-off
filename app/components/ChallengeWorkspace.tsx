@@ -15,6 +15,7 @@ import {
 } from "../lib/participant-session";
 import { countCorrectFields } from "../lib/mock-evaluation";
 import {
+  clearParticipantPublicSubmissions,
   createSubmissionId,
   getLocalLeaderboardRows,
   getParticipantHistory,
@@ -183,6 +184,10 @@ export function ChallengeWorkspace({
   }
 
   function clearAndExit() {
+    if (activeParticipantId) {
+      clearParticipantPublicSubmissions(activeParticipantId);
+    }
+
     clearParticipantId();
     setParticipantId("");
     window.location.assign("/");
