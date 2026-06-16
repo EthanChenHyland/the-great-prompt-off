@@ -43,8 +43,10 @@ type LeaderboardRow = {
 
 type ReportResult = {
   reportId: string;
-  prediction: AnswerKey;
+  prediction: Partial<AnswerKey>;
   score: ScoringResult;
+  modelOutput?: string;
+  error?: string | null;
 };
 
 type ChallengeWorkspaceProps = {
@@ -79,6 +81,10 @@ export function ChallengeWorkspace({
   const [activeReportId, setActiveReportId] = useState(reports[0]?.id ?? "");
   const [prompt, setPrompt] = useState(initialPrompt);
   const [results, setResults] = useState<ReportResult[]>([]);
+  const [sampleRunMode, setSampleRunMode] = useState<{
+    mode: "mock" | "real_llm" | null;
+    model: string | null;
+  }>({ mode: null, model: null });
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<
     "sample" | "public" | "final" | null
@@ -110,6 +116,10 @@ export function ChallengeWorkspace({
     try {
       const response = await postPrompt<RunSampleResponse>("/api/run-sample", prompt);
       setResults(response.results);
+      setSampleRunMode({
+        mode: response.mode,
+        model: response.model,
+      });
     } catch {
       setSubmissionMessage("Sample test failed. Please try again.");
     } finally {
@@ -323,7 +333,11 @@ export function ChallengeWorkspace({
           </section>
 
           <aside className="grid gap-4">
-            <ResultsPanel results={results} summary={summary} />
+            <ResultsPanel
+              results={results}
+              sampleRunMode={sampleRunMode}
+              summary={summary}
+            />
             <SubmissionPanel
               finalSubmission={participantHistory.finalSubmission}
               finalSubmissionUsed={finalSubmissionUsed}
@@ -555,9 +569,14 @@ function ReportViewer({
 
 function ResultsPanel({
   results,
+  sampleRunMode,
   summary,
 }: {
   results: ReportResult[];
+  sampleRunMode: {
+    mode: "mock" | "real_llm" | null;
+    model: string | null;
+  };
   summary: ScoreSummary;
 }) {
   return (
@@ -574,6 +593,13 @@ function ResultsPanel({
       <p className="mt-2 text-sm text-slate-500">
         {summary.correct} of {summary.total} fields correct
       </p>
+      {sampleRunMode.mode ? (
+        <p className="mt-2 w-fit rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+          {sampleRunMode.mode === "real_llm"
+            ? `Real LLM mode${sampleRunMode.model ? `: ${sampleRunMode.model}` : ""}`
+            : "Mock mode"}
+        </p>
+      ) : null}
       <div className="mt-5 grid gap-2">
         {results.length === 0 ? (
           <p className="rounded-md bg-slate-50 p-4 text-sm leading-6 text-slate-600">
@@ -591,6 +617,11 @@ function ResultsPanel({
               <span className="text-sm text-slate-600">
                 {countCorrectFields(result.score)}/{findingKeys.length}
               </span>
+              {result.error ? (
+                <span className="text-xs font-semibold text-red-700">
+                  JSON issue
+                </span>
+              ) : null}
             </div>
           ))
         )}
@@ -796,6 +827,8 @@ async function postPrompt<TResponse>(url: string, prompt: string) {
 }
 
 type RunSampleResponse = {
+  mode: "mock" | "real_llm";
+  model: string | null;
   results: ReportResult[];
   summary: ScoreSummary;
 };

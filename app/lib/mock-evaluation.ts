@@ -12,8 +12,10 @@ import type {
 
 export type MockReportResult = {
   reportId: string;
-  prediction: AnswerKey;
+  prediction: Partial<AnswerKey>;
   score: ScoringResult;
+  modelOutput?: string;
+  error?: string | null;
 };
 
 export function evaluateSampleReports(
