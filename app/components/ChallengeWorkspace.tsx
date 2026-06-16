@@ -7,14 +7,13 @@ import {
   challenge,
   findingKeys,
   findingLabels,
-  valueOptions,
 } from "../lib/challenge-constants";
 import {
   clearParticipantId,
   saveParticipantId,
   useSavedParticipantId,
 } from "../lib/participant-session";
-import { scoreModelOutput } from "../lib/scoring";
+import { countCorrectFields } from "../lib/mock-evaluation";
 import {
   createSubmissionId,
   getLocalLeaderboardRows,
@@ -25,8 +24,6 @@ import {
 } from "../lib/submissions";
 import type {
   AnswerKey,
-  AnswerKeyItem,
-  FindingKey,
   FindingValue,
   SampleReport,
   ScoreSummary,
@@ -51,8 +48,6 @@ type ReportResult = {
 
 type ChallengeWorkspaceProps = {
   initialParticipantId: string;
-  privateAnswerKeys: AnswerKeyItem[];
-  publicAnswerKeys: AnswerKeyItem[];
   reports: SampleReport[];
 };
 
@@ -72,8 +67,6 @@ Use "uncertain" only when the report does not provide enough evidence.`;
 
 export function ChallengeWorkspace({
   initialParticipantId,
-  privateAnswerKeys,
-  publicAnswerKeys,
   reports,
 }: ChallengeWorkspaceProps) {
   const router = useRouter();
@@ -84,6 +77,9 @@ export function ChallengeWorkspace({
   const [prompt, setPrompt] = useState(defaultPrompt);
   const [results, setResults] = useState<ReportResult[]>([]);
   const [submissionMessage, setSubmissionMessage] = useState("");
+  const [pendingAction, setPendingAction] = useState<
+    "sample" | "public" | "final" | null
+  >(null);
   const activeParticipantId = participantId || savedParticipantId;
   const participantHistory = activeParticipantId
     ? getParticipantHistory(submissionStore, activeParticipantId)
@@ -104,46 +100,51 @@ export function ChallengeWorkspace({
     return getLocalLeaderboardRows(submissionStore);
   }, [submissionStore]);
 
-  function runSampleReports() {
+  async function runSampleReports() {
     setSubmissionMessage("");
-    setResults(
-      reports.map((report) => {
-        const prediction = createMockPrediction(prompt, report.answer_key);
+    setPendingAction("sample");
 
-        return {
-          reportId: report.id,
-          prediction,
-          score: scoreModelOutput(JSON.stringify(prediction), report.answer_key),
-        };
-      }),
-    );
+    try {
+      const response = await postPrompt<RunSampleResponse>("/api/run-sample", prompt);
+      setResults(response.results);
+    } catch {
+      setSubmissionMessage("Sample test failed. Please try again.");
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function submitPublic() {
-    submitMockScore("public", publicAnswerKeys);
+    submitMockScore("public");
   }
 
   function submitFinal() {
-    submitMockScore("final", privateAnswerKeys);
+    submitMockScore("final");
   }
 
-  function submitMockScore(kind: SubmissionKind, answerKeys: AnswerKeyItem[]) {
+  async function submitMockScore(kind: SubmissionKind) {
     if (!activeParticipantId) {
       setSubmissionMessage("Enter a participant ID before submitting.");
       return;
     }
 
-    const score = scoreAnswerKeySet(answerKeys, prompt);
+    setPendingAction(kind);
+
+    try {
+      const score = await postPrompt<SubmitScoreResponse>(
+        kind === "public" ? "/api/submit-public" : "/api/submit-final",
+        prompt,
+      );
     const submission: StoredSubmission = {
       id: createSubmissionId(kind),
       participantId: activeParticipantId,
       kind,
       createdAt: new Date().toISOString(),
       promptSnapshot: prompt,
-      score: score.accuracy,
-      correctFields: score.correct,
-      totalFields: score.total,
-      reportCount: answerKeys.length,
+        score: score.score,
+        correctFields: score.correctFields,
+        totalFields: score.totalFields,
+        reportCount: score.reportCount,
     };
     const result = saveSubmission(submission);
 
@@ -159,9 +160,16 @@ export function ChallengeWorkspace({
 
     setSubmissionMessage(
       `${kind === "public" ? "Public" : "Final"} submission saved: ${Math.round(
-        score.accuracy,
-      )}% across ${answerKeys.length} reports.`,
+          score.score,
+        )}% across ${score.reportCount} reports.`,
     );
+    } catch {
+      setSubmissionMessage(
+        `${kind === "public" ? "Public" : "Final"} submission failed. Please try again.`,
+      );
+    } finally {
+      setPendingAction(null);
+    }
   }
 
   function handleParticipantChange(value: string) {
@@ -239,6 +247,7 @@ export function ChallengeWorkspace({
               onSubmitPublic={submitPublic}
               finalSubmissionUsed={finalSubmissionUsed}
               participantReady={Boolean(activeParticipantId)}
+              pendingAction={pendingAction}
             />
             {activeReport ? (
               <ReportViewer
@@ -258,6 +267,7 @@ export function ChallengeWorkspace({
               message={submissionMessage}
               onSubmitFinal={submitFinal}
               onSubmitPublic={submitPublic}
+              pendingAction={pendingAction}
               participantReady={Boolean(activeParticipantId)}
               publicSubmissions={participantHistory.publicSubmissions}
               remainingPublicSubmissions={remainingPublicSubmissions}
@@ -321,6 +331,7 @@ function PromptEditor({
   onSubmitFinal,
   onSubmitPublic,
   participantReady,
+  pendingAction,
   prompt,
   remainingPublicSubmissions,
   setPrompt,
@@ -330,6 +341,7 @@ function PromptEditor({
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
   participantReady: boolean;
+  pendingAction: "sample" | "public" | "final" | null;
   prompt: string;
   remainingPublicSubmissions: number;
   setPrompt: (value: string) => void;
@@ -359,25 +371,30 @@ function PromptEditor({
         <button
           type="button"
           onClick={onRun}
+          disabled={pendingAction !== null}
           className="h-11 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
         >
-          Run sample test
+          {pendingAction === "sample" ? "Running..." : "Run sample test"}
         </button>
         <button
           type="button"
           onClick={onSubmitPublic}
-          disabled={!participantReady || remainingPublicSubmissions === 0}
+          disabled={
+            !participantReady ||
+            remainingPublicSubmissions === 0 ||
+            pendingAction !== null
+          }
           className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
-          Submit public
+          {pendingAction === "public" ? "Submitting..." : "Submit public"}
         </button>
         <button
           type="button"
           onClick={onSubmitFinal}
-          disabled={!participantReady || finalSubmissionUsed}
+          disabled={!participantReady || finalSubmissionUsed || pendingAction !== null}
           className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
-          Submit final
+          {pendingAction === "final" ? "Submitting..." : "Submit final"}
         </button>
       </div>
     </section>
@@ -495,6 +512,7 @@ function SubmissionPanel({
   message,
   onSubmitFinal,
   onSubmitPublic,
+  pendingAction,
   participantReady,
   publicSubmissions,
   remainingPublicSubmissions,
@@ -504,6 +522,7 @@ function SubmissionPanel({
   message: string;
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
+  pendingAction: "sample" | "public" | "final" | null;
   participantReady: boolean;
   publicSubmissions: StoredSubmission[];
   remainingPublicSubmissions: number;
@@ -538,10 +557,14 @@ function SubmissionPanel({
           <button
             type="button"
             onClick={onSubmitPublic}
-            disabled={!participantReady || remainingPublicSubmissions === 0}
+            disabled={
+              !participantReady ||
+              remainingPublicSubmissions === 0 ||
+              pendingAction !== null
+            }
             className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
           >
-            Submit public
+            {pendingAction === "public" ? "Submitting..." : "Submit public"}
           </button>
         </div>
         <div className="rounded-md border border-slate-200 px-3 py-3">
@@ -559,10 +582,10 @@ function SubmissionPanel({
           <button
             type="button"
             onClick={onSubmitFinal}
-            disabled={!participantReady || finalSubmissionUsed}
+            disabled={!participantReady || finalSubmissionUsed || pendingAction !== null}
             className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
           >
-            Submit final
+            {pendingAction === "final" ? "Submitting..." : "Submit final"}
           </button>
         </div>
       </div>
@@ -649,54 +672,6 @@ function ValueBadge({
   );
 }
 
-function createMockPrediction(prompt: string, answerKey: AnswerKey): AnswerKey {
-  const quality = promptQuality(prompt);
-
-  return findingKeys.reduce((prediction, key, index) => {
-    if (quality === "strong") {
-      prediction[key] = answerKey[key];
-      return prediction;
-    }
-
-    if (quality === "medium" && index !== 4) {
-      prediction[key] = answerKey[key];
-      return prediction;
-    }
-
-    prediction[key] = fallbackValue(key, answerKey[key]);
-    return prediction;
-  }, {} as AnswerKey);
-}
-
-function promptQuality(prompt: string) {
-  const lower = prompt.toLowerCase();
-  const mentionsAllFields = findingKeys.every((key) => lower.includes(key));
-  const asksForJson = lower.includes("json");
-  const constrainsValues = valueOptions.every((value) => lower.includes(value));
-
-  if (mentionsAllFields && asksForJson && constrainsValues) {
-    return "strong";
-  }
-
-  if (asksForJson && (mentionsAllFields || constrainsValues)) {
-    return "medium";
-  }
-
-  return "weak";
-}
-
-function fallbackValue(key: FindingKey, correct: FindingValue): FindingValue {
-  if (key === "effusion" && correct === "present") {
-    return "uncertain";
-  }
-
-  if (correct === "present") {
-    return "absent";
-  }
-
-  return correct;
-}
-
 function summarizeResults(results: ReportResult[]): ScoreSummary {
   const correct = results.reduce(
     (sum, result) => sum + countCorrectFields(result.score),
@@ -711,25 +686,32 @@ function summarizeResults(results: ReportResult[]): ScoreSummary {
   };
 }
 
-function countCorrectFields(score: ScoringResult) {
-  return score.per_field.filter((field) => field.correct).length;
-}
-
-function scoreAnswerKeySet(answerKeys: AnswerKeyItem[], prompt: string): ScoreSummary {
-  const scores = answerKeys.map((item) => {
-    const prediction = createMockPrediction(prompt, item.answer_key);
-
-    return scoreModelOutput(JSON.stringify(prediction), item.answer_key);
+async function postPrompt<TResponse>(url: string, prompt: string) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ prompt }),
   });
-  const correct = scores.reduce(
-    (sum, score) => sum + countCorrectFields(score),
-    0,
-  );
-  const total = scores.length * findingKeys.length;
 
-  return {
-    correct,
-    total,
-    accuracy: total === 0 ? 0 : (correct / total) * 100,
-  };
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  return (await response.json()) as TResponse;
 }
+
+type RunSampleResponse = {
+  results: ReportResult[];
+  summary: ScoreSummary;
+};
+
+type SubmitScoreResponse = {
+  kind: SubmissionKind;
+  score: number;
+  correctFields: number;
+  totalFields: number;
+  reportCount: number;
+  summary: ScoreSummary;
+};
