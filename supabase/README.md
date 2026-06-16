@@ -26,6 +26,12 @@ Required environment variables:
 
 The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and report text files from `public/mock-reports/`. It upserts one active challenge, all reports, all answer keys, and mock participants `P001` through `P050`, so it is safe to run more than once.
 
+## Read-only challenge data API
+
+`GET /api/challenge-data` reads seeded challenge metadata from Supabase with the server-only admin client. It returns the active challenge, report counts by split, sample report metadata, participant count, and answer key count. It does not return answer key contents.
+
+If Supabase environment variables are missing, Supabase is unavailable, or the database has not been seeded, the route returns the same shape from local mock files with `source: "mock-file-fallback"` and a `fallbackReason`.
+
 ## Tables
 
 - `participants`: Workshop identities and roles. The current participant ID maps to `participant_code`.
