@@ -32,6 +32,17 @@ The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.j
 
 If Supabase environment variables are missing, Supabase is unavailable, or the database has not been seeded, the route returns the same shape from local mock files with `source: "mock-file-fallback"` and a `fallbackReason`.
 
+## Submission APIs
+
+The app has Supabase-backed submission routes for future database mode:
+
+- `GET /api/submissions/status?participantCode=...`
+- `POST /api/submissions/public`
+- `POST /api/submissions/final`
+- `GET /api/leaderboard`
+
+These routes use the server-only service role client. Public and final submissions are still evaluated with the mock scoring behavior for now, but successful Supabase-mode submissions create `prompt_runs` and `submissions` rows. If Supabase is unavailable or unseeded, the frontend falls back to the existing browser `localStorage` submission store.
+
 ## Tables
 
 - `participants`: Workshop identities and roles. The current participant ID maps to `participant_code`.

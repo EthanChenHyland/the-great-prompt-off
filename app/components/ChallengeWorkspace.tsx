@@ -68,6 +68,25 @@ type ChallengeDataStatus = {
   participantCount: number;
 };
 
+type SubmissionSource = "supabase" | "mock-file-fallback";
+
+type SubmissionStatus = {
+  source: SubmissionSource;
+  fallbackReason: string | null;
+  publicSubmissionLimit: number;
+  publicSubmissionsUsed: number;
+  remainingPublicSubmissions: number;
+  latestPublicScore: number | null;
+  finalSubmissionUsed: boolean;
+  finalScore: number | null;
+};
+
+type LeaderboardResponse = {
+  source: SubmissionSource;
+  fallbackReason: string | null;
+  rows: LeaderboardRow[];
+};
+
 const initialPrompt = "";
 
 const examplePrompt = `You are extracting structured findings from a knee MRI report.
@@ -103,17 +122,27 @@ export function ChallengeWorkspace({
   const [challengeDataStatus, setChallengeDataStatus] =
     useState<ChallengeDataStatus | null>(null);
   const [challengeDataError, setChallengeDataError] = useState("");
+  const [submissionStatus, setSubmissionStatus] =
+    useState<SubmissionStatus | null>(null);
+  const [leaderboardResponse, setLeaderboardResponse] =
+    useState<LeaderboardResponse | null>(null);
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<
     "sample" | "public" | "final" | null
   >(null);
   const activeParticipantId = participantId || savedParticipantId;
-  const participantHistory = activeParticipantId
+  const localParticipantHistory = activeParticipantId
     ? getParticipantHistory(submissionStore, activeParticipantId)
     : { publicSubmissions: [], finalSubmission: null };
+  const usingSupabaseSubmissions = submissionStatus?.source === "supabase";
   const remainingPublicSubmissions =
-    getRemainingPublicSubmissions(participantHistory);
-  const finalSubmissionUsed = Boolean(participantHistory.finalSubmission);
+    usingSupabaseSubmissions && submissionStatus
+      ? submissionStatus.remainingPublicSubmissions
+      : getRemainingPublicSubmissions(localParticipantHistory);
+  const finalSubmissionUsed =
+    usingSupabaseSubmissions && submissionStatus
+      ? submissionStatus.finalSubmissionUsed
+      : Boolean(localParticipantHistory.finalSubmission);
 
   useEffect(() => {
     if (initialParticipantId) {
@@ -156,11 +185,41 @@ export function ChallengeWorkspace({
     };
   }, []);
 
+  useEffect(() => {
+    if (!activeParticipantId) {
+      return;
+    }
+
+    let ignore = false;
+
+    async function loadSubmissionData() {
+      const [status, leaderboard] = await Promise.all([
+        getSubmissionStatus(activeParticipantId),
+        getLeaderboard(),
+      ]);
+
+      if (!ignore) {
+        setSubmissionStatus(status);
+        setLeaderboardResponse(leaderboard);
+      }
+    }
+
+    loadSubmissionData();
+
+    return () => {
+      ignore = true;
+    };
+  }, [activeParticipantId]);
+
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const summary = useMemo(() => summarizeResults(results), [results]);
   const currentRows = useMemo(() => {
+    if (leaderboardResponse?.source === "supabase") {
+      return leaderboardResponse.rows;
+    }
+
     return getLocalLeaderboardRows(submissionStore);
-  }, [submissionStore]);
+  }, [leaderboardResponse, submissionStore]);
 
   async function runSampleReports() {
     setSubmissionMessage("");
@@ -202,41 +261,56 @@ export function ChallengeWorkspace({
     setPendingAction(kind);
 
     try {
-      const score = await postPrompt<SubmitScoreResponse>(
-        kind === "public" ? "/api/submit-public" : "/api/submit-final",
+      const score = await postSubmission(
+        kind === "public"
+          ? "/api/submissions/public"
+          : "/api/submissions/final",
+        activeParticipantId,
         prompt,
       );
-    const submission: StoredSubmission = {
-      id: createSubmissionId(kind),
-      participantId: activeParticipantId,
-      kind,
-      createdAt: new Date().toISOString(),
-      promptSnapshot: prompt,
-        score: score.score,
-        correctFields: score.correctFields,
-        totalFields: score.totalFields,
-        reportCount: score.reportCount,
-    };
-    const result = saveSubmission(submission);
 
-    if (!result.ok && result.reason === "public_limit_reached") {
-      setSubmissionMessage("Public submission limit reached for this participant.");
-      return;
-    }
+      if (score.source === "supabase") {
+        setSubmissionStatus(score);
+        setLeaderboardResponse(await getLeaderboard());
+      } else {
+        const submission: StoredSubmission = {
+          id: createSubmissionId(kind),
+          participantId: activeParticipantId,
+          kind,
+          createdAt: new Date().toISOString(),
+          promptSnapshot: prompt,
+          score: score.score,
+          correctFields: score.correctFields,
+          totalFields: score.totalFields,
+          reportCount: score.reportCount,
+        };
+        const result = saveSubmission(submission);
 
-    if (!result.ok && result.reason === "final_already_used") {
-      setSubmissionMessage("Final submission has already been used for this participant.");
-      return;
-    }
+        if (!result.ok && result.reason === "public_limit_reached") {
+          setSubmissionMessage("Public submission limit reached for this participant.");
+          return;
+        }
 
-    setSubmissionMessage(
-      `${kind === "public" ? "Public" : "Final"} submission saved: ${Math.round(
-          score.score,
-        )}% across ${score.reportCount} reports.`,
-    );
-    } catch {
+        if (!result.ok && result.reason === "final_already_used") {
+          setSubmissionMessage(
+            "Final submission has already been used for this participant.",
+          );
+          return;
+        }
+      }
+
       setSubmissionMessage(
-        `${kind === "public" ? "Public" : "Final"} submission failed. Please try again.`,
+        `${kind === "public" ? "Public" : "Final"} submission saved: ${Math.round(
+          score.score,
+        )}% across ${score.reportCount} reports${
+          score.source === "supabase" ? " in Supabase" : " in this browser"
+        }.`,
+      );
+    } catch (error) {
+      setSubmissionMessage(
+        error instanceof Error
+          ? error.message
+          : `${kind === "public" ? "Public" : "Final"} submission failed. Please try again.`,
       );
     } finally {
       setPendingAction(null);
@@ -402,19 +476,43 @@ export function ChallengeWorkspace({
               summary={summary}
             />
             <SubmissionPanel
-              finalSubmission={participantHistory.finalSubmission}
               finalSubmissionUsed={finalSubmissionUsed}
+              finalScore={
+                usingSupabaseSubmissions
+                  ? submissionStatus?.finalScore ?? null
+                  : localParticipantHistory.finalSubmission?.score ?? null
+              }
+              latestPublicScore={
+                usingSupabaseSubmissions
+                  ? submissionStatus?.latestPublicScore ?? null
+                  : localParticipantHistory.publicSubmissions.at(-1)?.score ?? null
+              }
               message={submissionMessage}
               onSubmitFinal={submitFinal}
               onSubmitPublic={submitPublic}
               pendingAction={pendingAction}
               participantReady={Boolean(activeParticipantId)}
-              publicSubmissions={participantHistory.publicSubmissions}
+              publicSubmissionLimit={
+                usingSupabaseSubmissions && submissionStatus
+                  ? submissionStatus.publicSubmissionLimit
+                  : 5
+              }
+              publicSubmissionsUsed={
+                usingSupabaseSubmissions && submissionStatus
+                  ? submissionStatus.publicSubmissionsUsed
+                  : localParticipantHistory.publicSubmissions.length
+              }
               remainingPublicSubmissions={remainingPublicSubmissions}
+              source={usingSupabaseSubmissions ? "supabase" : "mock-file-fallback"}
             />
             <Leaderboard
               participantId={activeParticipantId}
               rows={currentRows}
+              source={
+                leaderboardResponse?.source === "supabase"
+                  ? "supabase"
+                  : "mock-file-fallback"
+              }
             />
           </aside>
         </div>
@@ -773,29 +871,32 @@ function ResultsPanel({
 }
 
 function SubmissionPanel({
-  finalSubmission,
   finalSubmissionUsed,
+  finalScore,
+  latestPublicScore,
   message,
   onSubmitFinal,
   onSubmitPublic,
   pendingAction,
   participantReady,
-  publicSubmissions,
+  publicSubmissionLimit,
+  publicSubmissionsUsed,
   remainingPublicSubmissions,
+  source,
 }: {
-  finalSubmission: StoredSubmission | null;
   finalSubmissionUsed: boolean;
+  finalScore: number | null;
+  latestPublicScore: number | null;
   message: string;
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
   pendingAction: "sample" | "public" | "final" | null;
   participantReady: boolean;
-  publicSubmissions: StoredSubmission[];
+  publicSubmissionLimit: number;
+  publicSubmissionsUsed: number;
   remainingPublicSubmissions: number;
+  source: SubmissionSource;
 }) {
-  const latestPublicSubmission =
-    publicSubmissions[publicSubmissions.length - 1] ?? null;
-
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
@@ -804,6 +905,11 @@ function SubmissionPanel({
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
         Public and final
       </h2>
+      <p className="mt-1 text-xs font-semibold text-slate-500">
+        {source === "supabase"
+          ? "Submission source: Supabase"
+          : "Submission source: local browser fallback"}
+      </p>
       <div className="mt-4 grid gap-3">
         <div className="rounded-md border border-slate-200 px-3 py-3">
           <p className="text-sm font-semibold text-slate-700">
@@ -813,11 +919,11 @@ function SubmissionPanel({
             {remainingPublicSubmissions}
           </p>
           <p className="mt-1 text-xs text-slate-500">
-            {publicSubmissions.length} of 5 attempts used
+            {publicSubmissionsUsed} of {publicSubmissionLimit} attempts used
           </p>
-          {latestPublicSubmission ? (
+          {latestPublicScore !== null ? (
             <p className="mt-2 text-sm text-slate-600">
-              Latest public score: {Math.round(latestPublicSubmission.score)}%
+              Latest public score: {Math.round(latestPublicScore)}%
             </p>
           ) : null}
           <button
@@ -840,9 +946,9 @@ function SubmissionPanel({
           <p className="mt-1 text-sm text-slate-600">
             {finalSubmissionUsed ? "Already used" : "Available"}
           </p>
-          {finalSubmission ? (
+          {finalScore !== null ? (
             <p className="mt-2 text-sm text-slate-600">
-              Final score: {Math.round(finalSubmission.score)}%
+              Final score: {Math.round(finalScore)}%
             </p>
           ) : null}
           <button
@@ -867,9 +973,11 @@ function SubmissionPanel({
 function Leaderboard({
   participantId,
   rows,
+  source,
 }: {
   participantId: string;
   rows: LeaderboardRow[];
+  source: SubmissionSource;
 }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -877,7 +985,7 @@ function Leaderboard({
         Leaderboard
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
-        Local final scores
+        {source === "supabase" ? "Supabase final scores" : "Local final scores"}
       </h2>
       <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
         {rows.length === 0 ? (
@@ -974,6 +1082,67 @@ async function postPrompt<TResponse>(url: string, prompt: string) {
   return (await response.json()) as TResponse;
 }
 
+async function getSubmissionStatus(participantCode: string) {
+  const response = await fetch(
+    `/api/submissions/status?participantCode=${encodeURIComponent(participantCode)}`,
+  );
+
+  if (!response.ok) {
+    return {
+      source: "mock-file-fallback",
+      fallbackReason: `Status request failed with ${response.status}.`,
+      publicSubmissionLimit: 5,
+      publicSubmissionsUsed: 0,
+      remainingPublicSubmissions: 5,
+      latestPublicScore: null,
+      finalSubmissionUsed: false,
+      finalScore: null,
+    } satisfies SubmissionStatus;
+  }
+
+  return (await response.json()) as SubmissionStatus;
+}
+
+async function getLeaderboard() {
+  const response = await fetch("/api/leaderboard");
+
+  if (!response.ok) {
+    return {
+      source: "mock-file-fallback",
+      fallbackReason: `Leaderboard request failed with ${response.status}.`,
+      rows: [],
+    } satisfies LeaderboardResponse;
+  }
+
+  return (await response.json()) as LeaderboardResponse;
+}
+
+async function postSubmission(
+  url: string,
+  participantCode: string,
+  prompt: string,
+) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ participantCode, prompt }),
+  });
+
+  if (!response.ok) {
+    const errorBody = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+
+    throw new Error(
+      errorBody?.error || `Submission failed with status ${response.status}`,
+    );
+  }
+
+  return (await response.json()) as SubmitScoreResponse;
+}
+
 type RunSampleResponse = {
   mode: "mock" | "real_llm";
   model: string | null;
@@ -981,7 +1150,7 @@ type RunSampleResponse = {
   summary: ScoreSummary;
 };
 
-type SubmitScoreResponse = {
+type SubmitScoreResponse = SubmissionStatus & {
   kind: SubmissionKind;
   score: number;
   correctFields: number;
