@@ -54,6 +54,20 @@ type ChallengeWorkspaceProps = {
   reports: SampleReport[];
 };
 
+type ChallengeDataStatus = {
+  source: "supabase" | "mock-file-fallback";
+  fallbackReason: string | null;
+  challenge: {
+    title: string;
+  } | null;
+  reportCounts: {
+    sample: number;
+    public: number;
+    private: number;
+  };
+  participantCount: number;
+};
+
 const initialPrompt = "";
 
 const examplePrompt = `You are extracting structured findings from a knee MRI report.
@@ -86,6 +100,9 @@ export function ChallengeWorkspace({
     model: string | null;
   }>({ mode: null, model: null });
   const [sampleRunError, setSampleRunError] = useState("");
+  const [challengeDataStatus, setChallengeDataStatus] =
+    useState<ChallengeDataStatus | null>(null);
+  const [challengeDataError, setChallengeDataError] = useState("");
   const [submissionMessage, setSubmissionMessage] = useState("");
   const [pendingAction, setPendingAction] = useState<
     "sample" | "public" | "final" | null
@@ -103,6 +120,41 @@ export function ChallengeWorkspace({
       saveParticipantId(initialParticipantId);
     }
   }, [initialParticipantId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadChallengeDataStatus() {
+      try {
+        const response = await fetch("/api/challenge-data");
+
+        if (!response.ok) {
+          throw new Error(`Status request failed with ${response.status}.`);
+        }
+
+        const data = (await response.json()) as ChallengeDataStatus;
+
+        if (!ignore) {
+          setChallengeDataStatus(data);
+          setChallengeDataError("");
+        }
+      } catch (error) {
+        if (!ignore) {
+          setChallengeDataError(
+            error instanceof Error
+              ? error.message
+              : "Challenge data status is unavailable.",
+          );
+        }
+      }
+    }
+
+    loadChallengeDataStatus();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const summary = useMemo(() => summarizeResults(results), [results]);
@@ -286,6 +338,10 @@ export function ChallengeWorkspace({
             <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
               Mock mode: local demo only
             </p>
+            <DataSourceStatus
+              error={challengeDataError}
+              status={challengeDataStatus}
+            />
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="rounded-md border border-slate-200 bg-white px-3 py-2">
@@ -406,6 +462,60 @@ function TaskSidebar() {
         </ul>
       </div>
     </aside>
+  );
+}
+
+function DataSourceStatus({
+  error,
+  status,
+}: {
+  error: string;
+  status: ChallengeDataStatus | null;
+}) {
+  if (error) {
+    return (
+      <div className="mt-2 max-w-2xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
+        Challenge metadata status is using the local demo view for now.
+      </div>
+    );
+  }
+
+  if (!status) {
+    return (
+      <div className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-500">
+        Loading challenge metadata...
+      </div>
+    );
+  }
+
+  const sourceLabel =
+    status.source === "supabase" ? "Supabase" : "Local mock fallback";
+
+  return (
+    <div className="mt-2 max-w-3xl rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span
+          className={`font-semibold ${
+            status.source === "supabase" ? "text-teal-700" : "text-amber-700"
+          }`}
+        >
+          Data source: {sourceLabel}
+        </span>
+        <span className="font-semibold text-slate-800">
+          {status.challenge?.title || challenge.title}
+        </span>
+        <span>
+          Reports: {status.reportCounts.sample} sample /{" "}
+          {status.reportCounts.public} public / {status.reportCounts.private} private
+        </span>
+        <span>Participants: {status.participantCount}</span>
+      </div>
+      {status.source === "mock-file-fallback" && status.fallbackReason ? (
+        <p className="mt-1 leading-5 text-slate-500">
+          Local demo data is being used because {status.fallbackReason}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
