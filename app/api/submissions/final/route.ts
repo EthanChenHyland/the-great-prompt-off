@@ -5,6 +5,7 @@ import {
   SubmissionLimitError,
   submitToSupabase,
 } from "@/app/lib/supabase/submission-workflow";
+import type { SubmitScoreResponse } from "@/app/lib/supabase/submission-workflow";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -17,13 +18,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    return Response.json(
-      await submitToSupabase({
-        kind: "final",
-        participantCode: body.participantCode.trim(),
-        prompt: body.prompt,
-      }),
-    );
+    const result = await submitToSupabase({
+      kind: "final",
+      participantCode: body.participantCode.trim(),
+      prompt: body.prompt,
+    });
+
+    return Response.json(toFinalClientResponse(result));
   } catch (error) {
     if (error instanceof SubmissionLimitError) {
       return Response.json({ error: error.message }, { status: 409 });
@@ -35,11 +36,30 @@ export async function POST(request: Request) {
 
     const message = error instanceof Error ? error.message : String(error);
 
-    return Response.json({
-      ...fallbackStatus(message),
-      ...getFallbackSubmissionScore("final", body.prompt),
-    });
+    return Response.json(
+      toFinalClientResponse({
+        ...fallbackStatus(message),
+        ...getFallbackSubmissionScore("final", body.prompt),
+      }),
+    );
   }
+}
+
+function toFinalClientResponse(result: SubmitScoreResponse) {
+  return {
+    source: result.source,
+    fallbackReason: result.fallbackReason,
+    publicSubmissionLimit: result.publicSubmissionLimit,
+    publicSubmissionsUsed: result.publicSubmissionsUsed,
+    remainingPublicSubmissions: result.remainingPublicSubmissions,
+    latestPublicScore: result.latestPublicScore,
+    finalSubmissionUsed: result.finalSubmissionUsed,
+    finalScore: result.finalScore,
+    kind: result.kind,
+    evaluationMode: result.evaluationMode,
+    model: result.model,
+    score: result.score,
+  };
 }
 
 function isSubmissionRequest(

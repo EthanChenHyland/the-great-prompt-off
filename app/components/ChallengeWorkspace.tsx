@@ -323,9 +323,9 @@ export function ChallengeWorkspace({
           createdAt: new Date().toISOString(),
           promptSnapshot: prompt,
           score: score.score,
-          correctFields: score.correctFields,
-          totalFields: score.totalFields,
-          reportCount: score.reportCount,
+          correctFields: score.correctFields ?? 0,
+          totalFields: score.totalFields ?? 0,
+          reportCount: score.reportCount ?? 0,
         };
         const result = saveSubmission(submission);
 
@@ -351,13 +351,29 @@ export function ChallengeWorkspace({
         evaluationMode: score.evaluationMode,
         model: score.model,
       });
-      setSubmissionMessage(
-        `${kind === "public" ? "Test attempt" : "Final"} submission saved: ${Math.round(
-          score.score,
-        )}% across ${score.reportCount} reports${
-          score.source === "supabase" ? " in Supabase" : " in this browser"
-        }.`,
-      );
+      if (kind === "public") {
+        const fieldDetail =
+          typeof score.correctFields === "number" &&
+          typeof score.totalFields === "number"
+            ? `, ${score.correctFields} of ${score.totalFields} fields correct`
+            : "";
+        const reportDetail =
+          typeof score.reportCount === "number"
+            ? ` across ${score.reportCount} reports`
+            : "";
+
+        setSubmissionMessage(
+          `Test attempt saved: ${Math.round(score.score)}%${fieldDetail}${reportDetail}${
+            score.source === "supabase" ? " in Supabase" : " in this browser"
+          }.`,
+        );
+      } else {
+        setSubmissionMessage(
+          `Final submission saved: ${Math.round(score.score)}%${
+            score.source === "supabase" ? " in Supabase" : " in this browser"
+          }.`,
+        );
+      }
     } catch (error) {
       setSubmissionMessage(
         error instanceof Error
@@ -1173,8 +1189,8 @@ type SubmitScoreResponse = SubmissionStatus & {
   evaluationMode: "mock" | "real_llm";
   model: string | null;
   score: number;
-  correctFields: number;
-  totalFields: number;
-  reportCount: number;
-  summary: ScoreSummary;
+  correctFields?: number;
+  totalFields?: number;
+  reportCount?: number;
+  summary?: ScoreSummary;
 };

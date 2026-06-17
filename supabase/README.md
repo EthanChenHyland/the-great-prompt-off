@@ -32,6 +32,20 @@ Current workshop split:
 - Reports `006` through `050` are `private` and are reserved for the hidden final set.
 - The schema still allows the older `sample` split for compatibility, but the participant UI no longer exposes a separate Sample workflow.
 
+After reseeding, verify the database split with:
+
+```sql
+select split, count(*) from reports group by split order by split;
+```
+
+Expected current result: `public = 5`, `private = 45`, and no active `sample` reports.
+
+```sql
+select filename, split from reports order by filename limit 10;
+```
+
+Expected current result: `synthetic_report_001.txt` through `synthetic_report_005.txt` are `public`; `synthetic_report_006.txt` onward are `private`.
+
 ## Read-only challenge data API
 
 `GET /api/challenge-data` reads seeded challenge metadata from Supabase with the server-only admin client. It returns the active challenge, report counts by split, public test report metadata, participant count, and answer key count. It does not return answer key contents.
