@@ -39,6 +39,7 @@ type ActiveChallenge = {
 type Participant = {
   id: string;
   participant_code: string;
+  is_active: boolean;
 };
 
 type SubmissionRow = {
@@ -178,6 +179,10 @@ export async function getSupabaseSubmissionStatus(
     );
   }
 
+  if (!participant.is_active) {
+    throw new ParticipantValidationError("This participant is inactive.");
+  }
+
   return getSubmissionStatusForParticipant(supabase, challenge, participant.id);
 }
 
@@ -201,6 +206,10 @@ export async function submitToSupabase({
     throw new ParticipantValidationError(
       "Participant session is valid, but the participant is not registered.",
     );
+  }
+
+  if (!participant.is_active) {
+    throw new ParticipantValidationError("This participant is inactive.");
   }
 
   const currentStatus = await getSubmissionStatusForParticipant(
@@ -519,7 +528,7 @@ async function getParticipantByCode(
 ) {
   const { data, error } = await supabase
     .from("participants")
-    .select("id, participant_code")
+    .select("id, participant_code, is_active")
     .eq("participant_code", participantCode)
     .maybeSingle<Participant>();
 

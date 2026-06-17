@@ -6,11 +6,13 @@ export async function GET() {
     await requireAdminSession();
     const data = await getAdminDashboardData();
     const csv = toCsv([
-      ["participant_code", "display_name", "access_code"],
+      ["participant_code", "display_name", "email", "access_code", "is_active"],
       ...data.participants.map((participant) => [
         participant.participantCode,
         participant.displayName || "",
+        participant.email || "",
         participant.accessCode,
+        participant.isActive ? "true" : "false",
       ]),
     ]);
 

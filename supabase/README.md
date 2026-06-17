@@ -33,7 +33,7 @@ Seeded participants have two identifiers:
 - `participant_code`: friendly workshop label, such as `P001`.
 - `access_code`: unique entry code distributed privately by the organizer, formatted as `GPO-XXXX-XXXX` with uppercase letters/numbers.
 
-For an existing database created before access codes existed, or one with older long access codes such as `GPO-8768DC-8966CB`, run `supabase/access-code-migration.sql`. This updates missing or old-format codes to the current `GPO-XXXX-XXXX` format. Then run:
+For an existing database created before access codes existed, or one with older long access codes such as `GPO-8768DC-8966CB`, run `supabase/access-code-migration.sql`. This updates missing or old-format codes to the current `GPO-XXXX-XXXX` format. For Admin v1.5 participant status/email fields, also run `supabase/admin-v1-5-migration.sql`. Then run:
 
 ```bash
 npm run seed:supabase
@@ -118,8 +118,15 @@ Admin v1 shows:
 
 CSV exports require the admin session:
 
-- `/api/admin/export/access-codes`: `participant_code`, `display_name`, `access_code`
-- `/api/admin/export/results`: `participant_code`, `test_attempts_used`, `latest_test_score`, `best_test_score`, `final_score`, `final_submitted_at`, `final_model_name`
+- `/api/admin/export/access-codes`: `participant_code`, `display_name`, `email`, `access_code`, `is_active`
+- `/api/admin/export/results`: `participant_code`, `display_name`, `email`, `test_attempts_used`, `latest_test_score`, `best_test_score`, `final_score`, `final_submitted_at`, `final_model_name`
+
+Admin v1.5 participant tools:
+
+- Regenerate one participant access code from that participant row. This requires confirming the participant code and invalidates the old access code.
+- Clear one participant's run/submission data. This requires confirming the participant code and deletes only that participant's `prompt_run_items`, `submissions`, and `prompt_runs`.
+- Deactivate/reactivate one participant. Inactive participants cannot log in or submit, but existing submissions remain stored.
+- Email is currently a nullable metadata field shown/exported by Admin v1.5. Email/password auth is not implemented.
 
 The admin reset requires typing `RESET` and deletes only:
 
@@ -135,7 +142,7 @@ It does not delete:
 - `answer_keys`
 - `challenges`
 
-Future admin tools may include regenerating access codes, adding/removing/deactivating participants, and clearing selected participant data. Those are intentionally not implemented in Admin v1.
+Future admin tools may include regenerating all access codes at once, adding/removing participants, editing participant metadata, and clearing selected runs. Those are intentionally not implemented in Admin v1.5.
 
 ## Tables
 

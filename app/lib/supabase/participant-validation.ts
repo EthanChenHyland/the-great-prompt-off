@@ -42,6 +42,7 @@ export type ParticipantValidationResult =
 type ParticipantRow = {
   id: string;
   participant_code: string;
+  is_active: boolean;
 };
 
 export async function validateParticipantAccessCode(
@@ -65,7 +66,7 @@ export async function validateParticipantAccessCode(
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("participants")
-      .select("id, participant_code")
+      .select("id, participant_code, is_active")
       .eq("access_code", normalizedAccessCode)
       .maybeSingle<ParticipantRow>();
 
@@ -83,6 +84,18 @@ export async function validateParticipantAccessCode(
         fallbackReason: null,
         message:
           "Access code not found. Use the unique access code from your workshop organizer.",
+      };
+    }
+
+    if (!data.is_active) {
+      return {
+        source: "supabase",
+        valid: false,
+        participantCode: data.participant_code,
+        participantToken: null,
+        participantId: null,
+        fallbackReason: null,
+        message: "This participant access code is inactive. Ask the organizer for help.",
       };
     }
 
@@ -135,7 +148,7 @@ export async function validateParticipantSession(
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("participants")
-      .select("id, participant_code")
+      .select("id, participant_code, is_active")
       .eq("participant_code", normalizedCode)
       .maybeSingle<ParticipantRow>();
 
@@ -152,6 +165,18 @@ export async function validateParticipantSession(
         participantId: null,
         fallbackReason: null,
         message: "Saved participant is not registered.",
+      };
+    }
+
+    if (!data.is_active) {
+      return {
+        source: "supabase",
+        valid: false,
+        participantCode: normalizedCode,
+        participantToken: null,
+        participantId: null,
+        fallbackReason: null,
+        message: "This participant is inactive. Ask the organizer for help.",
       };
     }
 

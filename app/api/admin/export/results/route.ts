@@ -8,6 +8,8 @@ export async function GET() {
     const csv = toCsv([
       [
         "participant_code",
+        "display_name",
+        "email",
         "test_attempts_used",
         "latest_test_score",
         "best_test_score",
@@ -17,6 +19,8 @@ export async function GET() {
       ],
       ...data.participants.map((participant) => [
         participant.participantCode,
+        participant.displayName || "",
+        participant.email || "",
         String(participant.testAttemptsUsed),
         scoreCell(participant.latestTestScore),
         scoreCell(participant.bestTestScore),

@@ -93,3 +93,129 @@ export function AdminResetPanel() {
     </section>
   );
 }
+
+export function AdminParticipantActions({
+  isActive,
+  participantCode,
+}: {
+  isActive: boolean;
+  participantCode: string;
+}) {
+  const router = useRouter();
+  const [message, setMessage] = useState("");
+  const [isPending, setIsPending] = useState(false);
+
+  async function postAction(url: string, body: Record<string, unknown>) {
+    setIsPending(true);
+    setMessage("");
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const responseBody = (await response.json().catch(() => null)) as {
+      accessCode?: string;
+      error?: string;
+    } | null;
+
+    if (!response.ok) {
+      setMessage(responseBody?.error || "Admin action failed.");
+      setIsPending(false);
+      return null;
+    }
+
+    router.refresh();
+    setIsPending(false);
+    return responseBody;
+  }
+
+  async function regenerateAccessCode() {
+    const confirmation = window.prompt(
+      `Regenerate access code for ${participantCode}? The old code will stop working. Type ${participantCode} to confirm.`,
+    );
+
+    if (confirmation !== participantCode) {
+      return;
+    }
+
+    const result = await postAction("/api/admin/participants/regenerate-access-code", {
+      participantCode,
+      confirmation,
+    });
+
+    if (result?.accessCode) {
+      setMessage(`New code: ${result.accessCode}`);
+    }
+  }
+
+  async function clearParticipantData() {
+    const confirmation = window.prompt(
+      `Clear attempts and final submission for ${participantCode}? Type ${participantCode} to confirm.`,
+    );
+
+    if (confirmation !== participantCode) {
+      return;
+    }
+
+    const result = await postAction("/api/admin/participants/clear-data", {
+      participantCode,
+      confirmation,
+    });
+
+    if (result) {
+      setMessage("Participant run data cleared.");
+    }
+  }
+
+  async function toggleActive() {
+    const verb = isActive ? "Deactivate" : "Reactivate";
+
+    if (!window.confirm(`${verb} ${participantCode}?`)) {
+      return;
+    }
+
+    const result = await postAction("/api/admin/participants/set-active", {
+      participantCode,
+      isActive: !isActive,
+    });
+
+    if (result) {
+      setMessage(isActive ? "Participant deactivated." : "Participant reactivated.");
+    }
+  }
+
+  return (
+    <div className="grid min-w-[180px] gap-2">
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={regenerateAccessCode}
+          disabled={isPending}
+          className="h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+        >
+          New code
+        </button>
+        <button
+          type="button"
+          onClick={clearParticipantData}
+          disabled={isPending}
+          className="h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:border-rose-600 hover:text-rose-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+        >
+          Clear data
+        </button>
+        <button
+          type="button"
+          onClick={toggleActive}
+          disabled={isPending}
+          className="h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+        >
+          {isActive ? "Deactivate" : "Reactivate"}
+        </button>
+      </div>
+      {message ? <p className="text-xs leading-5 text-slate-500">{message}</p> : null}
+    </div>
+  );
+}

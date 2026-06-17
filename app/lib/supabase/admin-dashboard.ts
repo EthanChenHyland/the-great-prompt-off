@@ -1,11 +1,14 @@
 import "server-only";
 
+import { randomBytes } from "node:crypto";
 import { createSupabaseAdminClient } from "./admin";
 
 export type AdminParticipantRow = {
   participantCode: string;
   displayName: string | null;
+  email: string | null;
   accessCode: string;
+  isActive: boolean;
   testAttemptsUsed: number;
   finalSubmitted: boolean;
   latestTestScore: number | null;
@@ -32,7 +35,9 @@ type ParticipantRow = {
   id: string;
   participant_code: string;
   display_name: string | null;
+  email: string | null;
   access_code: string | null;
+  is_active: boolean;
 };
 
 type SubmissionRow = {
@@ -55,7 +60,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const [participantsResult, submissionsResult, runsResult] = await Promise.all([
     supabase
       .from("participants")
-      .select("id, participant_code, display_name, access_code")
+      .select("id, participant_code, display_name, email, access_code, is_active")
       .order("participant_code", { ascending: true })
       .returns<ParticipantRow[]>(),
     supabase
@@ -111,7 +116,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     return {
       participantCode: participant.participant_code,
       displayName: participant.display_name,
+      email: participant.email,
       accessCode: participant.access_code || "",
+      isActive: participant.is_active,
       testAttemptsUsed: testSubmissions.length,
       finalSubmitted: Boolean(finalSubmission),
       latestTestScore: latestTest?.score ?? null,
@@ -186,6 +193,125 @@ export async function resetWorkshopRunData() {
   if (promptRunsError) {
     throw new Error(`Failed to delete prompt runs: ${promptRunsError.message}`);
   }
+}
+
+export async function regenerateParticipantAccessCode(participantCode: string) {
+  const supabase = createSupabaseAdminClient();
+  let accessCode = createParticipantAccessCode();
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const { data: existing, error: existingError } = await supabase
+      .from("participants")
+      .select("id")
+      .eq("access_code", accessCode)
+      .maybeSingle<{ id: string }>();
+
+    if (existingError) {
+      throw new Error(`Failed to check access code uniqueness: ${existingError.message}`);
+    }
+
+    if (!existing) {
+      break;
+    }
+
+    accessCode = createParticipantAccessCode();
+  }
+
+  const { error } = await supabase
+    .from("participants")
+    .update({ access_code: accessCode })
+    .eq("participant_code", participantCode);
+
+  if (error) {
+    throw new Error(`Failed to regenerate access code: ${error.message}`);
+  }
+
+  return accessCode;
+}
+
+export async function clearParticipantRunData(participantCode: string) {
+  const supabase = createSupabaseAdminClient();
+  const participant = await getParticipantByCode(participantCode);
+
+  const { data: runs, error: runsError } = await supabase
+    .from("prompt_runs")
+    .select("id")
+    .eq("participant_id", participant.id)
+    .returns<Array<{ id: string }>>();
+
+  if (runsError) {
+    throw new Error(`Failed to load participant runs: ${runsError.message}`);
+  }
+
+  const runIds = runs.map((run) => run.id);
+
+  if (runIds.length > 0) {
+    const { error: runItemsError } = await supabase
+      .from("prompt_run_items")
+      .delete()
+      .in("prompt_run_id", runIds);
+
+    if (runItemsError) {
+      throw new Error(`Failed to delete participant run items: ${runItemsError.message}`);
+    }
+  }
+
+  const { error: submissionsError } = await supabase
+    .from("submissions")
+    .delete()
+    .eq("participant_id", participant.id);
+
+  if (submissionsError) {
+    throw new Error(`Failed to delete participant submissions: ${submissionsError.message}`);
+  }
+
+  const { error: promptRunsError } = await supabase
+    .from("prompt_runs")
+    .delete()
+    .eq("participant_id", participant.id);
+
+  if (promptRunsError) {
+    throw new Error(`Failed to delete participant prompt runs: ${promptRunsError.message}`);
+  }
+}
+
+export async function setParticipantActive(participantCode: string, isActive: boolean) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("participants")
+    .update({ is_active: isActive })
+    .eq("participant_code", participantCode);
+
+  if (error) {
+    throw new Error(`Failed to update participant status: ${error.message}`);
+  }
+}
+
+async function getParticipantByCode(participantCode: string) {
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("participants")
+    .select("id, participant_code")
+    .eq("participant_code", participantCode)
+    .maybeSingle<{ id: string; participant_code: string }>();
+
+  if (error) {
+    throw new Error(`Failed to load participant: ${error.message}`);
+  }
+
+  if (!data) {
+    throw new Error(`Participant ${participantCode} not found.`);
+  }
+
+  return data;
+}
+
+function createParticipantAccessCode() {
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = randomBytes(8);
+  const code = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+
+  return `GPO-${code.slice(0, 4)}-${code.slice(4, 8)}`;
 }
 
 export function toCsv(rows: string[][]) {

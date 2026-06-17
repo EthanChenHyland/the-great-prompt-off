@@ -1,10 +1,15 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { AdminLoginForm } from "../components/AdminLoginForm";
-import { AdminLogoutButton, AdminResetPanel } from "../components/AdminActions";
+import {
+  AdminLogoutButton,
+  AdminParticipantActions,
+  AdminResetPanel,
+} from "../components/AdminActions";
 import { hasAdminSession } from "../lib/supabase/admin-auth";
 import { getAdminDashboardData } from "../lib/supabase/admin-dashboard";
 
-const adminBuildMarker = "admin-v1";
+const adminBuildMarker = "admin-v1.5";
 
 export default async function AdminPage() {
   const authed = await hasAdminSession();
@@ -82,28 +87,40 @@ export default async function AdminPage() {
               columns={[
                 "Participant",
                 "Display name",
+                "Email",
                 "Access code",
+                "Status",
                 "Tests",
                 "Final",
                 "Latest test",
                 "Best test",
                 "Final score",
+                "Actions",
               ]}
               rows={data.participants.map((participant) => [
                 participant.participantCode,
                 participant.displayName || "",
+                participant.email || "",
                 participant.accessCode,
+                participant.isActive ? "Active" : "Inactive",
                 String(participant.testAttemptsUsed),
                 participant.finalSubmitted ? "Yes" : "No",
                 score(participant.latestTestScore),
                 score(participant.bestTestScore),
                 score(participant.finalScore),
+                <AdminParticipantActions
+                  key={participant.participantCode}
+                  isActive={participant.isActive}
+                  participantCode={participant.participantCode}
+                />,
               ])}
             />
             <AdminTable
               title="Results"
               columns={[
                 "Participant",
+                "Display name",
+                "Email",
                 "Best test",
                 "Latest test",
                 "Final score",
@@ -112,6 +129,8 @@ export default async function AdminPage() {
               ]}
               rows={data.leaderboard.map((participant) => [
                 participant.participantCode,
+                participant.displayName || "",
+                participant.email || "",
                 score(participant.bestTestScore),
                 score(participant.latestTestScore),
                 score(participant.finalScore),
@@ -144,7 +163,7 @@ function AdminTable({
   title,
 }: {
   columns: string[];
-  rows: string[][];
+  rows: ReactNode[][];
   title: string;
 }) {
   return (

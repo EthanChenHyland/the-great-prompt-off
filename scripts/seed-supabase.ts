@@ -46,6 +46,8 @@ type ReportRow = {
 type ParticipantRow = {
   participant_code: string;
   access_code: string | null;
+  email: string | null;
+  is_active: boolean | null;
 };
 
 function getRequiredEnv(name: string) {
@@ -227,7 +229,7 @@ async function main() {
   const { data: existingParticipants, error: existingParticipantsError } =
     await supabase
       .from("participants")
-      .select("participant_code, access_code")
+      .select("participant_code, access_code, email, is_active")
       .returns<ParticipantRow[]>();
 
   if (existingParticipantsError) {
@@ -242,6 +244,12 @@ async function main() {
       participant.access_code,
     ]),
   );
+  const existingParticipantByCode = new Map(
+    existingParticipants.map((participant) => [
+      participant.participant_code,
+      participant,
+    ]),
+  );
   const allExistingAccessCodes = new Set(
     existingParticipants
       .map((participant) => participant.access_code)
@@ -253,6 +261,7 @@ async function main() {
     const participantCode = `P${participantNumber}`;
     const existingAccessCode =
       existingAccessCodeByParticipant.get(participantCode) || null;
+    const existingParticipant = existingParticipantByCode.get(participantCode);
     let accessCode: string =
       isCurrentAccessCodeFormat(existingAccessCode) && existingAccessCode
         ? existingAccessCode
@@ -271,6 +280,8 @@ async function main() {
       participant_code: participantCode,
       access_code: accessCode,
       display_name: `Participant ${participantNumber}`,
+      email: existingParticipant?.email || null,
+      is_active: existingParticipant?.is_active ?? true,
       role: "participant",
     };
   });

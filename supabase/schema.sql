@@ -14,6 +14,8 @@ create table participants (
   participant_code text not null unique,
   access_code text not null unique,
   display_name text,
+  email text,
+  is_active boolean not null default true,
   role app_role not null default 'participant',
   auth_user_id uuid unique,
   created_at timestamptz not null default now(),
@@ -177,6 +179,7 @@ create unique index submissions_public_attempt_number_unique
 
 create index participants_role_idx on participants (role);
 create index participants_access_code_idx on participants (access_code);
+create index participants_active_idx on participants (is_active);
 create index challenges_active_idx on challenges (is_active);
 create index reports_challenge_split_idx on reports (challenge_id, split);
 create index prompt_runs_participant_challenge_idx on prompt_runs (participant_id, challenge_id);
