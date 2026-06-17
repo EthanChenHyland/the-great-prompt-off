@@ -52,6 +52,21 @@ type SubmissionRunMode = {
   model: string | null;
 };
 
+type SafeSubmissionFeedback = {
+  kind: SubmissionKind;
+  score: number;
+  correctFields: number;
+  totalFields: number;
+  validJsonCount?: number;
+  missingFieldsCount?: number;
+  invalidValuesCount?: number;
+  reportScores?: Array<{
+    reportLabel: string;
+    correctFields: number;
+    totalFields: number;
+  }>;
+};
+
 type ChallengeWorkspaceProps = {
   initialParticipantId: string;
   reports: SampleReport[];
@@ -116,6 +131,8 @@ export function ChallengeWorkspace({
     useState<SubmissionPromptDebug | null>(null);
   const [lastSubmissionRunMode, setLastSubmissionRunMode] =
     useState<SubmissionRunMode | null>(null);
+  const [lastSubmissionFeedback, setLastSubmissionFeedback] =
+    useState<SafeSubmissionFeedback | null>(null);
   const [challengeDataStatus, setChallengeDataStatus] =
     useState<ChallengeDataStatus | null>(null);
   const [challengeDataError, setChallengeDataError] = useState("");
@@ -301,6 +318,7 @@ export function ChallengeWorkspace({
     );
     setLastSubmissionPromptDebug(null);
     setLastSubmissionRunMode(null);
+    setLastSubmissionFeedback(null);
 
     try {
       const promptDebug = await createPromptDebug(prompt);
@@ -351,6 +369,7 @@ export function ChallengeWorkspace({
         evaluationMode: score.evaluationMode,
         model: score.model,
       });
+      setLastSubmissionFeedback(score.feedback ?? null);
       if (kind === "public") {
         const fieldDetail =
           typeof score.correctFields === "number" &&
@@ -368,8 +387,14 @@ export function ChallengeWorkspace({
           }.`,
         );
       } else {
+        const fieldDetail =
+          typeof score.correctFields === "number" &&
+          typeof score.totalFields === "number"
+            ? `, ${score.correctFields} of ${score.totalFields} fields correct`
+            : "";
+
         setSubmissionMessage(
-          `Final submission saved: ${Math.round(score.score)}%${
+          `Final submission saved: ${Math.round(score.score)}%${fieldDetail}${
             score.source === "supabase" ? " in Supabase" : " in this browser"
           }.`,
         );
@@ -611,6 +636,7 @@ export function ChallengeWorkspace({
               message={submissionMessage}
               runMode={lastSubmissionRunMode}
               promptDebug={lastSubmissionPromptDebug}
+              feedback={lastSubmissionFeedback}
               onSubmitFinal={submitFinal}
               onSubmitPublic={submitPublic}
               pendingAction={pendingAction}
@@ -909,6 +935,7 @@ function SubmissionPanel({
   pendingAction,
   participantReady,
   promptDebug,
+  feedback,
   runMode,
   publicSubmissionLimit,
   publicSubmissionsUsed,
@@ -924,6 +951,7 @@ function SubmissionPanel({
   pendingAction: "public" | "final" | null;
   participantReady: boolean;
   promptDebug: SubmissionPromptDebug | null;
+  feedback: SafeSubmissionFeedback | null;
   runMode: SubmissionRunMode | null;
   publicSubmissionLimit: number;
   publicSubmissionsUsed: number;
@@ -1009,9 +1037,10 @@ function SubmissionPanel({
           Last {runMode.kind === "public" ? "test attempt" : "final"} mode:{" "}
           {runMode.evaluationMode === "real_llm"
             ? `Real LLM${runMode.model ? `: ${runMode.model}` : ""}`
-            : "Mock"}
+          : "Mock"}
         </p>
       ) : null}
+      {feedback ? <SafeFeedbackPanel feedback={feedback} /> : null}
       {promptDebug ? (
         <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
           <p className="font-semibold text-slate-800">
@@ -1024,6 +1053,72 @@ function SubmissionPanel({
         </div>
       ) : null}
     </section>
+  );
+}
+
+function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
+  const isPublic = feedback.kind === "public";
+
+  return (
+    <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+      <p className="font-semibold text-slate-800">
+        {isPublic ? "Last test attempt feedback" : "Final feedback"}
+      </p>
+      <div className="mt-2 grid gap-2">
+        <div className="grid grid-cols-2 gap-2">
+          <span>Score</span>
+          <span className="text-right font-semibold text-slate-800">
+            {Math.round(feedback.score)}%
+          </span>
+          <span>Fields correct</span>
+          <span className="text-right font-semibold text-slate-800">
+            {feedback.correctFields} / {feedback.totalFields}
+          </span>
+          {isPublic && typeof feedback.validJsonCount === "number" ? (
+            <>
+              <span>Valid JSON reports</span>
+              <span className="text-right font-semibold text-slate-800">
+                {feedback.validJsonCount} / {feedback.reportScores?.length ?? 5}
+              </span>
+            </>
+          ) : null}
+          {isPublic && typeof feedback.missingFieldsCount === "number" ? (
+            <>
+              <span>Missing fields</span>
+              <span className="text-right font-semibold text-slate-800">
+                {feedback.missingFieldsCount}
+              </span>
+            </>
+          ) : null}
+          {isPublic && typeof feedback.invalidValuesCount === "number" ? (
+            <>
+              <span>Invalid values</span>
+              <span className="text-right font-semibold text-slate-800">
+                {feedback.invalidValuesCount}
+              </span>
+            </>
+          ) : null}
+        </div>
+        {isPublic && feedback.reportScores?.length ? (
+          <div className="mt-2 border-t border-slate-200 pt-2">
+            <p className="font-semibold text-slate-800">Per-report score</p>
+            <div className="mt-1 grid gap-1">
+              {feedback.reportScores.map((report) => (
+                <div
+                  key={report.reportLabel}
+                  className="flex items-center justify-between"
+                >
+                  <span>{report.reportLabel}</span>
+                  <span className="font-semibold text-slate-800">
+                    {report.correctFields}/{report.totalFields}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
   );
 }
 
@@ -1193,4 +1288,5 @@ type SubmitScoreResponse = SubmissionStatus & {
   totalFields?: number;
   reportCount?: number;
   summary?: ScoreSummary;
+  feedback?: SafeSubmissionFeedback;
 };

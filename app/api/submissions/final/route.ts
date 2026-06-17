@@ -59,6 +59,14 @@ function toFinalClientResponse(result: SubmitScoreResponse) {
     evaluationMode: result.evaluationMode,
     model: result.model,
     score: result.score,
+    correctFields: result.correctFields,
+    totalFields: result.totalFields,
+    feedback: {
+      kind: result.kind,
+      score: result.score,
+      correctFields: result.correctFields,
+      totalFields: result.totalFields,
+    },
   };
 }
 

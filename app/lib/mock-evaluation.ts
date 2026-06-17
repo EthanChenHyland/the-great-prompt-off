@@ -37,11 +37,9 @@ export function evaluateAnswerKeySet(
   answerKeys: AnswerKeyItem[],
   prompt: string,
 ): ScoreSummary {
-  const scores = answerKeys.map((item) => {
-    const prediction = createMockPrediction(prompt, item.answer_key);
-
-    return scoreModelOutput(JSON.stringify(prediction), item.answer_key);
-  });
+  const scores = evaluateAnswerKeyReports(answerKeys, prompt).map(
+    (result) => result.score,
+  );
   const correct = scores.reduce(
     (sum, score) => sum + countCorrectFields(score),
     0,
@@ -53,6 +51,23 @@ export function evaluateAnswerKeySet(
     total,
     accuracy: total === 0 ? 0 : (correct / total) * 100,
   };
+}
+
+export function evaluateAnswerKeyReports(
+  answerKeys: AnswerKeyItem[],
+  prompt: string,
+): MockReportResult[] {
+  return answerKeys.map((item) => {
+    const prediction = createMockPrediction(prompt, item.answer_key);
+
+    return {
+      reportId: item.id,
+      prediction,
+      score: scoreModelOutput(JSON.stringify(prediction), item.answer_key),
+      modelOutput: JSON.stringify(prediction),
+      error: null,
+    };
+  });
 }
 
 export function summarizeReportResults(results: MockReportResult[]): ScoreSummary {

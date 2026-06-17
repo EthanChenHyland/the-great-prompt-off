@@ -9,6 +9,8 @@ import {
 } from "@/app/lib/openrouter";
 import { normalizeParticipantCode } from "@/app/lib/participant-codes";
 import {
+  countCorrectFields,
+  evaluateAnswerKeyReports,
   evaluateAnswerKeySet,
   summarizeReportResults,
 } from "@/app/lib/mock-evaluation";
@@ -89,6 +91,22 @@ export type SubmitScoreResponse = SubmissionStatusResponse & {
   totalFields: number;
   reportCount: number;
   summary: ScoreSummary;
+  feedback?: SafeSubmissionFeedback;
+};
+
+export type SafeSubmissionFeedback = {
+  kind: SubmissionKind;
+  score: number;
+  correctFields: number;
+  totalFields: number;
+  validJsonCount?: number;
+  missingFieldsCount?: number;
+  invalidValuesCount?: number;
+  reportScores?: Array<{
+    reportLabel: string;
+    correctFields: number;
+    totalFields: number;
+  }>;
 };
 
 type EvaluatedReport = {
@@ -301,6 +319,7 @@ export async function submitToSupabase({
     totalFields: evaluation.summary.total,
     reportCount: evaluation.reportCount,
     summary: evaluation.summary,
+    feedback: createSafeFeedback(kind, evaluation),
   };
 }
 
@@ -344,7 +363,23 @@ export function getFallbackSubmissionScore(
 ): Omit<SubmitScoreResponse, keyof SubmissionStatusResponse> {
   const split = kind === "public" ? "public" : "private";
   const answerKeys = getAnswerKeyItems().filter((item) => item.split === split);
-  const summary = evaluateAnswerKeySet(answerKeys, prompt);
+  const items =
+    kind === "public"
+      ? evaluateAnswerKeyReports(answerKeys, prompt).map((item) => ({
+          ...item,
+          modelOutput: item.modelOutput ?? "",
+          error: item.error ?? null,
+        }))
+      : [];
+  const summary =
+    kind === "public" ? summarizeReportResults(items) : evaluateAnswerKeySet(answerKeys, prompt);
+  const evaluation: EvaluationResult = {
+    mode: "mock",
+    model: null,
+    summary,
+    reportCount: answerKeys.length,
+    items,
+  };
 
   return {
     kind,
@@ -355,6 +390,7 @@ export function getFallbackSubmissionScore(
     totalFields: summary.total,
     reportCount: answerKeys.length,
     summary,
+    feedback: createSafeFeedback(kind, evaluation),
   };
 }
 
@@ -375,6 +411,24 @@ async function evaluateSubmission({
 }): Promise<EvaluationResult> {
   if (kind === "public" && shouldUseRealLlm()) {
     return evaluatePublicWithRealLlm(answerKeys, prompt);
+  }
+
+  if (kind === "public") {
+    const items = evaluateAnswerKeyReports(answerKeys, prompt).map((item) => ({
+      ...item,
+      supabaseReportId: answerKeys.find((answerKey) => answerKey.id === item.reportId)
+        ?.supabaseReportId,
+      modelOutput: item.modelOutput ?? "",
+      error: item.error ?? null,
+    }));
+
+    return {
+      mode: "mock",
+      model: null,
+      summary: summarizeReportResults(items),
+      reportCount: answerKeys.length,
+      items,
+    };
   }
 
   const summary = evaluateAnswerKeySet(answerKeys, prompt);
@@ -600,6 +654,47 @@ function validationMessage(score: ScoringResult) {
   }
 
   return problems.length > 0 ? problems.join(". ") : null;
+}
+
+function createSafeFeedback(
+  kind: SubmissionKind,
+  evaluation: EvaluationResult,
+): SafeSubmissionFeedback {
+  const feedback: SafeSubmissionFeedback = {
+    kind,
+    score: evaluation.summary.accuracy,
+    correctFields: evaluation.summary.correct,
+    totalFields: evaluation.summary.total,
+  };
+
+  if (kind !== "public") {
+    return feedback;
+  }
+
+  const items = evaluation.items;
+
+  return {
+    ...feedback,
+    validJsonCount: items.filter((item) => item.score.valid_json).length,
+    missingFieldsCount: items.reduce(
+      (sum, item) => sum + item.score.missing_fields.length,
+      0,
+    ),
+    invalidValuesCount: items.reduce(
+      (sum, item) => sum + item.score.invalid_fields.length,
+      0,
+    ),
+    reportScores: items.map((item, index) => ({
+      reportLabel: reportLabel(item.reportId, index),
+      correctFields: countCorrectFields(item.score),
+      totalFields: item.score.per_field.length,
+    })),
+  };
+}
+
+function reportLabel(reportId: string, index: number) {
+  const match = reportId.match(/(\d{3})$/);
+  return `Report ${match?.[1] ?? String(index + 1).padStart(3, "0")}`;
 }
 
 function predictionFromScore(
