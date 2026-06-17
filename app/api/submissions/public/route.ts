@@ -1,5 +1,6 @@
 import {
   fallbackStatus,
+  EventPhaseError,
   getFallbackSubmissionScore,
   ParticipantValidationError,
   RealLlmEvaluationError,
@@ -41,6 +42,10 @@ export async function POST(request: Request) {
       return Response.json({ error: error.message }, { status: 409 });
     }
 
+    if (error instanceof EventPhaseError) {
+      return Response.json({ error: error.message }, { status: 403 });
+    }
+
     if (error instanceof ParticipantValidationError) {
       return Response.json({ error: error.message }, { status: 400 });
     }
@@ -55,6 +60,18 @@ export async function POST(request: Request) {
     }
 
     const message = error instanceof Error ? error.message : String(error);
+
+    if (process.env.ALLOW_LOCAL_FALLBACK !== "true") {
+      console.error("[submit-public] Supabase submission unavailable", message);
+
+      return Response.json(
+        {
+          error:
+            "Test Attempts are temporarily unavailable. Please try again or contact the organizer.",
+        },
+        { status: 503 },
+      );
+    }
 
     return Response.json({
       ...fallbackStatus(message),

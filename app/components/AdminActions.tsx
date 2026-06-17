@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  eventPhaseLabel,
+  eventPhases,
+  type EventPhase,
+} from "@/app/lib/event-phase";
 
 export function AdminLogoutButton() {
   const router = useRouter();
@@ -92,6 +97,117 @@ export function AdminResetPanel() {
       >
         {isPending ? "Clearing..." : "Clear leaderboard & submissions"}
       </button>
+      {message ? (
+        <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+          {message}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+export function AdminEventControls({
+  currentPhase,
+}: {
+  currentPhase: EventPhase;
+}) {
+  const router = useRouter();
+  const [message, setMessage] = useState("");
+  const [isPending, setIsPending] = useState(false);
+
+  async function changePhase(nextPhase: EventPhase) {
+    if (nextPhase === currentPhase) {
+      return;
+    }
+
+    if (nextPhase === "final_open") {
+      const confirmed = window.confirm(
+        "Open Final Submission? Test Attempts will close and Final Submission will open.",
+      );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (nextPhase === "ended") {
+      const confirmed = window.confirm(
+        "End the event? Test Attempts and Final Submission will both close.",
+      );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (
+      (currentPhase === "final_open" || currentPhase === "ended") &&
+      nextPhase !== "ended"
+    ) {
+      const confirmation = window.prompt(
+        `Moving back to ${eventPhaseLabel(nextPhase)} can reopen event actions. Type ${nextPhase} to confirm.`,
+      );
+
+      if (confirmation !== nextPhase) {
+        return;
+      }
+    }
+
+    setIsPending(true);
+    setMessage("");
+
+    const response = await fetch("/api/admin/challenge-phase", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ phase: nextPhase }),
+    });
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+
+    if (!response.ok) {
+      setMessage(body?.error || "Could not update event phase.");
+      setIsPending(false);
+      return;
+    }
+
+    setMessage(`Event phase changed to ${eventPhaseLabel(nextPhase)}.`);
+    setIsPending(false);
+    router.refresh();
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+        Event controls
+      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-slate-950">Event phase</h2>
+        <span className="rounded-md bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
+          {eventPhaseLabel(currentPhase)}
+        </span>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Controls participant access to Test Attempts and Final Submission.
+        Login remains available in every phase.
+      </p>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {eventPhases.map((phase) => (
+          <button
+            key={phase}
+            type="button"
+            onClick={() => changePhase(phase)}
+            disabled={isPending || phase === currentPhase}
+            className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            {phase === currentPhase
+              ? `${eventPhaseLabel(phase)} current`
+              : `Set ${eventPhaseLabel(phase)}`}
+          </button>
+        ))}
+      </div>
       {message ? (
         <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">
           {message}

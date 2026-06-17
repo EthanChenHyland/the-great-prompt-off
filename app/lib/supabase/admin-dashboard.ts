@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
+import { isEventPhase, type EventPhase } from "@/app/lib/event-phase";
 import { createSupabaseAdminClient } from "./admin";
 
 export type AdminParticipantRow = {
@@ -26,6 +27,7 @@ export type AdminDashboardData = {
     finalSubmissionsCount: number;
     participantsCompletedFinal: number;
     latestRunTimestamp: string | null;
+    eventPhase: EventPhase;
   };
   health: {
     supabaseConnected: boolean;
@@ -72,10 +74,28 @@ type ReportCountRow = {
   split: "sample" | "public" | "private";
 };
 
+type ChallengeControlRow = {
+  id: string;
+  event_phase: EventPhase;
+};
+
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const supabase = createSupabaseAdminClient();
-  const [participantsResult, submissionsResult, runsResult, reportsResult] =
+  const [
+    challengeResult,
+    participantsResult,
+    submissionsResult,
+    runsResult,
+    reportsResult,
+  ] =
     await Promise.all([
+    supabase
+      .from("challenges")
+      .select("id, event_phase")
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single<ChallengeControlRow>(),
     supabase
       .from("participants")
       .select("id, participant_code, display_name, email, access_code, is_active")
@@ -93,6 +113,10 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .returns<PromptRunRow[]>(),
     supabase.from("reports").select("split").returns<ReportCountRow[]>(),
   ]);
+
+  if (challengeResult.error) {
+    throw new Error(`Failed to load active challenge: ${challengeResult.error.message}`);
+  }
 
   if (participantsResult.error) {
     throw new Error(`Failed to load participants: ${participantsResult.error.message}`);
@@ -180,6 +204,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
         (participant) => participant.finalSubmitted,
       ).length,
       latestRunTimestamp,
+      eventPhase: challengeResult.data.event_phase,
     },
     health: {
       supabaseConnected: true,
@@ -207,6 +232,22 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       return (b.bestTestScore ?? -1) - (a.bestTestScore ?? -1);
     }),
   };
+}
+
+export async function updateActiveChallengePhase(phase: EventPhase) {
+  if (!isEventPhase(phase)) {
+    throw new Error("Invalid event phase.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("challenges")
+    .update({ event_phase: phase })
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(`Failed to update event phase: ${error.message}`);
+  }
 }
 
 export async function resetWorkshopRunData() {

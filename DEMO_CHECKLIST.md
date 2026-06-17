@@ -16,6 +16,7 @@ Short event-focused checklist. See `README.md` for setup details and `REPORT_IMP
 ## Supabase
 
 - Run required SQL/migrations for the target database.
+- Run `supabase/event-controls.sql`.
 - Run `supabase/admin-atomic-clears.sql`.
 - Run `npm run seed:supabase`.
 - Verify split counts:
@@ -61,6 +62,9 @@ Before the event, Health Check should show:
 - In `/admin`, reset workshop run data by typing `RESET`.
 - Confirm participants/access codes remain.
 - Confirm Test submissions and Final submissions are `0`.
+- Set the event phase to `practice_open` when the challenge begins.
+- Set the event phase to `final_open` for the final round.
+- Set the event phase to `ended` when submissions should close.
 
 ## Post-Event
 

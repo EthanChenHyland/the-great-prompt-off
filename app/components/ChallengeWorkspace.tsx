@@ -24,6 +24,10 @@ import {
   useSubmissionStore,
 } from "../lib/submissions";
 import type { PublicChallengeReport } from "../lib/challenge-data";
+import {
+  eventPhaseMessage,
+  type EventPhase,
+} from "../lib/event-phase";
 import type {
   ScoreSummary,
   StoredSubmission,
@@ -94,6 +98,7 @@ type ChallengeDataStatus = {
   fallbackReason: string | null;
   challenge: {
     title: string;
+    eventPhase: EventPhase;
     evaluationModelDisplayName?: string;
     publicSubmissionLimit: number;
     finalSubmissionLimit: number;
@@ -197,6 +202,11 @@ export function ChallengeWorkspace({
     privateReportCount !== null && privateReportCount > 0
       ? `${privateReportCount} hidden report${privateReportCount === 1 ? "" : "s"}`
       : "the hidden final reports";
+  const eventPhase = challengeDataStatus?.challenge?.eventPhase ?? "practice_open";
+  const phaseMessage = eventPhaseMessage(eventPhase);
+  const canViewPublicReports = eventPhase !== "not_started";
+  const canSubmitPublic = eventPhase === "practice_open";
+  const canSubmitFinal = eventPhase === "final_open";
 
   useEffect(() => {
     if (!activeParticipantId || !activeParticipantToken) {
@@ -332,6 +342,11 @@ export function ChallengeWorkspace({
     }
 
     if (kind === "public") {
+      if (!canSubmitPublic) {
+        setSubmissionMessage("Test Attempts are not open right now.");
+        return;
+      }
+
       const confirmed = window.confirm(
         `Use 1 test attempt for this prompt? You have ${remainingPublicSubmissions} test attempt${remainingPublicSubmissions === 1 ? "" : "s"} remaining.`,
       );
@@ -342,6 +357,11 @@ export function ChallengeWorkspace({
     }
 
     if (kind === "final") {
+      if (!canSubmitFinal) {
+        setSubmissionMessage("Final Submission is not open right now.");
+        return;
+      }
+
       const confirmed = window.confirm(
         "Final submission can only be used once and will be locked. Continue?",
       );
@@ -633,6 +653,8 @@ export function ChallengeWorkspace({
           </div>
         </header>
 
+        <PhaseNotice eventPhase={eventPhase} message={phaseMessage} />
+
         <div className="grid min-h-0 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
           <TaskSidebar
             privateReportDescription={privateReportDescription}
@@ -651,6 +673,8 @@ export function ChallengeWorkspace({
               finalSubmissionUsed={finalSubmissionUsed}
               participantReady={Boolean(activeParticipantId)}
               pendingAction={pendingAction}
+              canSubmitFinal={canSubmitFinal}
+              canSubmitPublic={canSubmitPublic}
               privateReportDescription={privateReportDescription}
               publicReportDescription={publicReportDescription}
               publicSubmissionLimit={publicSubmissionLimit}
@@ -658,6 +682,8 @@ export function ChallengeWorkspace({
             {activeReport ? (
               <ReportViewer
                 activeReport={activeReport}
+                canViewReports={canViewPublicReports}
+                phaseMessage={phaseMessage}
                 reports={reports}
                 setActiveReportId={setActiveReportId}
               />
@@ -684,6 +710,8 @@ export function ChallengeWorkspace({
               onSubmitPublic={submitPublic}
               pendingAction={pendingAction}
               participantReady={Boolean(activeParticipantId)}
+              canSubmitFinal={canSubmitFinal}
+              canSubmitPublic={canSubmitPublic}
               privateReportDescription={privateReportDescription}
               publicReportDescription={publicReportDescription}
               publicSubmissionLimit={publicSubmissionLimit}
@@ -702,6 +730,26 @@ export function ChallengeWorkspace({
         </div>
       </div>
     </main>
+  );
+}
+
+function PhaseNotice({
+  eventPhase,
+  message,
+}: {
+  eventPhase: EventPhase;
+  message: string;
+}) {
+  const tone =
+    eventPhase === "practice_open" || eventPhase === "final_open"
+      ? "border-teal-200 bg-teal-50 text-teal-950"
+      : "border-amber-200 bg-amber-50 text-amber-950";
+
+  return (
+    <section className={`rounded-lg border px-4 py-3 text-sm leading-6 ${tone}`}>
+      <p className="font-semibold">Event status</p>
+      <p>{message}</p>
+    </section>
   );
 }
 
@@ -798,6 +846,8 @@ function DataSourceStatus({
 }
 
 function PromptEditor({
+  canSubmitFinal,
+  canSubmitPublic,
   finalSubmissionUsed,
   onSubmitFinal,
   onSubmitPublic,
@@ -810,6 +860,8 @@ function PromptEditor({
   remainingPublicSubmissions,
   setPrompt,
 }: {
+  canSubmitFinal: boolean;
+  canSubmitPublic: boolean;
   finalSubmissionUsed: boolean;
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
@@ -865,6 +917,7 @@ function PromptEditor({
           onClick={onSubmitPublic}
           disabled={
             !participantReady ||
+            !canSubmitPublic ||
             remainingPublicSubmissions === 0 ||
             pendingAction !== null
           }
@@ -875,7 +928,12 @@ function PromptEditor({
         <button
           type="button"
           onClick={onSubmitFinal}
-          disabled={!participantReady || finalSubmissionUsed || pendingAction !== null}
+          disabled={
+            !participantReady ||
+            !canSubmitFinal ||
+            finalSubmissionUsed ||
+            pendingAction !== null
+          }
           className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
           {pendingAction === "final" ? "Submitting final..." : "Submit final"}
@@ -969,10 +1027,14 @@ function OutputFormatGuide() {
 
 function ReportViewer({
   activeReport,
+  canViewReports,
+  phaseMessage,
   reports,
   setActiveReportId,
 }: {
   activeReport: PublicChallengeReport;
+  canViewReports: boolean;
+  phaseMessage: string;
   reports: PublicChallengeReport[];
   setActiveReportId: (id: string) => void;
 }) {
@@ -984,6 +1046,12 @@ function ReportViewer({
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
         {reports.length} public test report{reports.length === 1 ? "" : "s"}
       </h2>
+      {!canViewReports ? (
+        <div className="mt-4 flex min-h-[360px] flex-1 items-center rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+          {phaseMessage}
+        </div>
+      ) : (
+        <>
       <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(52px,1fr))] gap-2">
         {reports.map((report, index) => (
           <button
@@ -1003,11 +1071,15 @@ function ReportViewer({
       <article className="mt-4 min-h-[360px] flex-1 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-6 text-slate-800">
         {activeReport.text}
       </article>
+        </>
+      )}
     </section>
   );
 }
 
 function SubmissionPanel({
+  canSubmitFinal,
+  canSubmitPublic,
   finalSubmissionUsed,
   finalScore,
   latestPublicScore,
@@ -1024,6 +1096,8 @@ function SubmissionPanel({
   publicSubmissionsUsed,
   remainingPublicSubmissions,
 }: {
+  canSubmitFinal: boolean;
+  canSubmitPublic: boolean;
   finalSubmissionUsed: boolean;
   finalScore: number | null;
   latestPublicScore: number | null;
@@ -1074,6 +1148,7 @@ function SubmissionPanel({
             onClick={onSubmitPublic}
             disabled={
               !participantReady ||
+              !canSubmitPublic ||
               remainingPublicSubmissions === 0 ||
               pendingAction !== null
             }
@@ -1097,7 +1172,12 @@ function SubmissionPanel({
           <button
             type="button"
             onClick={onSubmitFinal}
-            disabled={!participantReady || finalSubmissionUsed || pendingAction !== null}
+            disabled={
+              !participantReady ||
+              !canSubmitFinal ||
+              finalSubmissionUsed ||
+              pendingAction !== null
+            }
             className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
           >
             {pendingAction === "final" ? "Submitting final..." : "Submit final"}

@@ -2,6 +2,7 @@ import "server-only";
 
 import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { getAnswerKeyItems } from "@/app/lib/challenge-data";
+import type { EventPhase } from "@/app/lib/event-phase";
 import {
   extractReportWithOpenRouter,
   getOpenRouterConcurrency,
@@ -36,6 +37,7 @@ type ActiveChallenge = {
   locked_model: string;
   public_submission_limit: number;
   final_submission_limit: number;
+  event_phase: EventPhase;
 };
 
 type Participant = {
@@ -246,6 +248,14 @@ export async function submitToSupabase({
     participant.id,
   );
 
+  if (kind === "public" && challenge.event_phase !== "practice_open") {
+    throw new EventPhaseError("Test Attempts are not open right now.");
+  }
+
+  if (kind === "final" && challenge.event_phase !== "final_open") {
+    throw new EventPhaseError("Final Submission is not open right now.");
+  }
+
   if (kind === "public" && currentStatus.remainingPublicSubmissions <= 0) {
     throw new SubmissionLimitError("Public submission limit reached.");
   }
@@ -451,6 +461,8 @@ export class ParticipantValidationError extends Error {}
 
 export class RealLlmEvaluationError extends Error {}
 
+export class EventPhaseError extends Error {}
+
 export class SubmissionStorageError extends Error {
   constructor(message: string, public readonly detail: string) {
     super(message);
@@ -588,7 +600,9 @@ async function getActiveChallenge(
 ) {
   const { data, error } = await supabase
     .from("challenges")
-    .select("id, locked_model, public_submission_limit, final_submission_limit")
+    .select(
+      "id, locked_model, public_submission_limit, final_submission_limit, event_phase",
+    )
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)

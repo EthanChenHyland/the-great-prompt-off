@@ -41,6 +41,7 @@ create table challenges (
   locked_model text not null,
   public_submission_limit integer not null default 5,
   final_submission_limit integer not null default 1,
+  event_phase text not null default 'not_started',
   is_active boolean not null default false,
   created_by uuid references participants(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -49,13 +50,16 @@ create table challenges (
   check (length(trim(title)) > 0),
   check (length(trim(locked_model)) > 0),
   check (public_submission_limit >= 0),
-  check (final_submission_limit >= 0)
+  check (final_submission_limit >= 0),
+  check (event_phase in ('not_started', 'practice_open', 'final_open', 'ended'))
 );
 
 comment on table challenges is
   'Defines prompt engineering challenge configuration, including instructions, expected output schema, locked model, and submission limits.';
 comment on column challenges.locked_model is
   'The model selected by admins for database-backed runs/submissions.';
+comment on column challenges.event_phase is
+  'Organizer-controlled event phase that gates participant workspace actions and submissions.';
 
 create table reports (
   id uuid primary key default gen_random_uuid(),

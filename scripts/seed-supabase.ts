@@ -9,6 +9,7 @@ loadEnvConfig(process.cwd());
 const challengeSlug = "knee-mri-extraction";
 const challengeTitle = "Knee MRI Extraction Challenge";
 const defaultModel = "google/gemini-2.0-flash-001";
+const eventPhases = ["not_started", "practice_open", "final_open", "ended"] as const;
 const findingFields = [
   "acl_tear",
   "mcl_injury",
@@ -22,6 +23,7 @@ const allowedFindingValues = ["present", "absent", "uncertain"] as const;
 type FindingField = (typeof findingFields)[number];
 type FindingValue = (typeof allowedFindingValues)[number];
 type ReportSplit = "sample" | "public" | "private";
+type EventPhase = (typeof eventPhases)[number];
 
 type ManifestReport = {
   id: string;
@@ -60,6 +62,18 @@ function getRequiredEnv(name: string) {
   }
 
   return value;
+}
+
+function getSeedEventPhase(): EventPhase {
+  const value = process.env.EVENT_PHASE || "not_started";
+
+  if ((eventPhases as readonly string[]).includes(value)) {
+    return value as EventPhase;
+  }
+
+  throw new Error(
+    `EVENT_PHASE must be one of: ${eventPhases.join(", ")}.`,
+  );
 }
 
 function createParticipantAccessCode() {
@@ -164,6 +178,7 @@ async function main() {
         locked_model: process.env.OPENROUTER_MODEL || defaultModel,
         public_submission_limit: 5,
         final_submission_limit: 1,
+        event_phase: getSeedEventPhase(),
         is_active: true,
       },
       { onConflict: "slug" },

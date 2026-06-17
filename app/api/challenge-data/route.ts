@@ -5,6 +5,7 @@ import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { challenge as mockChallenge } from "@/app/lib/challenge-constants";
 import { getFriendlyModelName } from "@/app/lib/model-display";
 import { getOpenRouterModel } from "@/app/lib/openrouter";
+import type { EventPhase } from "@/app/lib/event-phase";
 import type { ReportManifestItem } from "@/app/lib/types";
 
 type ReportSplit = "sample" | "public" | "private";
@@ -18,6 +19,7 @@ type ChallengeRow = {
   locked_model: string;
   public_submission_limit: number;
   final_submission_limit: number;
+  event_phase: EventPhase;
 };
 
 type ReportMetadataRow = {
@@ -59,6 +61,7 @@ function getFallbackChallengeData(reason: string) {
       evaluationModelDisplayName: getFriendlyModelName(getOpenRouterModel()),
       publicSubmissionLimit: fallbackChallengeConfig.publicSubmissionLimit,
       finalSubmissionLimit: fallbackChallengeConfig.finalSubmissionLimit,
+      eventPhase: "practice_open" satisfies EventPhase,
     },
     reportCounts,
     sampleReports: typedManifest
@@ -96,7 +99,7 @@ export async function GET() {
     const { data: challenge, error: challengeError } = await supabase
       .from("challenges")
       .select(
-        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit",
+        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit, event_phase",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -176,6 +179,7 @@ export async function GET() {
         evaluationModelDisplayName: getFriendlyModelName(challenge.locked_model),
         publicSubmissionLimit: challenge.public_submission_limit,
         finalSubmissionLimit: challenge.final_submission_limit,
+        eventPhase: challenge.event_phase,
       },
       reportCounts,
       sampleReports: reports
