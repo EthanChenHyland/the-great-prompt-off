@@ -102,6 +102,7 @@ type ParticipantValidationResponse = {
 };
 
 const initialPrompt = "";
+const workspaceBuildMarker = "sample-debug-v1";
 
 const examplePrompt = `You are extracting structured findings from a knee MRI report.
 
@@ -303,7 +304,7 @@ export function ChallengeWorkspace({
         mode: response.mode,
         model: response.model,
       });
-      setSampleRunDebug(response.debug);
+      setSampleRunDebug(response.promptDebug ?? response.debug ?? null);
       setPendingSamplePromptPreview("");
     } catch (error) {
       setResults([]);
@@ -563,6 +564,9 @@ export function ChallengeWorkspace({
             </h1>
             <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
               Mock mode: local demo only
+            </p>
+            <p className="mt-2 w-fit rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
+              Build: {workspaceBuildMarker}
             </p>
             <DataSourceStatus
               error={challengeDataError}
@@ -1345,7 +1349,8 @@ async function postSubmission(
 type RunSampleResponse = {
   mode: "mock" | "real_llm";
   model: string | null;
-  debug: SampleRunDebug;
+  promptDebug?: SampleRunDebug;
+  debug?: SampleRunDebug;
   results: ReportResult[];
   summary: ScoreSummary;
 };

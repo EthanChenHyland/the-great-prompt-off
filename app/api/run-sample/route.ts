@@ -35,10 +35,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const debug = getPromptDebug(prompt);
+  const promptDebug = getPromptDebug(prompt);
 
   if (process.env.NODE_ENV === "development") {
-    console.log("[run-sample] prompt debug", debug);
+    console.log("[run-sample] prompt debug", promptDebug);
   }
 
   const reports = await getSampleReports();
@@ -50,7 +50,8 @@ export async function POST(request: Request) {
           error: "OPENROUTER_API_KEY is required when USE_REAL_LLM=true.",
           mode: "real_llm",
           model: getOpenRouterModel(),
-          debug,
+          promptDebug,
+          debug: promptDebug,
         },
         { status: 500 },
       );
@@ -93,7 +94,8 @@ export async function POST(request: Request) {
     return Response.json({
       mode: "real_llm",
       model: getOpenRouterModel(),
-      debug,
+      promptDebug,
+      debug: promptDebug,
       results,
       summary: summarizeReportResults(results),
     });
@@ -104,7 +106,8 @@ export async function POST(request: Request) {
   return Response.json({
     mode: "mock",
     model: null,
-    debug,
+    promptDebug,
+    debug: promptDebug,
     results,
     summary: summarizeReportResults(results),
   });
