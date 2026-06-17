@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -22,15 +22,71 @@ type ParticipantValidationResponse = {
   message: string;
 };
 
+type LandingChallengeMetadata = {
+  challenge: {
+    publicSubmissionLimit: number;
+  } | null;
+  reportCounts: {
+    public: number;
+    private: number;
+  };
+};
+
 export function LandingPage() {
   const router = useRouter();
   const [participantId, setParticipantId] = useState("");
   const [showCodeEntry, setShowCodeEntry] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
   const [isValidating, setIsValidating] = useState(false);
+  const [challengeMetadata, setChallengeMetadata] =
+    useState<LandingChallengeMetadata | null>(null);
   const savedParticipantId = useSavedParticipantId();
   const savedParticipantToken = useSavedParticipantToken();
   const showRememberedParticipant = savedParticipantId && !showCodeEntry;
+  const statCards = [
+    {
+      label: "Test attempts",
+      value: challengeMetadata?.challenge?.publicSubmissionLimit,
+    },
+    {
+      label: "Public test reports",
+      value: challengeMetadata?.reportCounts.public,
+    },
+    {
+      label: "Hidden final reports",
+      value: challengeMetadata?.reportCounts.private,
+    },
+  ];
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadChallengeMetadata() {
+      try {
+        const response = await fetch("/api/challenge-data");
+
+        if (!response.ok) {
+          throw new Error("Challenge metadata unavailable.");
+        }
+
+        const metadata = (await response.json()) as LandingChallengeMetadata;
+
+        if (!ignore) {
+          setChallengeMetadata(metadata);
+        }
+      } catch {
+        if (!ignore) {
+          setChallengeMetadata(null);
+        }
+      }
+    }
+
+    loadChallengeMetadata();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -234,24 +290,16 @@ export function LandingPage() {
             ) : null}
 
             <div className="mt-6 grid grid-cols-3 gap-3 border-t border-slate-200 pt-5 text-center">
-              <div>
-                <p className="text-2xl font-semibold text-slate-950">5</p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  Test attempts
-                </p>
-              </div>
-              <div>
-                <p className="text-2xl font-semibold text-slate-950">5</p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  Public test reports
-                </p>
-              </div>
-              <div>
-                <p className="text-2xl font-semibold text-slate-950">45</p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  Hidden final reports
-                </p>
-              </div>
+              {statCards.map((stat) => (
+                <div key={stat.label}>
+                  <p className="text-2xl font-semibold text-slate-950">
+                    {typeof stat.value === "number" ? stat.value : "-"}
+                  </p>
+                  <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
+                    {stat.label}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import manifest from "@/data/mock-report-manifest.json";
 import answerKeys from "@/data/mock-answer-keys.json";
 import { createSupabaseAdminClient } from "@/app/lib/supabase/admin";
+import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { challenge as mockChallenge } from "@/app/lib/challenge-constants";
 import { getFriendlyModelName } from "@/app/lib/model-display";
 import { getOpenRouterModel } from "@/app/lib/openrouter";
@@ -56,12 +57,12 @@ function getFallbackChallengeData(reason: string) {
       description: mockChallenge.subtitle,
       instructions: null,
       evaluationModelDisplayName: getFriendlyModelName(getOpenRouterModel()),
-      publicSubmissionLimit: 5,
-      finalSubmissionLimit: 1,
+      publicSubmissionLimit: fallbackChallengeConfig.publicSubmissionLimit,
+      finalSubmissionLimit: fallbackChallengeConfig.finalSubmissionLimit,
     },
     reportCounts,
     sampleReports: typedManifest
-      .filter((report) => report.split === "sample")
+      .filter((report) => report.split === "public")
       .map((report) => ({
         id: report.id,
         filename: report.filename,
@@ -178,7 +179,7 @@ export async function GET() {
       },
       reportCounts,
       sampleReports: reports
-        .filter((report) => report.split === "sample")
+        .filter((report) => report.split === "public")
         .map((report) => ({
           id: report.external_id,
           filename: report.filename,

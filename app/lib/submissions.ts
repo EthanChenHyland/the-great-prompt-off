@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { fallbackChallengeConfig } from "./challenge-config";
 import { submissionStorageKey } from "./challenge-constants";
 import type {
   ParticipantSubmissionHistory,
@@ -8,7 +9,7 @@ import type {
   SubmissionKind,
 } from "./types";
 
-export const maxPublicSubmissions = 5;
+export const maxPublicSubmissions = fallbackChallengeConfig.publicSubmissionLimit;
 
 type SubmissionStore = Record<string, ParticipantSubmissionHistory>;
 

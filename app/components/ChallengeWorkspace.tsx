@@ -8,6 +8,7 @@ import {
   findingKeys,
   findingLabels,
 } from "../lib/challenge-constants";
+import { fallbackChallengeConfig } from "../lib/challenge-config";
 import { normalizeParticipantCode } from "../lib/participant-codes";
 import {
   saveParticipantId,
@@ -22,8 +23,8 @@ import {
   saveSubmission,
   useSubmissionStore,
 } from "../lib/submissions";
+import type { PublicChallengeReport } from "../lib/challenge-data";
 import type {
-  SampleReport,
   ScoreSummary,
   StoredSubmission,
   SubmissionKind,
@@ -85,7 +86,7 @@ type SafeSubmissionFeedback = {
 
 type ChallengeWorkspaceProps = {
   initialParticipantId: string;
-  reports: SampleReport[];
+  reports: PublicChallengeReport[];
 };
 
 type ChallengeDataStatus = {
@@ -94,6 +95,8 @@ type ChallengeDataStatus = {
   challenge: {
     title: string;
     evaluationModelDisplayName?: string;
+    publicSubmissionLimit: number;
+    finalSubmissionLimit: number;
   } | null;
   reportCounts: {
     sample: number;
@@ -179,6 +182,21 @@ export function ChallengeWorkspace({
     usingSupabaseSubmissions && submissionStatus
       ? submissionStatus.finalSubmissionUsed
       : Boolean(localParticipantHistory.finalSubmission);
+  const publicSubmissionLimit =
+    (usingSupabaseSubmissions && submissionStatus
+      ? submissionStatus.publicSubmissionLimit
+      : challengeDataStatus?.challenge?.publicSubmissionLimit) ??
+    fallbackChallengeConfig.publicSubmissionLimit;
+  const publicReportCount = challengeDataStatus?.reportCounts.public ?? reports.length;
+  const privateReportCount = challengeDataStatus?.reportCounts.private ?? null;
+  const publicReportDescription =
+    publicReportCount > 0
+      ? `${publicReportCount} public test report${publicReportCount === 1 ? "" : "s"}`
+      : "the public test reports";
+  const privateReportDescription =
+    privateReportCount !== null && privateReportCount > 0
+      ? `${privateReportCount} hidden report${privateReportCount === 1 ? "" : "s"}`
+      : "the hidden final reports";
 
   useEffect(() => {
     if (!activeParticipantId || !activeParticipantToken) {
@@ -337,7 +355,7 @@ export function ChallengeWorkspace({
     setSubmissionMessage(
       kind === "public"
         ? "Submitting test attempt. This may take a moment while the AI evaluates your prompt."
-        : "Submitting final submission. This may take longer because it evaluates 45 hidden reports.",
+        : `Submitting final submission. This may take longer because it evaluates ${privateReportDescription}.`,
     );
     setLastSubmissionPromptDebug(null);
     setLastSubmissionFeedback(null);
@@ -616,7 +634,11 @@ export function ChallengeWorkspace({
         </header>
 
         <div className="grid min-h-0 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
-          <TaskSidebar />
+          <TaskSidebar
+            privateReportDescription={privateReportDescription}
+            publicReportDescription={publicReportDescription}
+            publicSubmissionLimit={publicSubmissionLimit}
+          />
 
           <section className="grid min-h-0 min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <OutputFormatGuide />
@@ -629,6 +651,9 @@ export function ChallengeWorkspace({
               finalSubmissionUsed={finalSubmissionUsed}
               participantReady={Boolean(activeParticipantId)}
               pendingAction={pendingAction}
+              privateReportDescription={privateReportDescription}
+              publicReportDescription={publicReportDescription}
+              publicSubmissionLimit={publicSubmissionLimit}
             />
             {activeReport ? (
               <ReportViewer
@@ -659,11 +684,9 @@ export function ChallengeWorkspace({
               onSubmitPublic={submitPublic}
               pendingAction={pendingAction}
               participantReady={Boolean(activeParticipantId)}
-              publicSubmissionLimit={
-                usingSupabaseSubmissions && submissionStatus
-                  ? submissionStatus.publicSubmissionLimit
-                  : 5
-              }
+              privateReportDescription={privateReportDescription}
+              publicReportDescription={publicReportDescription}
+              publicSubmissionLimit={publicSubmissionLimit}
               publicSubmissionsUsed={
                 usingSupabaseSubmissions && submissionStatus
                   ? submissionStatus.publicSubmissionsUsed
@@ -682,7 +705,15 @@ export function ChallengeWorkspace({
   );
 }
 
-function TaskSidebar() {
+function TaskSidebar({
+  privateReportDescription,
+  publicReportDescription,
+  publicSubmissionLimit,
+}: {
+  privateReportDescription: string;
+  publicReportDescription: string;
+  publicSubmissionLimit: number;
+}) {
   return (
     <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
@@ -714,9 +745,12 @@ function TaskSidebar() {
       <div className="mt-6 border-t border-slate-200 pt-5">
         <h3 className="text-sm font-semibold text-slate-800">Workflow</h3>
         <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-          <li>Test Attempts: 5 counted attempts on reports 001-005.</li>
+          <li>
+            Test Attempts: {publicSubmissionLimit} counted attempt
+            {publicSubmissionLimit === 1 ? "" : "s"} on {publicReportDescription}.
+          </li>
           <li>Use test scores to refine your prompt.</li>
-          <li>Final: one locked submission on 45 hidden reports.</li>
+          <li>Final: one locked submission on {privateReportDescription}.</li>
         </ul>
       </div>
     </aside>
@@ -769,7 +803,10 @@ function PromptEditor({
   onSubmitPublic,
   participantReady,
   pendingAction,
+  privateReportDescription,
   prompt,
+  publicReportDescription,
+  publicSubmissionLimit,
   remainingPublicSubmissions,
   setPrompt,
 }: {
@@ -778,7 +815,10 @@ function PromptEditor({
   onSubmitPublic: () => void;
   participantReady: boolean;
   pendingAction: "public" | "final" | null;
+  privateReportDescription: string;
   prompt: string;
+  publicReportDescription: string;
+  publicSubmissionLimit: number;
   remainingPublicSubmissions: number;
   setPrompt: (value: string) => void;
 }) {
@@ -800,7 +840,8 @@ function PromptEditor({
       <div className="mt-4 grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
         <p>
           <span className="font-semibold text-slate-800">Test Attempts</span> are
-          counted: 5 attempts on the same 5 public test reports.
+          counted: {publicSubmissionLimit} attempt
+          {publicSubmissionLimit === 1 ? "" : "s"} on {publicReportDescription}.
         </p>
         <p>
           Use each test score to refine your prompt. Do not click repeatedly;
@@ -808,7 +849,7 @@ function PromptEditor({
         </p>
         <p>
           <span className="font-semibold text-slate-800">Final</span> can only be
-          used once and runs on 45 hidden reports.
+          used once and runs on {privateReportDescription}.
         </p>
       </div>
       <textarea
@@ -931,8 +972,8 @@ function ReportViewer({
   reports,
   setActiveReportId,
 }: {
-  activeReport: SampleReport;
-  reports: SampleReport[];
+  activeReport: PublicChallengeReport;
+  reports: PublicChallengeReport[];
   setActiveReportId: (id: string) => void;
 }) {
   return (
@@ -941,9 +982,9 @@ function ReportViewer({
         Public test reports
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
-        {challenge.sampleRange}
+        {reports.length} public test report{reports.length === 1 ? "" : "s"}
       </h2>
-      <div className="mt-4 grid grid-cols-5 gap-2">
+      <div className="mt-4 grid grid-cols-[repeat(auto-fit,minmax(52px,1fr))] gap-2">
         {reports.map((report, index) => (
           <button
             key={report.id}
@@ -975,9 +1016,11 @@ function SubmissionPanel({
   onSubmitPublic,
   pendingAction,
   participantReady,
+  privateReportDescription,
   promptDebug,
   feedback,
   publicSubmissionLimit,
+  publicReportDescription,
   publicSubmissionsUsed,
   remainingPublicSubmissions,
 }: {
@@ -989,9 +1032,11 @@ function SubmissionPanel({
   onSubmitPublic: () => void;
   pendingAction: "public" | "final" | null;
   participantReady: boolean;
+  privateReportDescription: string;
   promptDebug: SubmissionPromptDebug | null;
   feedback: SafeSubmissionFeedback | null;
   publicSubmissionLimit: number;
+  publicReportDescription: string;
   publicSubmissionsUsed: number;
   remainingPublicSubmissions: number;
 }) {
@@ -1004,9 +1049,9 @@ function SubmissionPanel({
         Test attempts and final
       </h2>
       <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
-        Test attempts are counted and use the same 5 public reports. Final
-        submission can only be used once and runs on 45 hidden reports. Please
-        wait for each submission to finish before trying again.
+        Test attempts are counted and use {publicReportDescription}. Final
+        submission can only be used once and runs on {privateReportDescription}.
+        Please wait for each submission to finish before trying again.
       </div>
       <div className="mt-4 grid gap-3">
         <div className="rounded-md border border-slate-200 px-3 py-3">
@@ -1367,9 +1412,9 @@ async function getSubmissionStatus(
     return {
       source: "mock-file-fallback",
       fallbackReason: `Status request failed with ${response.status}.`,
-      publicSubmissionLimit: 5,
+      publicSubmissionLimit: fallbackChallengeConfig.publicSubmissionLimit,
       publicSubmissionsUsed: 0,
-      remainingPublicSubmissions: 5,
+      remainingPublicSubmissions: fallbackChallengeConfig.publicSubmissionLimit,
       latestPublicScore: null,
       finalSubmissionUsed: false,
       finalScore: null,

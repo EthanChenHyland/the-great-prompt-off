@@ -1,5 +1,6 @@
 import "server-only";
 
+import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { getAnswerKeyItems } from "@/app/lib/challenge-data";
 import {
   extractReportWithOpenRouter,
@@ -168,9 +169,9 @@ export function fallbackStatus(reason: string): SubmissionStatusResponse {
   return {
     source: "mock-file-fallback",
     fallbackReason: reason,
-    publicSubmissionLimit: 5,
+    publicSubmissionLimit: fallbackChallengeConfig.publicSubmissionLimit,
     publicSubmissionsUsed: 0,
-    remainingPublicSubmissions: 5,
+    remainingPublicSubmissions: fallbackChallengeConfig.publicSubmissionLimit,
     latestPublicScore: null,
     finalSubmissionUsed: false,
     finalScore: null,
@@ -492,8 +493,8 @@ async function evaluateWithRealLlm(
   const concurrency = getOpenRouterConcurrency();
 
   try {
-    // Final submissions can evaluate 45 reports. Limit OpenRouter fan-out so one
-    // participant submission is less likely to hit provider rate limits.
+    // Final submissions can evaluate many private reports. Limit OpenRouter
+    // fan-out so one participant submission is less likely to hit rate limits.
     const items = await mapWithConcurrency(
       answerKeys,
       concurrency,

@@ -1,8 +1,8 @@
 import { ChallengeWorkspace } from "../components/ChallengeWorkspace";
-import { getSampleReports } from "../lib/challenge-data";
+import { getPublicChallengeReports } from "../lib/challenge-data";
 
 export default async function ChallengePage() {
-  const reports = await getSampleReports();
+  const reports = await getPublicChallengeReports();
 
   return <ChallengeWorkspace initialParticipantId="" reports={reports} />;
 }
