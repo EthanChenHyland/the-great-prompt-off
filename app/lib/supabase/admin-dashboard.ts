@@ -27,6 +27,19 @@ export type AdminDashboardData = {
     participantsCompletedFinal: number;
     latestRunTimestamp: string | null;
   };
+  health: {
+    supabaseConnected: boolean;
+    useRealLlm: boolean;
+    openRouterModel: string;
+    reportCounts: {
+      public: number;
+      private: number;
+    };
+    participantCount: number;
+    testSubmissionsCount: number;
+    finalSubmissionsCount: number;
+    latestRunTimestamp: string | null;
+  };
   participants: AdminParticipantRow[];
   leaderboard: AdminParticipantRow[];
 };
@@ -55,9 +68,14 @@ type PromptRunRow = {
   created_at: string;
 };
 
+type ReportCountRow = {
+  split: "sample" | "public" | "private";
+};
+
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const supabase = createSupabaseAdminClient();
-  const [participantsResult, submissionsResult, runsResult] = await Promise.all([
+  const [participantsResult, submissionsResult, runsResult, reportsResult] =
+    await Promise.all([
     supabase
       .from("participants")
       .select("id, participant_code, display_name, email, access_code, is_active")
@@ -73,6 +91,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .select("id, model, completed_at, created_at")
       .order("created_at", { ascending: false })
       .returns<PromptRunRow[]>(),
+    supabase.from("reports").select("split").returns<ReportCountRow[]>(),
   ]);
 
   if (participantsResult.error) {
@@ -85,6 +104,10 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
   if (runsResult.error) {
     throw new Error(`Failed to load prompt runs: ${runsResult.error.message}`);
+  }
+
+  if (reportsResult.error) {
+    throw new Error(`Failed to load report counts: ${reportsResult.error.message}`);
   }
 
   const runsById = new Map(runsResult.data.map((run) => [run.id, run]));
@@ -137,6 +160,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   ).length;
   const latestRunTimestamp =
     runsResult.data[0]?.completed_at || runsResult.data[0]?.created_at || null;
+  const reportCounts = reportsResult.data.reduce(
+    (counts, report) => ({
+      ...counts,
+      [report.split]: (counts[report.split] || 0) + 1,
+    }),
+    { sample: 0, public: 0, private: 0 } as Record<ReportCountRow["split"], number>,
+  );
 
   return {
     overview: {
@@ -149,6 +179,20 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       participantsCompletedFinal: participants.filter(
         (participant) => participant.finalSubmitted,
       ).length,
+      latestRunTimestamp,
+    },
+    health: {
+      supabaseConnected: true,
+      useRealLlm: process.env.USE_REAL_LLM === "true",
+      openRouterModel:
+        process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001",
+      reportCounts: {
+        public: reportCounts.public,
+        private: reportCounts.private,
+      },
+      participantCount: participants.length,
+      testSubmissionsCount,
+      finalSubmissionsCount,
       latestRunTimestamp,
     },
     participants,
