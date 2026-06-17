@@ -61,9 +61,15 @@ function getRequiredEnv(name: string) {
 }
 
 function createParticipantAccessCode() {
-  return `GPO-${randomBytes(3).toString("hex").toUpperCase()}-${randomBytes(3)
-    .toString("hex")
-    .toUpperCase()}`;
+  const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = randomBytes(8);
+  const code = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+
+  return `GPO-${code.slice(0, 4)}-${code.slice(4, 8)}`;
+}
+
+function isCurrentAccessCodeFormat(accessCode: string | null) {
+  return Boolean(accessCode && /^GPO-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(accessCode));
 }
 
 async function readJsonFile<T>(relativePath: string) {
@@ -247,10 +253,13 @@ async function main() {
     const participantCode = `P${participantNumber}`;
     const existingAccessCode =
       existingAccessCodeByParticipant.get(participantCode) || null;
-    let accessCode = existingAccessCode || createParticipantAccessCode();
+    let accessCode: string =
+      isCurrentAccessCodeFormat(existingAccessCode) && existingAccessCode
+        ? existingAccessCode
+        : createParticipantAccessCode();
 
     while (
-      !existingAccessCode &&
+      accessCode !== existingAccessCode &&
       (usedAccessCodes.has(accessCode) || allExistingAccessCodes.has(accessCode))
     ) {
       accessCode = createParticipantAccessCode();

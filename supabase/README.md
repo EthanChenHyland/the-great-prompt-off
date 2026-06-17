@@ -30,15 +30,15 @@ The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.j
 Seeded participants have two identifiers:
 
 - `participant_code`: friendly workshop label, such as `P001`.
-- `access_code`: unique entry code distributed privately by the organizer.
+- `access_code`: unique entry code distributed privately by the organizer, formatted as `GPO-XXXX-XXXX` with uppercase letters/numbers.
 
-For an existing database created before access codes existed, run `supabase/access-code-migration.sql`, then run:
+For an existing database created before access codes existed, or one with older long access codes such as `GPO-8768DC-8966CB`, run `supabase/access-code-migration.sql`. This updates missing or old-format codes to the current `GPO-XXXX-XXXX` format. Then run:
 
 ```bash
 npm run seed:supabase
 ```
 
-The seed script preserves existing access codes and generates new random codes only for participants that do not already have one.
+The seed script preserves existing access codes only when they already match `GPO-XXXX-XXXX`; missing or old-format codes are replaced with new random codes.
 
 Export access codes for organizer distribution from the Supabase SQL editor:
 
@@ -49,6 +49,21 @@ order by participant_code;
 ```
 
 Do not expose this query or the full `access_code` values to participant-facing UI.
+
+Verify access-code coverage and uniqueness with:
+
+```sql
+select count(*) as missing_access_codes
+from participants
+where access_code is null or access_code = '';
+```
+
+```sql
+select
+  count(*) as total_participants,
+  count(distinct access_code) as unique_access_codes
+from participants;
+```
 
 Current workshop split:
 
@@ -85,7 +100,7 @@ The app has Supabase-backed submission routes for future database mode:
 - `POST /api/submissions/final`
 - `GET /api/leaderboard`
 
-These routes use the server-only service role client. Public/Test Attempt submissions can use real OpenRouter evaluation when `USE_REAL_LLM=true`; final submissions still use the mock scoring behavior for now. Successful Supabase-mode submissions create `prompt_runs` and `submissions` rows. If Supabase is unavailable or unseeded, the frontend falls back to the existing browser `localStorage` submission store.
+These routes use the server-only service role client. Public/Test Attempt and final submissions can use real OpenRouter evaluation when `USE_REAL_LLM=true`. Successful Supabase-mode submissions create `prompt_runs` and `submissions` rows. If Supabase is unavailable or unseeded, the frontend falls back to the existing browser `localStorage` submission store.
 
 ## Tables
 
@@ -102,6 +117,7 @@ These routes use the server-only service role client. Public/Test Attempt submis
 Today:
 
 - `great-prompt-off-participant-id` stores the active participant ID.
+- `great-prompt-off-participant-session-token` stores the signed participant session token created after access-code validation.
 - `great-prompt-off-submissions` stores local public/final submission history and leaderboard data.
 
 Later:

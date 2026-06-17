@@ -19,7 +19,7 @@ create table participants (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   check (length(trim(participant_code)) > 0),
-  check (length(trim(access_code)) >= 12)
+  check (access_code ~ '^GPO-[A-Z0-9]{4}-[A-Z0-9]{4}$')
 );
 
 comment on table participants is

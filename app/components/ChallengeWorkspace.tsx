@@ -116,7 +116,7 @@ type ParticipantValidationResponse = {
 };
 
 const initialPrompt = "";
-const workspaceBuildMarker = "access-codes-v1";
+const workspaceBuildMarker = "access-code-format-v1";
 
 export function ChallengeWorkspace({
   initialParticipantId,

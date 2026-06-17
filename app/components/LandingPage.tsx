@@ -2,7 +2,10 @@
 
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { normalizeParticipantCode } from "../lib/participant-codes";
+import {
+  formatParticipantAccessCodeInput,
+  normalizeParticipantAccessCode,
+} from "../lib/participant-codes";
 import {
   clearParticipantId,
   saveParticipantSession,
@@ -30,7 +33,7 @@ export function LandingPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const normalized = normalizeParticipantCode(participantId);
+    const normalized = normalizeParticipantAccessCode(participantId);
 
     if (!normalized) {
       return;
@@ -51,7 +54,7 @@ export function LandingPage() {
   }
 
   async function validateAndEnter(rawCode: string) {
-    const normalized = normalizeParticipantCode(rawCode);
+    const normalized = normalizeParticipantAccessCode(rawCode);
 
     if (!normalized) {
       return;
@@ -201,8 +204,13 @@ export function LandingPage() {
               <input
                 id="participant-id"
                 value={participantId}
-                onChange={(event) => setParticipantId(event.target.value)}
-                placeholder="Example: GPO-AB12-CD34"
+                onChange={(event) =>
+                  setParticipantId(
+                    formatParticipantAccessCodeInput(event.target.value),
+                  )
+                }
+                placeholder="GPO-AB12-CD34"
+                maxLength={13}
                 className="mt-3 h-12 w-full rounded-md border border-slate-300 px-4 text-base outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
               />
               <p className="mt-2 text-sm leading-6 text-slate-500">
@@ -246,6 +254,10 @@ export function LandingPage() {
             </div>
           </div>
         </div>
+        <footer className="border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
+          Created by Ethan B. Chen under the advising of Dr. Po-Hao Chen and Dr.
+          Chintan Shah
+        </footer>
       </section>
     </main>
   );
