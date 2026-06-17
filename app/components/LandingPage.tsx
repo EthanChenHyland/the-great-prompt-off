@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   formatParticipantAccessCodeInput,
@@ -254,9 +255,14 @@ export function LandingPage() {
             </div>
           </div>
         </div>
-        <footer className="border-t border-slate-200 pt-4 text-center text-xs text-slate-400">
-          Created by Ethan B. Chen under the advising of Dr. Po-Hao Chen and Dr.
-          Chintan Shah
+        <footer className="flex flex-col items-center gap-2 border-t border-slate-200 pt-4 text-center text-xs text-slate-400 sm:flex-row sm:justify-between sm:text-left">
+          <span>
+            Created by Ethan B. Chen under the advising of Dr. Po-Hao Chen and
+            Dr. Chintan Shah
+          </span>
+          <Link href="/admin" className="font-semibold text-slate-500 hover:text-teal-700">
+            Organizer access
+          </Link>
         </footer>
       </section>
     </main>

@@ -23,6 +23,7 @@ Required environment variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `ADMIN_SECRET` protects `/admin` and admin-only API routes. Use a strong value locally and in Vercel; do not commit a real secret.
 - `PARTICIPANT_SESSION_SECRET` is optional but recommended. It signs the lightweight participant session token returned after access-code validation. If omitted, the server falls back to `SUPABASE_SERVICE_ROLE_KEY`.
 
 The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and report text files from `public/mock-reports/`. It upserts one active challenge, all reports, all answer keys, and mock participants `P001` through `P050`, so it is safe to run more than once.
@@ -101,6 +102,40 @@ The app has Supabase-backed submission routes for future database mode:
 - `GET /api/leaderboard`
 
 These routes use the server-only service role client. Public/Test Attempt and final submissions can use real OpenRouter evaluation when `USE_REAL_LLM=true`. Successful Supabase-mode submissions create `prompt_runs` and `submissions` rows. If Supabase is unavailable or unseeded, the frontend falls back to the existing browser `localStorage` submission store.
+
+## Admin Dashboard
+
+`/admin` is organizer-only and protected by `ADMIN_SECRET`. The login route checks the secret server-side and sets an httpOnly admin session cookie. The secret and Supabase service role key are never exposed to the frontend.
+
+Admin v1 shows:
+
+- Total participants and participants with access codes.
+- Test and final submission counts.
+- Participants who completed final.
+- Latest run timestamp.
+- Participant table with access code, test attempts used, latest/best test score, final status, and final score.
+- Results table ranked primarily by final score.
+
+CSV exports require the admin session:
+
+- `/api/admin/export/access-codes`: `participant_code`, `display_name`, `access_code`
+- `/api/admin/export/results`: `participant_code`, `test_attempts_used`, `latest_test_score`, `best_test_score`, `final_score`, `final_submitted_at`, `final_model_name`
+
+The admin reset requires typing `RESET` and deletes only:
+
+- `prompt_run_items`
+- `submissions`
+- `prompt_runs`
+
+It does not delete:
+
+- `participants`
+- access codes
+- `reports`
+- `answer_keys`
+- `challenges`
+
+Future admin tools may include regenerating access codes, adding/removing/deactivating participants, and clearing selected participant data. Those are intentionally not implemented in Admin v1.
 
 ## Tables
 
