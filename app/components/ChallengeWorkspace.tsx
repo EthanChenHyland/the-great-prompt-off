@@ -832,7 +832,7 @@ function PromptEditor({
           className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:text-teal-700"
           aria-expanded={showHelp}
         >
-          <span>Prompt guidance</span>
+          <span>Output format guide</span>
           <span className="text-xs text-slate-500">
             {showHelp ? "Hide" : "Need help?"}
           </span>
@@ -840,25 +840,73 @@ function PromptEditor({
         {showHelp ? (
           <div className="grid gap-4 border-t border-slate-200 p-4 text-sm leading-6 text-slate-700">
             <div>
-              <p className="font-semibold text-slate-900">Required fields</p>
-              <div className="mt-2 grid gap-1 font-mono text-xs">
-                {findingKeys.map((key) => (
-                  <span key={key}>{key}</span>
-                ))}
+              <p className="font-semibold text-slate-900">
+                Why format matters
+              </p>
+              <p className="mt-1">
+                The AI must answer in a very specific machine-readable format so
+                the app can score it. Even if the medical reasoning is correct,
+                the score may be 0 if the output format is wrong.
+              </p>
+              <p className="mt-2">
+                Think of JSON as a small form with fixed field names and fixed
+                answer choices.
+              </p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div>
+                <p className="font-semibold text-slate-900">
+                  Exact field names
+                </p>
+                <div className="mt-2 grid gap-1 font-mono text-xs">
+                  {findingKeys.map((key) => (
+                    <span key={key}>{key}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900">
+                  Exact answer choices
+                </p>
+                <p className="mt-2 font-mono text-xs">
+                  present / absent / uncertain
+                </p>
+                <p className="mt-2">
+                  Do not use words like intact, torn, yes, no, normal, abnormal,
+                  positive, or negative.
+                </p>
               </div>
             </div>
-            <div>
-              <p className="font-semibold text-slate-900">Allowed values</p>
-              <p className="mt-1 font-mono text-xs">present / absent / uncertain</p>
-            </div>
             <ul className="list-disc space-y-1 pl-5">
-              <li>Tell the model to return structured JSON.</li>
-              <li>Include all six required fields.</li>
-              <li>Define how to decide present, absent, and uncertain.</li>
-              <li>Specify how to handle ambiguous report language.</li>
-              <li>Ask for JSON only, with no markdown or explanation.</li>
+              <li>Tell the AI to return only one raw JSON object.</li>
+              <li>The first character should be {"{"} and the last should be {"}"}.</li>
+              <li>Do not include explanations, totals, tallies, markdown, code fences, or extra fields.</li>
               <li>Use test attempts to refine your prompt before final submission.</li>
             </ul>
+            <div>
+              <p className="font-semibold text-slate-900">
+                Short starter sentence
+              </p>
+              <p className="mt-2 rounded-md border border-slate-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800">
+                Return only the six fields shown in the example, using only
+                present, absent, or uncertain.
+              </p>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">
+                Copyable format example
+              </p>
+              <pre className="mt-2 overflow-auto rounded-md border border-slate-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800">
+{`{
+  "acl_tear": "absent",
+  "mcl_injury": "absent",
+  "meniscus_tear": "absent",
+  "fracture": "absent",
+  "osteoarthritis": "absent",
+  "effusion": "absent"
+}`}
+              </pre>
+            </div>
           </div>
         ) : null}
       </div>
