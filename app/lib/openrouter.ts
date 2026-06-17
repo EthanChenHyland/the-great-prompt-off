@@ -1,5 +1,3 @@
-import { findingKeys } from "./challenge-constants";
-
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const defaultModel = "google/gemini-2.0-flash-001";
 const requestTimeoutMs = 30000;
@@ -49,19 +47,16 @@ export async function extractReportWithOpenRouter({
     {
       role: "system",
       content:
-        "You extract structured findings from synthetic knee MRI reports. Return only strict JSON with exactly these keys: acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion. Each value must be one of: present, absent, uncertain. Do not include markdown, prose, or extra keys.",
+        "You are evaluating a participant's prompt against a synthetic knee MRI report. Follow the participant prompt exactly. Do not add hidden extraction requirements, schemas, or formatting rules beyond what the participant prompt asks for.",
     },
     {
       role: "user",
       content: [
-        "Participant prompt:",
+        "Participant prompt to follow exactly:",
         prompt || "(No participant prompt provided.)",
         "",
-        "Synthetic knee MRI report:",
+        "Input synthetic knee MRI report:",
         reportText,
-        "",
-        `Required keys: ${findingKeys.join(", ")}`,
-        "Allowed values: present, absent, uncertain",
       ].join("\n"),
     },
   ];
@@ -81,9 +76,6 @@ export async function extractReportWithOpenRouter({
         messages,
         temperature: 0,
         max_tokens: 300,
-        response_format: {
-          type: "json_object",
-        },
       }),
     });
   } catch (error) {
