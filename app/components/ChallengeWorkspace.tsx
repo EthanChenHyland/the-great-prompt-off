@@ -612,7 +612,7 @@ export function ChallengeWorkspace({
         <div className="grid gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
           <TaskSidebar />
 
-          <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+          <section className="grid min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <PromptEditor
               prompt={prompt}
               remainingPublicSubmissions={remainingPublicSubmissions}
@@ -908,7 +908,7 @@ function ReportViewer({
   setActiveReportId: (id: string) => void;
 }) {
   return (
-    <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="flex min-w-0 flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
         Public test reports
       </p>
@@ -931,7 +931,7 @@ function ReportViewer({
           </button>
         ))}
       </div>
-      <article className="mt-4 max-h-[360px] overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-6 text-slate-800">
+      <article className="mt-4 min-h-[360px] flex-1 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-6 text-slate-800">
         {activeReport.text}
       </article>
     </section>
