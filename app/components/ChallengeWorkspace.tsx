@@ -789,7 +789,7 @@ function PromptEditor({
   const [showHelp, setShowHelp] = useState(false);
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="h-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
@@ -898,7 +898,7 @@ function ReportViewer({
   setActiveReportId: (id: string) => void;
 }) {
   return (
-    <section className="flex min-h-0 min-w-0 flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
         Public test reports
       </p>
@@ -921,7 +921,7 @@ function ReportViewer({
           </button>
         ))}
       </div>
-      <article className="mt-4 min-h-[360px] max-h-[calc(100vh-18rem)] flex-1 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-6 text-slate-800">
+      <article className="mt-4 min-h-[360px] flex-1 overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-6 text-slate-800">
         {activeReport.text}
       </article>
     </section>
