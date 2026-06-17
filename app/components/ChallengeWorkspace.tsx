@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -97,6 +97,7 @@ type ChallengeDataStatus = {
   source: "supabase" | "mock-file-fallback";
   fallbackReason: string | null;
   challenge: {
+    id: string;
     title: string;
     eventPhase: EventPhase;
     evaluationModelDisplayName?: string;
@@ -159,6 +160,8 @@ export function ChallengeWorkspace({
   const [challengeDataStatus, setChallengeDataStatus] =
     useState<ChallengeDataStatus | null>(null);
   const [challengeDataError, setChallengeDataError] = useState("");
+  const [lastStatusUpdated, setLastStatusUpdated] = useState<Date | null>(null);
+  const [statusRefreshWarning, setStatusRefreshWarning] = useState("");
   const [participantValidation, setParticipantValidation] =
     useState<ParticipantValidationResponse | null>(null);
   const [participantValidationError, setParticipantValidationError] =
@@ -202,6 +205,11 @@ export function ChallengeWorkspace({
     privateReportCount !== null && privateReportCount > 0
       ? `${privateReportCount} hidden report${privateReportCount === 1 ? "" : "s"}`
       : "the hidden final reports";
+  const challengeId = challengeDataStatus?.challenge?.id ?? "pending-challenge";
+  const draftKey = activeParticipantId
+    ? `great-prompt-off-draft:${challengeId}:${activeParticipantId}`
+    : "";
+  const loadedDraftKeyRef = useRef("");
   const eventPhase = challengeDataStatus?.challenge?.eventPhase ?? "practice_open";
   const phaseMessage = eventPhaseMessage(eventPhase);
   const canViewPublicReports = eventPhase !== "not_started";
@@ -265,6 +273,8 @@ export function ChallengeWorkspace({
         if (!ignore) {
           setChallengeDataStatus(data);
           setChallengeDataError("");
+          setStatusRefreshWarning("");
+          setLastStatusUpdated(new Date());
         }
       } catch (error) {
         if (!ignore) {
@@ -273,14 +283,19 @@ export function ChallengeWorkspace({
               ? error.message
               : "Challenge data status is unavailable.",
           );
+          setStatusRefreshWarning(
+            "Live status could not update. Showing the last available status.",
+          );
         }
       }
     }
 
     loadChallengeDataStatus();
+    const timer = window.setInterval(loadChallengeDataStatus, 7000);
 
     return () => {
       ignore = true;
+      window.clearInterval(timer);
     };
   }, []);
 
@@ -296,23 +311,111 @@ export function ChallengeWorkspace({
     let ignore = false;
 
     async function loadSubmissionData() {
-      const [status, leaderboard] = await Promise.all([
-        getSubmissionStatus(activeParticipantId, activeParticipantToken),
-        getLeaderboard(),
-      ]);
+      try {
+        const status = await getSubmissionStatus(
+          activeParticipantId,
+          activeParticipantToken,
+        );
 
-      if (!ignore) {
-        setSubmissionStatus(status);
-        setLeaderboardResponse(leaderboard);
+        if (!ignore) {
+          setSubmissionStatus(status);
+          setStatusRefreshWarning("");
+          setLastStatusUpdated(new Date());
+        }
+      } catch {
+        if (!ignore) {
+          setStatusRefreshWarning(
+            "Live status could not update. Showing the last available status.",
+          );
+        }
       }
     }
 
     loadSubmissionData();
+    const timer = window.setInterval(loadSubmissionData, 7000);
 
     return () => {
       ignore = true;
+      window.clearInterval(timer);
     };
   }, [activeParticipantId, activeParticipantToken, participantValidation?.valid]);
+
+  useEffect(() => {
+    if (
+      !activeParticipantId ||
+      !activeParticipantToken ||
+      participantValidation?.valid !== true
+    ) {
+      return;
+    }
+
+    let ignore = false;
+
+    async function loadLeaderboardData() {
+      try {
+        const leaderboard = await getLeaderboard();
+
+        if (!ignore) {
+          setLeaderboardResponse(leaderboard);
+          setStatusRefreshWarning("");
+          setLastStatusUpdated(new Date());
+        }
+      } catch {
+        if (!ignore) {
+          setStatusRefreshWarning(
+            "Leaderboard could not update. Showing the last available results.",
+          );
+        }
+      }
+    }
+
+    loadLeaderboardData();
+    const timer = window.setInterval(loadLeaderboardData, 12000);
+
+    return () => {
+      ignore = true;
+      window.clearInterval(timer);
+    };
+  }, [activeParticipantId, activeParticipantToken, participantValidation?.valid]);
+
+  useEffect(() => {
+    if (!draftKey || loadedDraftKeyRef.current === draftKey) {
+      return;
+    }
+
+    loadedDraftKeyRef.current = draftKey;
+    let timer: number | null = null;
+
+    try {
+      const savedDraft = window.localStorage.getItem(draftKey);
+
+      if (savedDraft) {
+        timer = window.setTimeout(() => {
+          setPrompt((current) => current || savedDraft);
+        }, 0);
+      }
+    } catch {
+      // Draft saving is best-effort; challenge work should continue without it.
+    }
+
+    return () => {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey) {
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(draftKey, prompt);
+    } catch {
+      // Ignore storage quota/privacy mode failures.
+    }
+  }, [draftKey, prompt]);
 
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const currentRows = useMemo(() => {
@@ -654,6 +757,10 @@ export function ChallengeWorkspace({
         </header>
 
         <PhaseNotice eventPhase={eventPhase} message={phaseMessage} />
+        <LiveUpdateStatus
+          lastUpdated={lastStatusUpdated}
+          warning={statusRefreshWarning}
+        />
 
         <div className="grid min-h-0 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
           <TaskSidebar
@@ -750,6 +857,37 @@ function PhaseNotice({
       <p className="font-semibold">Event status</p>
       <p>{message}</p>
     </section>
+  );
+}
+
+function LiveUpdateStatus({
+  lastUpdated,
+  warning,
+}: {
+  lastUpdated: Date | null;
+  warning: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+      <span>Updates automatically</span>
+      <span aria-hidden="true">|</span>
+      <span>
+        Last updated:{" "}
+        {lastUpdated
+          ? lastUpdated.toLocaleTimeString([], {
+              hour: "numeric",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+          : "-"}
+      </span>
+      {warning ? (
+        <>
+          <span aria-hidden="true">|</span>
+          <span className="text-amber-700">{warning}</span>
+        </>
+      ) : null}
+    </div>
   );
 }
 

@@ -56,7 +56,7 @@ export default async function AdminPage() {
 
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <AdminSectionNav currentHref="/admin" />
-        <AdminAutoRefresh intervalSeconds={30} />
+        <AdminAutoRefresh intervalSeconds={15} />
       </div>
 
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">

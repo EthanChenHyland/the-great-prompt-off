@@ -20,6 +20,14 @@ export function AdminAutoRefresh({
     });
   }, [router]);
 
+  const refreshIfSafe = useCallback(() => {
+    if (hasEditableFocus()) {
+      return;
+    }
+
+    refreshNow();
+  }, [refreshNow]);
+
   useEffect(() => {
     const initialTimer = window.setTimeout(() => {
       setLastRefreshed(new Date());
@@ -31,13 +39,13 @@ export function AdminAutoRefresh({
       };
     }
 
-    const timer = window.setInterval(refreshNow, intervalSeconds * 1000);
+    const timer = window.setInterval(refreshIfSafe, intervalSeconds * 1000);
 
     return () => {
       window.clearTimeout(initialTimer);
       window.clearInterval(timer);
     };
-  }, [intervalSeconds, refreshNow]);
+  }, [intervalSeconds, refreshIfSafe]);
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500 shadow-sm">
@@ -66,5 +74,20 @@ export function AdminAutoRefresh({
         {isPending ? "Refreshing..." : "Refresh now"}
       </button>
     </div>
+  );
+}
+
+function hasEditableFocus() {
+  const activeElement = document.activeElement;
+
+  if (!activeElement) {
+    return false;
+  }
+
+  return (
+    activeElement instanceof HTMLInputElement ||
+    activeElement instanceof HTMLTextAreaElement ||
+    activeElement instanceof HTMLSelectElement ||
+    activeElement.getAttribute("contenteditable") === "true"
   );
 }

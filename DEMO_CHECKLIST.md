@@ -65,6 +65,8 @@ Before the event, Health Check should show:
 - Set the event phase to `practice_open` when the challenge begins.
 - Set the event phase to `final_open` for the final round.
 - Set the event phase to `ended` when submissions should close.
+- Participant status and leaderboard panels update automatically during the event.
+- `/admin` and `/admin/results` auto-refresh for monitoring; use manual refresh on pages with edit forms.
 
 ## Post-Event
 
