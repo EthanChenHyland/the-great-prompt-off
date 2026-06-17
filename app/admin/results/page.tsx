@@ -1,7 +1,9 @@
 import { AdminLoginForm } from "../../components/AdminLoginForm";
+import { AdminAutoRefresh } from "../../components/AdminAutoRefresh";
 import {
   AdminHeader,
   AdminPageFrame,
+  AdminSectionNav,
   AdminTable,
   formatDate,
   MetricCard,
@@ -38,6 +40,11 @@ export default async function AdminResultsPage() {
           </a>
         }
       />
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <AdminSectionNav currentHref="/admin/results" />
+        <AdminAutoRefresh intervalSeconds={15} />
+      </div>
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard

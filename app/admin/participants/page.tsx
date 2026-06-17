@@ -1,8 +1,10 @@
 import { AdminLoginForm } from "../../components/AdminLoginForm";
+import { AdminAutoRefresh } from "../../components/AdminAutoRefresh";
 import { AdminParticipantActions } from "../../components/AdminActions";
 import {
   AdminHeader,
   AdminPageFrame,
+  AdminSectionNav,
   AdminTable,
   score,
 } from "../../components/AdminLayout";
@@ -29,6 +31,11 @@ export default async function AdminParticipantsPage() {
         title="Participants"
         subtitle="Manage participant identity, access code status, activation, and participant-specific run clears."
       />
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <AdminSectionNav currentHref="/admin/participants" />
+        <AdminAutoRefresh />
+      </div>
 
       <AdminTable
         title="Participant management"

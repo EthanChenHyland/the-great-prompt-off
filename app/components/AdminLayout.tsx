@@ -27,7 +27,11 @@ export function AdminHeader({
       <div>
         <Link
           href={backHref || "/"}
-          className="text-sm font-semibold text-teal-700"
+          className={
+            backHref
+              ? "inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
+              : "text-sm font-semibold text-teal-700"
+          }
         >
           {backHref ? "Back to admin dashboard" : "The Great Prompt-Off"}
         </Link>
@@ -83,6 +87,42 @@ export function AdminNavigationCards() {
         </Link>
       ))}
     </section>
+  );
+}
+
+export function AdminSectionNav({ currentHref }: { currentHref: string }) {
+  const items = [
+    { href: "/admin", label: "Dashboard" },
+    { href: "/admin/participants", label: "Participants" },
+    { href: "/admin/results", label: "Results" },
+    { href: "/admin/cases", label: "Cases" },
+    { href: "/admin/help", label: "Help" },
+  ];
+
+  return (
+    <nav
+      aria-label="Admin pages"
+      className="flex flex-wrap gap-2 rounded-lg border border-slate-200 bg-white p-2 shadow-sm"
+    >
+      {items.map((item) => {
+        const isCurrent = item.href === currentHref;
+
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            aria-current={isCurrent ? "page" : undefined}
+            className={`inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold ${
+              isCurrent
+                ? "bg-teal-700 text-white"
+                : "text-slate-700 hover:bg-slate-100 hover:text-teal-700"
+            }`}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }
 

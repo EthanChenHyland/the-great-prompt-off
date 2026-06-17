@@ -1,5 +1,9 @@
 import { AdminLoginForm } from "../../components/AdminLoginForm";
-import { AdminHeader, AdminPageFrame } from "../../components/AdminLayout";
+import {
+  AdminHeader,
+  AdminPageFrame,
+  AdminSectionNav,
+} from "../../components/AdminLayout";
 import { hasAdminSession } from "../../lib/supabase/admin-auth";
 
 const helpSections = [
@@ -108,6 +112,8 @@ export default async function AdminHelpPage() {
         title="Organizer Help"
         subtitle="Quick admin reference for running and troubleshooting a workshop."
       />
+
+      <AdminSectionNav currentHref="/admin/help" />
 
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">

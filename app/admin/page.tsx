@@ -1,9 +1,11 @@
 import { AdminLoginForm } from "../components/AdminLoginForm";
+import { AdminAutoRefresh } from "../components/AdminAutoRefresh";
 import { AdminLogoutButton, AdminResetPanel } from "../components/AdminActions";
 import {
   AdminHeader,
   AdminNavigationCards,
   AdminPageFrame,
+  AdminSectionNav,
   formatDate,
   HealthItem,
   MetricCard,
@@ -47,6 +49,11 @@ export default async function AdminPage() {
           </>
         }
       />
+
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <AdminSectionNav currentHref="/admin" />
+        <AdminAutoRefresh intervalSeconds={30} />
+      </div>
 
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard label="Participants" value={data.overview.totalParticipants} />

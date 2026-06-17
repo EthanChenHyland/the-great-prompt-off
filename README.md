@@ -24,6 +24,12 @@ Admin pages:
 - `/admin/cases` = live Case Manager.
 - `/admin/help` = organizer help and documentation notes.
 
+`/admin` auto-refreshes every 30 seconds, and `/admin/results` auto-refreshes
+every 15 seconds for event monitoring. Monitoring pages include a secondary
+Refresh now control. Participant and Case Manager pages use manual refresh only
+so organizer edits are not interrupted. Secondary admin pages include a back
+button and page navigation links.
+
 The admin tools include:
 
 - CSV export for access codes.
