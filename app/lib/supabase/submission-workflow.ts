@@ -3,6 +3,7 @@ import "server-only";
 import { getAnswerKeyItems } from "@/app/lib/challenge-data";
 import {
   extractReportWithOpenRouter,
+  getOpenRouterConcurrency,
   getOpenRouterModel,
   hasOpenRouterApiKey,
   shouldUseRealLlm,
@@ -463,10 +464,15 @@ async function evaluateWithRealLlm(
   }
 
   const model = getOpenRouterModel();
+  const concurrency = getOpenRouterConcurrency();
 
   try {
-    const items = await Promise.all(
-      answerKeys.map(async (item) => {
+    // Final submissions can evaluate 45 reports. Limit OpenRouter fan-out so one
+    // participant submission is less likely to hit provider rate limits.
+    const items = await mapWithConcurrency(
+      answerKeys,
+      concurrency,
+      async (item) => {
         if (!item.text) {
           throw new Error(`Missing report text for ${item.id}.`);
         }
@@ -485,7 +491,7 @@ async function evaluateWithRealLlm(
           modelOutput,
           error: validationMessage(score),
         };
-      }),
+      },
     );
 
     return {
@@ -502,6 +508,29 @@ async function evaluateWithRealLlm(
       `Real ${submissionLabel(kind).toLowerCase()} evaluation failed before completion: ${message}. ${submissionLabel(kind)} was not counted.`,
     );
   }
+}
+
+async function mapWithConcurrency<T, R>(
+  values: T[],
+  concurrency: number,
+  mapper: (value: T) => Promise<R>,
+) {
+  const results: R[] = new Array(values.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < values.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(values[currentIndex]);
+    }
+  }
+
+  const workerCount = Math.min(concurrency, values.length);
+
+  await Promise.all(Array.from({ length: workerCount }, worker));
+
+  return results;
 }
 
 async function getActiveChallenge(

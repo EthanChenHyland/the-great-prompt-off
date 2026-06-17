@@ -10,6 +10,7 @@
 - Set `USE_REAL_LLM=true` for live OpenRouter evaluation.
 - Set `OPENROUTER_MODEL`.
 - Set `OPENROUTER_API_KEY`.
+- Optionally set `OPENROUTER_CONCURRENCY=3` to limit simultaneous report evaluations.
 
 ## Database Prep
 

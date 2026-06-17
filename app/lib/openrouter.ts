@@ -1,5 +1,6 @@
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const defaultModel = "google/gemini-2.0-flash-001";
+const defaultConcurrency = 3;
 const requestTimeoutMs = 30000;
 
 type OpenRouterMessage = {
@@ -21,6 +22,16 @@ export function shouldUseRealLlm() {
 
 export function getOpenRouterModel() {
   return process.env.OPENROUTER_MODEL || defaultModel;
+}
+
+export function getOpenRouterConcurrency() {
+  const parsed = Number.parseInt(process.env.OPENROUTER_CONCURRENCY || "", 10);
+
+  if (!Number.isFinite(parsed)) {
+    return defaultConcurrency;
+  }
+
+  return Math.min(Math.max(parsed, 1), 10);
 }
 
 export function hasOpenRouterApiKey() {
