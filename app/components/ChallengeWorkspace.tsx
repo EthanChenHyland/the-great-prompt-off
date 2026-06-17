@@ -285,14 +285,14 @@ export function ChallengeWorkspace({
   }, [leaderboardResponse, submissionStore]);
 
   function submitPublic() {
-    submitMockScore("public");
+    submitChallengePrompt("public");
   }
 
   function submitFinal() {
-    submitMockScore("final");
+    submitChallengePrompt("final");
   }
 
-  async function submitMockScore(kind: SubmissionKind) {
+  async function submitChallengePrompt(kind: SubmissionKind) {
     if (!activeParticipantId || !activeParticipantToken) {
       setSubmissionMessage("Enter your participant access code before submitting.");
       return;
