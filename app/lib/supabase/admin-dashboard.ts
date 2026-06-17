@@ -331,6 +331,29 @@ export async function setParticipantActive(participantCode: string, isActive: bo
   }
 }
 
+export async function updateParticipantIdentity({
+  displayName,
+  email,
+  participantCode,
+}: {
+  displayName: string | null;
+  email: string | null;
+  participantCode: string;
+}) {
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("participants")
+    .update({
+      display_name: displayName,
+      email,
+    })
+    .eq("participant_code", participantCode);
+
+  if (error) {
+    throw new Error(`Failed to update participant identity: ${error.message}`);
+  }
+}
+
 async function getParticipantByCode(participantCode: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase

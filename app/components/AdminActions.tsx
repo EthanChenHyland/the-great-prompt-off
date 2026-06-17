@@ -95,13 +95,20 @@ export function AdminResetPanel() {
 }
 
 export function AdminParticipantActions({
+  displayName,
+  email,
   isActive,
   participantCode,
 }: {
+  displayName: string | null;
+  email: string | null;
   isActive: boolean;
   participantCode: string;
 }) {
   const router = useRouter();
+  const [draftDisplayName, setDraftDisplayName] = useState(displayName || "");
+  const [draftEmail, setDraftEmail] = useState(email || "");
+  const [isEditing, setIsEditing] = useState(false);
   const [message, setMessage] = useState("");
   const [isPending, setIsPending] = useState(false);
 
@@ -187,9 +194,40 @@ export function AdminParticipantActions({
     }
   }
 
+  async function saveIdentity() {
+    const result = await postAction("/api/admin/participants/update-identity", {
+      participantCode,
+      displayName: draftDisplayName,
+      email: draftEmail,
+    });
+
+    if (result) {
+      setIsEditing(false);
+      setMessage("Participant identity updated.");
+    }
+  }
+
+  function cancelIdentityEdit() {
+    setDraftDisplayName(displayName || "");
+    setDraftEmail(email || "");
+    setIsEditing(false);
+    setMessage("");
+  }
+
   return (
     <div className="grid min-w-[180px] gap-2">
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            setIsEditing((current) => !current);
+            setMessage("");
+          }}
+          disabled={isPending}
+          className="h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+        >
+          Edit
+        </button>
         <button
           type="button"
           onClick={regenerateAccessCode}
@@ -215,6 +253,47 @@ export function AdminParticipantActions({
           {isActive ? "Deactivate" : "Reactivate"}
         </button>
       </div>
+      {isEditing ? (
+        <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-2">
+          <label className="grid gap-1 text-xs font-semibold text-slate-600">
+            Display name
+            <input
+              value={draftDisplayName}
+              onChange={(event) => setDraftDisplayName(event.target.value)}
+              maxLength={80}
+              className="h-8 rounded-md border border-slate-300 bg-white px-2 font-normal text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-semibold text-slate-600">
+            Email
+            <input
+              type="email"
+              value={draftEmail}
+              onChange={(event) => setDraftEmail(event.target.value)}
+              maxLength={254}
+              className="h-8 rounded-md border border-slate-300 bg-white px-2 font-normal text-slate-900 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+            />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={saveIdentity}
+              disabled={isPending}
+              className="h-8 rounded-md bg-teal-700 px-2 text-xs font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={cancelIdentityEdit}
+              disabled={isPending}
+              className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs font-semibold text-slate-700 hover:border-slate-500 disabled:cursor-not-allowed disabled:bg-slate-100"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : null}
       {message ? <p className="text-xs leading-5 text-slate-500">{message}</p> : null}
     </div>
   );

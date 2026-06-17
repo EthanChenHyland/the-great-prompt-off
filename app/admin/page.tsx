@@ -150,6 +150,8 @@ export default async function AdminPage() {
                 score(participant.finalScore),
                 <AdminParticipantActions
                   key={participant.participantCode}
+                  displayName={participant.displayName}
+                  email={participant.email}
                   isActive={participant.isActive}
                   participantCode={participant.participantCode}
                 />,
