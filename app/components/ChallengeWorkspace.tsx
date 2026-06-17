@@ -16,7 +16,6 @@ import {
 } from "../lib/participant-session";
 import { countCorrectFields } from "../lib/mock-evaluation";
 import {
-  clearParticipantPublicSubmissions,
   createSubmissionId,
   getLocalLeaderboardRows,
   getParticipantHistory,
@@ -54,6 +53,12 @@ type SampleRunDebug = {
   promptHash: string;
   promptLength: number;
   promptPreview: string;
+};
+
+type PromptDebug = SampleRunDebug;
+
+type SubmissionPromptDebug = PromptDebug & {
+  kind: SubmissionKind;
 };
 
 type ChallengeWorkspaceProps = {
@@ -102,7 +107,7 @@ type ParticipantValidationResponse = {
 };
 
 const initialPrompt = "";
-const workspaceBuildMarker = "sample-debug-v1";
+const workspaceBuildMarker = "workflow-polish-v1";
 
 const examplePrompt = `You are extracting structured findings from a knee MRI report.
 
@@ -141,6 +146,8 @@ export function ChallengeWorkspace({
   const [pendingSamplePromptPreview, setPendingSamplePromptPreview] =
     useState("");
   const [sampleRunError, setSampleRunError] = useState("");
+  const [lastSubmissionPromptDebug, setLastSubmissionPromptDebug] =
+    useState<SubmissionPromptDebug | null>(null);
   const [challengeDataStatus, setChallengeDataStatus] =
     useState<ChallengeDataStatus | null>(null);
   const [challengeDataError, setChallengeDataError] = useState("");
@@ -334,9 +341,34 @@ export function ChallengeWorkspace({
       return;
     }
 
+    if (pendingAction !== null) {
+      return;
+    }
+
+    if (kind === "public") {
+      const confirmed = window.confirm(
+        `Use 1 public attempt for this prompt? You have ${remainingPublicSubmissions} public attempt${remainingPublicSubmissions === 1 ? "" : "s"} remaining.`,
+      );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    if (kind === "final") {
+      const confirmed = window.confirm(
+        "Final submission can only be used once and will be locked. Continue?",
+      );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setPendingAction(kind);
 
     try {
+      const promptDebug = await createPromptDebug(prompt);
       const score = await postSubmission(
         kind === "public"
           ? "/api/submissions/public"
@@ -375,6 +407,10 @@ export function ChallengeWorkspace({
         }
       }
 
+      setLastSubmissionPromptDebug({
+        ...promptDebug,
+        kind,
+      });
       setSubmissionMessage(
         `${kind === "public" ? "Public" : "Final"} submission saved: ${Math.round(
           score.score,
@@ -401,11 +437,7 @@ export function ChallengeWorkspace({
     router.push("/");
   }
 
-  function clearAndExit() {
-    if (activeParticipantId) {
-      clearParticipantPublicSubmissions(activeParticipantId);
-    }
-
+  function switchParticipant() {
     clearParticipantId();
     setParticipantId("");
     window.location.assign("/");
@@ -563,7 +595,7 @@ export function ChallengeWorkspace({
               {challenge.title}
             </h1>
             <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
-              Mock mode: local demo only
+              Sample runs can use live LLM mode; public and final scoring are not live LLM yet
             </p>
             <p className="mt-2 w-fit rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
               Build: {workspaceBuildMarker}
@@ -587,14 +619,14 @@ export function ChallengeWorkspace({
               onClick={saveAndExit}
               className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
             >
-              Save and exit
+              Exit challenge
             </button>
             <button
               type="button"
-              onClick={clearAndExit}
+              onClick={switchParticipant}
               className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
             >
-              Clear and exit
+              Switch participant
             </button>
           </div>
         </header>
@@ -647,6 +679,7 @@ export function ChallengeWorkspace({
                   : localParticipantHistory.publicSubmissions.at(-1)?.score ?? null
               }
               message={submissionMessage}
+              promptDebug={lastSubmissionPromptDebug}
               onSubmitFinal={submitFinal}
               onSubmitPublic={submitPublic}
               pendingAction={pendingAction}
@@ -710,12 +743,11 @@ function TaskSidebar() {
       </div>
 
       <div className="mt-6 border-t border-slate-200 pt-5">
-        <h3 className="text-sm font-semibold text-slate-800">MVP boundaries</h3>
+        <h3 className="text-sm font-semibold text-slate-800">Workflow</h3>
         <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-          <li>Local mock data only</li>
-          <li>No authentication</li>
-          <li>No model provider calls</li>
-          <li>No database writes</li>
+          <li>Sample: practice on 5 reports; does not count.</li>
+          <li>Public: counted attempts with a limited allowance.</li>
+          <li>Final: one locked submission for final scoring.</li>
         </ul>
       </div>
     </aside>
@@ -811,8 +843,23 @@ function PromptEditor({
           </h2>
         </div>
         <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-          Static run
+          Workspace prompt
         </span>
+      </div>
+      <div className="mt-4 grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
+        <p>
+          <span className="font-semibold text-slate-800">Sample</span> is practice:
+          5 sample reports, unlimited runs, no counted attempts.
+        </p>
+        <p>
+          <span className="font-semibold text-slate-800">Public</span> uses counted
+          attempts. Do not click repeatedly; real LLM public mode may take longer
+          and may incur API cost once enabled.
+        </p>
+        <p>
+          <span className="font-semibold text-slate-800">Final</span> can only be
+          used once and is locked after submission.
+        </p>
       </div>
       <textarea
         value={prompt}
@@ -1064,6 +1111,7 @@ function SubmissionPanel({
   onSubmitPublic,
   pendingAction,
   participantReady,
+  promptDebug,
   publicSubmissionLimit,
   publicSubmissionsUsed,
   remainingPublicSubmissions,
@@ -1077,6 +1125,7 @@ function SubmissionPanel({
   onSubmitPublic: () => void;
   pendingAction: "sample" | "public" | "final" | null;
   participantReady: boolean;
+  promptDebug: SubmissionPromptDebug | null;
   publicSubmissionLimit: number;
   publicSubmissionsUsed: number;
   remainingPublicSubmissions: number;
@@ -1095,6 +1144,11 @@ function SubmissionPanel({
           ? "Submission source: Supabase"
           : "Submission source: local browser fallback"}
       </p>
+      <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+        Public attempts are counted. Final submission can only be used once.
+        Real LLM public/final evaluation is not enabled yet; once enabled, it may
+        take longer and may incur API cost.
+      </div>
       <div className="mt-4 grid gap-3">
         <div className="rounded-md border border-slate-200 px-3 py-3">
           <p className="text-sm font-semibold text-slate-700">
@@ -1151,6 +1205,17 @@ function SubmissionPanel({
           {message}
         </p>
       ) : null}
+      {promptDebug ? (
+        <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+          <p className="font-semibold text-slate-800">
+            Last {promptDebug.kind === "public" ? "public" : "final"} prompt
+          </p>
+          <p className="mt-1 break-words">{promptDebug.promptPreview}</p>
+          <p className="mt-1 font-mono">
+            hash {promptDebug.promptHash} - {promptDebug.promptLength} chars
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1175,7 +1240,9 @@ function Leaderboard({
       <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
         {rows.length === 0 ? (
           <p className="bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            Final submissions saved in this browser will appear here.
+            {source === "supabase"
+              ? "Final submissions will appear here after participants submit."
+              : "Final submissions saved in this browser will appear here."}
           </p>
         ) : rows.map((row) => (
           <div
@@ -1247,6 +1314,34 @@ function summarizeResults(results: ReportResult[]): ScoreSummary {
 
 function previewPrompt(prompt: string) {
   return prompt.length > 80 ? `${prompt.slice(0, 80)}...` : prompt;
+}
+
+async function createPromptDebug(prompt: string): Promise<PromptDebug> {
+  return {
+    promptHash: await hashPrompt(prompt),
+    promptLength: prompt.length,
+    promptPreview: previewPrompt(prompt),
+  };
+}
+
+async function hashPrompt(prompt: string) {
+  if (window.crypto?.subtle) {
+    const bytes = new TextEncoder().encode(prompt);
+    const digest = await window.crypto.subtle.digest("SHA-256", bytes);
+
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, "0"))
+      .join("")
+      .slice(0, 12);
+  }
+
+  let hash = 0;
+
+  for (let index = 0; index < prompt.length; index += 1) {
+    hash = (hash * 31 + prompt.charCodeAt(index)) >>> 0;
+  }
+
+  return hash.toString(16).padStart(8, "0").slice(0, 12);
 }
 
 async function postPrompt<TResponse>(url: string, prompt: string) {

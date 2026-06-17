@@ -19,9 +19,11 @@ type ParticipantValidationResponse = {
 export function LandingPage() {
   const router = useRouter();
   const [participantId, setParticipantId] = useState("");
+  const [showCodeEntry, setShowCodeEntry] = useState(false);
   const [validationMessage, setValidationMessage] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const savedParticipantId = useSavedParticipantId();
+  const showRememberedParticipant = savedParticipantId && !showCodeEntry;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -36,6 +38,13 @@ export function LandingPage() {
 
   async function continueSavedParticipant() {
     await validateAndEnter(savedParticipantId);
+  }
+
+  function useDifferentCode() {
+    clearParticipantId();
+    setParticipantId("");
+    setValidationMessage("");
+    setShowCodeEntry(true);
   }
 
   async function validateAndEnter(rawCode: string) {
@@ -76,7 +85,9 @@ export function LandingPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-700">
               The Great Prompt-Off
             </p>
-            <p className="mt-1 text-sm text-slate-500">Static MVP preview</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Prompt workshop challenge
+            </p>
           </div>
           <button
             type="button"
@@ -84,7 +95,9 @@ export function LandingPage() {
             disabled={!savedParticipantId}
             className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
           >
-            {savedParticipantId ? "Continue challenge" : "Enter ID to continue"}
+            {savedParticipantId
+              ? `Continue as ${savedParticipantId}`
+              : "Enter code to continue"}
           </button>
         </nav>
 
@@ -98,31 +111,43 @@ export function LandingPage() {
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
               Participants write prompts that extract six structured findings
-              from synthetic, non-PHI knee MRI reports. This MVP uses only local
-              mock reports and answer keys.
+              from synthetic, non-PHI knee MRI reports. Practice on sample
+              reports, then use limited public attempts before your final
+              locked submission.
             </p>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-            {savedParticipantId ? (
+            {showRememberedParticipant ? (
               <div className="mb-5 rounded-md border border-teal-200 bg-teal-50 p-4">
                 <p className="text-sm font-semibold text-teal-900">
-                  Current participant
+                  Remembered participant
                 </p>
                 <p className="mt-1 font-mono text-lg font-semibold text-teal-950">
                   {savedParticipantId}
                 </p>
-                <button
-                  type="button"
-                  onClick={continueSavedParticipant}
-                  disabled={isValidating}
-                  className="mt-4 h-11 w-full rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
-                >
-                  {isValidating ? "Checking..." : "Continue workspace"}
-                </button>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={continueSavedParticipant}
+                    disabled={isValidating}
+                    className="h-11 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  >
+                    {isValidating ? "Checking..." : `Continue as ${savedParticipantId}`}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={useDifferentCode}
+                    disabled={isValidating}
+                    className="h-11 rounded-md border border-teal-300 bg-white px-4 text-sm font-semibold text-teal-800 hover:border-teal-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    Use a different code
+                  </button>
+                </div>
               </div>
             ) : null}
 
+            {!showRememberedParticipant ? (
             <form onSubmit={handleSubmit}>
               <label
                 htmlFor="participant-id"
@@ -150,24 +175,25 @@ export function LandingPage() {
                 {isValidating ? "Checking..." : "Enter workspace"}
               </button>
             </form>
+            ) : null}
 
             <div className="mt-6 grid grid-cols-3 gap-3 border-t border-slate-200 pt-5 text-center">
               <div>
                 <p className="text-2xl font-semibold text-slate-950">5</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  Samples
+                  Sample reports
                 </p>
               </div>
               <div>
                 <p className="text-2xl font-semibold text-slate-950">6</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  Fields
+                  Extraction fields
                 </p>
               </div>
               <div>
-                <p className="text-2xl font-semibold text-slate-950">0</p>
+                <p className="text-2xl font-semibold text-slate-950">LLM</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  APIs
+                  Sample testing
                 </p>
               </div>
             </div>
