@@ -214,7 +214,7 @@ export async function resetWorkshopRunData() {
   const { error } = await supabase.rpc("admin_reset_workshop_run_data");
 
   if (error) {
-    throw new Error(`Failed to reset workshop run data: ${error.message}`);
+    throw new Error(`Failed to reset workshop run data: ${adminRpcError(error.message)}`);
   }
 }
 
@@ -259,8 +259,21 @@ export async function clearParticipantRunData(participantCode: string) {
   });
 
   if (error) {
-    throw new Error(`Failed to clear participant run data: ${error.message}`);
+    throw new Error(`Failed to clear participant run data: ${adminRpcError(error.message)}`);
   }
+}
+
+function adminRpcError(message: string) {
+  if (
+    message.toLowerCase().includes("admin_reset_workshop_run_data") ||
+    message.toLowerCase().includes("admin_clear_participant_run_data") ||
+    message.toLowerCase().includes("function") ||
+    message.toLowerCase().includes("where clause")
+  ) {
+    return `${message}. Run the latest supabase/admin-atomic-clears.sql in this Supabase project.`;
+  }
+
+  return message;
 }
 
 export async function setParticipantActive(participantCode: string, isActive: boolean) {

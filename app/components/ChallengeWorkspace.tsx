@@ -67,6 +67,22 @@ type SafeSubmissionFeedback = {
     correctFields: number;
     totalFields: number;
   }>;
+  reportDetails?: Array<{
+    reportLabel: string;
+    filename: string;
+    correctFields: number;
+    totalFields: number;
+    strictJsonValid: boolean;
+    recoveredJsonUsed: boolean;
+    normalizationUsed: boolean;
+    missingFields: string[];
+    invalidFields: Array<{
+      field: string;
+      value: unknown;
+    }>;
+    ignoredExtraFields: string[];
+    rawModelOutput: string;
+  }>;
 };
 
 type ChallengeWorkspaceProps = {
@@ -1139,9 +1155,100 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
             </div>
           </div>
         ) : null}
+        {isPublic && feedback.reportDetails?.length ? (
+          <div className="mt-2 border-t border-slate-200 pt-2">
+            <p className="font-semibold text-slate-800">AI response details</p>
+            <div className="mt-2 grid gap-2">
+              {feedback.reportDetails.map((report) => (
+                <details
+                  key={report.reportLabel}
+                  className="rounded-md border border-slate-200 bg-white p-2"
+                >
+                  <summary className="cursor-pointer text-xs font-semibold text-slate-800">
+                    {report.reportLabel} ({report.correctFields}/
+                    {report.totalFields}) - {report.filename}
+                  </summary>
+                  <div className="mt-2 grid gap-2 text-xs leading-5 text-slate-600">
+                    <div className="grid grid-cols-2 gap-2">
+                      <span>Strict JSON valid?</span>
+                      <span className="text-right font-semibold text-slate-800">
+                        {report.strictJsonValid ? "Yes" : "No"}
+                      </span>
+                      <span>Formatting cleanup used?</span>
+                      <span className="text-right font-semibold text-slate-800">
+                        {report.recoveredJsonUsed || report.normalizationUsed
+                          ? "Yes"
+                          : "No"}
+                      </span>
+                    </div>
+                    {report.recoveredJsonUsed || report.normalizationUsed ? (
+                      <p className="rounded-md bg-teal-50 p-2 text-teal-900">
+                        Accepted after formatting cleanup.
+                      </p>
+                    ) : null}
+                    {report.missingFields.length ||
+                    report.invalidFields.length ||
+                    report.ignoredExtraFields.length ? (
+                      <p className="rounded-md bg-amber-50 p-2 text-amber-900">
+                        This may not score because it did not return one raw JSON
+                        object with the exact six required fields. Values must be
+                        exactly present, absent, or uncertain.
+                      </p>
+                    ) : null}
+                    <DiagnosticList
+                      label="Missing fields"
+                      values={report.missingFields}
+                    />
+                    <DiagnosticList
+                      label="Invalid values"
+                      values={report.invalidFields.map(
+                        (field) => `${field.field}: ${formatDiagnosticValue(field.value)}`,
+                      )}
+                    />
+                    <DiagnosticList
+                      label="Ignored extra fields"
+                      values={report.ignoredExtraFields}
+                    />
+                    <details className="rounded-md border border-slate-200 bg-slate-50 p-2">
+                      <summary className="cursor-pointer font-semibold text-slate-800">
+                        View raw AI response
+                      </summary>
+                      <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap rounded-md bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-50">
+                        {report.rawModelOutput || "(empty response)"}
+                      </pre>
+                    </details>
+                  </div>
+                </details>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
+}
+
+function DiagnosticList({
+  label,
+  values,
+}: {
+  label: string;
+  values: string[];
+}) {
+  return (
+    <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-2">
+      <span className="font-semibold text-slate-700">{label}</span>
+      <span className="break-words">{values.length ? values.join(", ") : "None"}</span>
+    </div>
+  );
+}
+
+function formatDiagnosticValue(value: unknown) {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return JSON.stringify(value);
 }
 
 function Leaderboard({

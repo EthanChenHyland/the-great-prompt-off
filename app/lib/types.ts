@@ -54,6 +54,14 @@ export type ScoringResult = {
   invalid_fields: InvalidFieldResult[];
   field_accuracy: number;
   overall_score: number;
+  diagnostics: ScoringDiagnostics;
+};
+
+export type ScoringDiagnostics = {
+  strict_json_valid: boolean;
+  recovered_json_used: boolean;
+  normalization_used: boolean;
+  ignored_extra_fields: string[];
 };
 
 export type SubmissionKind = "public" | "final";

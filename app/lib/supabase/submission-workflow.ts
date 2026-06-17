@@ -110,10 +110,27 @@ export type SafeSubmissionFeedback = {
     correctFields: number;
     totalFields: number;
   }>;
+  reportDetails?: Array<{
+    reportLabel: string;
+    filename: string;
+    correctFields: number;
+    totalFields: number;
+    strictJsonValid: boolean;
+    recoveredJsonUsed: boolean;
+    normalizationUsed: boolean;
+    missingFields: string[];
+    invalidFields: Array<{
+      field: string;
+      value: unknown;
+    }>;
+    ignoredExtraFields: string[];
+    rawModelOutput: string;
+  }>;
 };
 
 type EvaluatedReport = {
   reportId: string;
+  filename?: string;
   supabaseReportId?: string;
   prediction: Partial<AnswerKey>;
   score: ScoringResult;
@@ -376,6 +393,8 @@ export function getFallbackSubmissionScore(
   const answerKeys = getAnswerKeyItems().filter((item) => item.split === split);
   const items = evaluateAnswerKeyReports(answerKeys, prompt).map((item) => ({
     ...item,
+    filename: answerKeys.find((answerKey) => answerKey.id === item.reportId)
+      ?.filename,
     modelOutput: item.modelOutput ?? "",
     error: item.error ?? null,
   }));
@@ -426,6 +445,8 @@ async function evaluateSubmission({
   if (kind === "public" || kind === "final") {
     const items = evaluateAnswerKeyReports(answerKeys, prompt).map((item) => ({
       ...item,
+      filename: answerKeys.find((answerKey) => answerKey.id === item.reportId)
+        ?.filename,
       supabaseReportId: answerKeys.find((answerKey) => answerKey.id === item.reportId)
         ?.supabaseReportId,
       modelOutput: item.modelOutput ?? "",
@@ -485,6 +506,7 @@ async function evaluateWithRealLlm(
 
         return {
           reportId: item.id,
+          filename: item.filename,
           supabaseReportId: item.supabaseReportId,
           prediction: predictionFromScore(score.per_field),
           score,
@@ -732,6 +754,19 @@ function createSafeFeedback(
       reportLabel: reportLabel(item.reportId, index),
       correctFields: countCorrectFields(item.score),
       totalFields: item.score.per_field.length,
+    })),
+    reportDetails: items.map((item, index) => ({
+      reportLabel: reportLabel(item.reportId, index),
+      filename: item.filename || item.reportId,
+      correctFields: countCorrectFields(item.score),
+      totalFields: item.score.per_field.length,
+      strictJsonValid: item.score.diagnostics.strict_json_valid,
+      recoveredJsonUsed: item.score.diagnostics.recovered_json_used,
+      normalizationUsed: item.score.diagnostics.normalization_used,
+      missingFields: item.score.missing_fields,
+      invalidFields: item.score.invalid_fields,
+      ignoredExtraFields: item.score.diagnostics.ignored_extra_fields,
+      rawModelOutput: item.modelOutput,
     })),
   };
 }

@@ -44,9 +44,9 @@ security definer
 set search_path = public
 as $$
 begin
-  delete from prompt_run_items;
-  delete from submissions;
-  delete from prompt_runs;
+  delete from prompt_run_items where true;
+  delete from submissions where true;
+  delete from prompt_runs where true;
 end;
 $$;
 
