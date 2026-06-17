@@ -57,6 +57,7 @@ type SafeSubmissionFeedback = {
   score: number;
   correctFields: number;
   totalFields: number;
+  reportCount: number;
   validJsonCount?: number;
   missingFieldsCount?: number;
   invalidValuesCount?: number;
@@ -113,7 +114,7 @@ type ParticipantValidationResponse = {
 };
 
 const initialPrompt = "";
-const workspaceBuildMarker = "public-test-v1";
+const workspaceBuildMarker = "final-real-v1";
 
 export function ChallengeWorkspace({
   initialParticipantId,
@@ -314,7 +315,7 @@ export function ChallengeWorkspace({
     setSubmissionMessage(
       kind === "public"
         ? "Submitting test attempt. This may take longer when Real LLM mode is enabled."
-        : "Submitting final attempt.",
+        : "Submitting final submission. This may take longer because it evaluates 45 hidden reports.",
     );
     setLastSubmissionPromptDebug(null);
     setLastSubmissionRunMode(null);
@@ -568,7 +569,7 @@ export function ChallengeWorkspace({
               {challenge.title}
             </h1>
             <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
-              Test attempts can use live LLM mode; final scoring is not live LLM yet
+              Test attempts and final submissions can use live LLM mode
             </p>
             <p className="mt-2 w-fit rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
               Build: {workspaceBuildMarker}
@@ -812,7 +813,8 @@ function PromptEditor({
         </p>
         <p>
           <span className="font-semibold text-slate-800">Final</span> can only be
-          used once and runs on 45 hidden reports.
+          used once and runs on 45 hidden reports. Real LLM final evaluation
+          may take longer.
         </p>
       </div>
       <textarea
@@ -878,7 +880,7 @@ function PromptEditor({
           disabled={!participantReady || finalSubmissionUsed || pendingAction !== null}
           className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
-          {pendingAction === "final" ? "Submitting..." : "Submit final"}
+          {pendingAction === "final" ? "Submitting final..." : "Submit final"}
         </button>
       </div>
     </section>
@@ -974,7 +976,8 @@ function SubmissionPanel({
       <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
         Test attempts are counted and use the same 5 public reports. Final
         submission can only be used once and runs on 45 hidden reports. Real LLM
-        test attempts may take longer and may incur API cost when enabled.
+        test and final submissions may take longer and may incur API cost when
+        enabled.
       </div>
       <div className="mt-4 grid gap-3">
         <div className="rounded-md border border-slate-200 px-3 py-3">
@@ -1023,7 +1026,7 @@ function SubmissionPanel({
             disabled={!participantReady || finalSubmissionUsed || pendingAction !== null}
             className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
           >
-            {pendingAction === "final" ? "Submitting..." : "Submit final"}
+            {pendingAction === "final" ? "Submitting final..." : "Submit final"}
           </button>
         </div>
       </div>
@@ -1074,15 +1077,15 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
           <span className="text-right font-semibold text-slate-800">
             {feedback.correctFields} / {feedback.totalFields}
           </span>
-          {isPublic && typeof feedback.validJsonCount === "number" ? (
+          {typeof feedback.validJsonCount === "number" ? (
             <>
               <span>Valid JSON reports</span>
               <span className="text-right font-semibold text-slate-800">
-                {feedback.validJsonCount} / {feedback.reportScores?.length ?? 5}
+                {feedback.validJsonCount} / {feedback.reportCount}
               </span>
             </>
           ) : null}
-          {isPublic && typeof feedback.missingFieldsCount === "number" ? (
+          {typeof feedback.missingFieldsCount === "number" ? (
             <>
               <span>Missing fields</span>
               <span className="text-right font-semibold text-slate-800">
@@ -1090,7 +1093,7 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
               </span>
             </>
           ) : null}
-          {isPublic && typeof feedback.invalidValuesCount === "number" ? (
+          {typeof feedback.invalidValuesCount === "number" ? (
             <>
               <span>Invalid values</span>
               <span className="text-right font-semibold text-slate-800">

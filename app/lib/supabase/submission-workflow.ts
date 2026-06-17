@@ -99,6 +99,7 @@ export type SafeSubmissionFeedback = {
   score: number;
   correctFields: number;
   totalFields: number;
+  reportCount: number;
   validJsonCount?: number;
   missingFieldsCount?: number;
   invalidValuesCount?: number;
@@ -363,16 +364,15 @@ export function getFallbackSubmissionScore(
 ): Omit<SubmitScoreResponse, keyof SubmissionStatusResponse> {
   const split = kind === "public" ? "public" : "private";
   const answerKeys = getAnswerKeyItems().filter((item) => item.split === split);
-  const items =
-    kind === "public"
-      ? evaluateAnswerKeyReports(answerKeys, prompt).map((item) => ({
-          ...item,
-          modelOutput: item.modelOutput ?? "",
-          error: item.error ?? null,
-        }))
-      : [];
+  const items = evaluateAnswerKeyReports(answerKeys, prompt).map((item) => ({
+    ...item,
+    modelOutput: item.modelOutput ?? "",
+    error: item.error ?? null,
+  }));
   const summary =
-    kind === "public" ? summarizeReportResults(items) : evaluateAnswerKeySet(answerKeys, prompt);
+    kind === "public" || kind === "final"
+      ? summarizeReportResults(items)
+      : evaluateAnswerKeySet(answerKeys, prompt);
   const evaluation: EvaluationResult = {
     mode: "mock",
     model: null,
@@ -409,11 +409,11 @@ async function evaluateSubmission({
   kind: SubmissionKind;
   prompt: string;
 }): Promise<EvaluationResult> {
-  if (kind === "public" && shouldUseRealLlm()) {
-    return evaluatePublicWithRealLlm(answerKeys, prompt);
+  if (shouldUseRealLlm()) {
+    return evaluateWithRealLlm(answerKeys, prompt, kind);
   }
 
-  if (kind === "public") {
+  if (kind === "public" || kind === "final") {
     const items = evaluateAnswerKeyReports(answerKeys, prompt).map((item) => ({
       ...item,
       supabaseReportId: answerKeys.find((answerKey) => answerKey.id === item.reportId)
@@ -442,13 +442,14 @@ async function evaluateSubmission({
   };
 }
 
-async function evaluatePublicWithRealLlm(
+async function evaluateWithRealLlm(
   answerKeys: Array<AnswerKeyItem & { supabaseReportId?: string; text?: string }>,
   prompt: string,
+  kind: SubmissionKind,
 ): Promise<EvaluationResult> {
   if (!hasOpenRouterApiKey()) {
     throw new RealLlmEvaluationError(
-      "OPENROUTER_API_KEY is required when USE_REAL_LLM=true. Public attempt was not counted.",
+      `OPENROUTER_API_KEY is required when USE_REAL_LLM=true. ${submissionLabel(kind)} was not counted.`,
     );
   }
 
@@ -489,7 +490,7 @@ async function evaluatePublicWithRealLlm(
     const message = error instanceof Error ? error.message : String(error);
 
     throw new RealLlmEvaluationError(
-      `Real public evaluation failed before completion: ${message}. Public attempt was not counted.`,
+      `Real ${submissionLabel(kind).toLowerCase()} evaluation failed before completion: ${message}. ${submissionLabel(kind)} was not counted.`,
     );
   }
 }
@@ -665,15 +666,12 @@ function createSafeFeedback(
     score: evaluation.summary.accuracy,
     correctFields: evaluation.summary.correct,
     totalFields: evaluation.summary.total,
+    reportCount: evaluation.reportCount,
   };
-
-  if (kind !== "public") {
-    return feedback;
-  }
 
   const items = evaluation.items;
 
-  return {
+  const aggregateFeedback = {
     ...feedback,
     validJsonCount: items.filter((item) => item.score.valid_json).length,
     missingFieldsCount: items.reduce(
@@ -684,6 +682,14 @@ function createSafeFeedback(
       (sum, item) => sum + item.score.invalid_fields.length,
       0,
     ),
+  };
+
+  if (kind !== "public") {
+    return aggregateFeedback;
+  }
+
+  return {
+    ...aggregateFeedback,
     reportScores: items.map((item, index) => ({
       reportLabel: reportLabel(item.reportId, index),
       correctFields: countCorrectFields(item.score),
@@ -695,6 +701,10 @@ function createSafeFeedback(
 function reportLabel(reportId: string, index: number) {
   const match = reportId.match(/(\d{3})$/);
   return `Report ${match?.[1] ?? String(index + 1).padStart(3, "0")}`;
+}
+
+function submissionLabel(kind: SubmissionKind) {
+  return kind === "final" ? "Final submission" : "Public attempt";
 }
 
 function predictionFromScore(
