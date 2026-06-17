@@ -74,6 +74,11 @@ type AnswerKeyRow = {
   effusion: "present" | "absent" | "uncertain";
 };
 
+type SupabaseErrorLike = {
+  code?: string;
+  message: string;
+};
+
 export type SubmissionStatusResponse = {
   source: DataSource;
   fallbackReason: string | null;
@@ -283,7 +288,10 @@ export async function submitToSupabase({
     .single<{ id: string }>();
 
   if (promptRunError) {
-    throw new Error(`Failed to store prompt run: ${promptRunError.message}`);
+    throw new SubmissionStorageError(
+      `Your ${kind === "final" ? "final submission" : "test attempt"} was not counted. Please try again or contact the organizer.`,
+      promptRunError.message,
+    );
   }
 
   if (evaluation.items.length > 0) {
@@ -311,7 +319,11 @@ export async function submitToSupabase({
       );
 
     if (runItemsError) {
-      throw new Error(`Failed to store per-report outputs: ${runItemsError.message}`);
+      await cleanupPromptRun(supabase, promptRun.id);
+      throw new SubmissionStorageError(
+        `Your ${kind === "final" ? "final submission" : "test attempt"} was not counted. Please try again or contact the organizer.`,
+        runItemsError.message,
+      );
     }
   }
 
@@ -329,11 +341,16 @@ export async function submitToSupabase({
   });
 
   if (submissionError) {
-    if (kind === "final") {
+    await cleanupPromptRun(supabase, promptRun.id);
+
+    if (kind === "final" && isDuplicateSubmissionError(submissionError)) {
       throw new SubmissionLimitError("Final submission has already been used.");
     }
 
-    throw new Error(`Failed to store submission: ${submissionError.message}`);
+    throw new SubmissionStorageError(
+      `Your ${kind === "final" ? "final submission" : "test attempt"} was not counted. Please try again or contact the organizer.`,
+      submissionError.message,
+    );
   }
 
   const nextStatus = await getSubmissionStatusForParticipant(
@@ -433,6 +450,12 @@ export class SubmissionLimitError extends Error {}
 export class ParticipantValidationError extends Error {}
 
 export class RealLlmEvaluationError extends Error {}
+
+export class SubmissionStorageError extends Error {
+  constructor(message: string, public readonly detail: string) {
+    super(message);
+  }
+}
 
 async function evaluateSubmission({
   answerKeys,
@@ -814,6 +837,43 @@ function parseJsonObject(value: string) {
   }
 
   return null;
+}
+
+function isDuplicateSubmissionError(error: SupabaseErrorLike) {
+  return (
+    error.code === "23505" ||
+    error.message.toLowerCase().includes("duplicate key") ||
+    error.message.toLowerCase().includes("unique")
+  );
+}
+
+async function cleanupPromptRun(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  promptRunId: string,
+) {
+  const { error: itemsError } = await supabase
+    .from("prompt_run_items")
+    .delete()
+    .eq("prompt_run_id", promptRunId);
+
+  if (itemsError) {
+    console.error("[submission-workflow] Failed to clean prompt run items", {
+      promptRunId,
+      error: itemsError.message,
+    });
+  }
+
+  const { error: runError } = await supabase
+    .from("prompt_runs")
+    .delete()
+    .eq("id", promptRunId);
+
+  if (runError) {
+    console.error("[submission-workflow] Failed to clean prompt run", {
+      promptRunId,
+      error: runError.message,
+    });
+  }
 }
 
 async function getParticipantCodes(

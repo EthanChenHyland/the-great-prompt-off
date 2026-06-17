@@ -45,6 +45,10 @@ type ParticipantRow = {
   is_active: boolean;
 };
 
+function allowLocalFallback() {
+  return process.env.ALLOW_LOCAL_FALLBACK === "true";
+}
+
 export async function validateParticipantAccessCode(
   accessCode: string,
 ): Promise<ParticipantValidationResult> {
@@ -111,6 +115,21 @@ export async function validateParticipantAccessCode(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     const fallbackCode = normalizeParticipantCode(normalizedAccessCode);
+
+    if (!allowLocalFallback()) {
+      console.error("[participant-validation] Access-code validation failed", message);
+
+      return {
+        source: "supabase",
+        valid: false,
+        participantCode: "",
+        participantToken: null,
+        participantId: null,
+        fallbackReason: null,
+        message:
+          "Participant validation is temporarily unavailable. Please try again or ask the organizer for help.",
+      };
+    }
 
     return {
       source: "mock-file-fallback",
@@ -191,6 +210,21 @@ export async function validateParticipantSession(
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+
+    if (!allowLocalFallback()) {
+      console.error("[participant-validation] Session validation failed", message);
+
+      return {
+        source: "supabase",
+        valid: false,
+        participantCode: normalizedCode,
+        participantToken: null,
+        participantId: null,
+        fallbackReason: null,
+        message:
+          "Participant validation is temporarily unavailable. Please return home and try again, or ask the organizer for help.",
+      };
+    }
 
     return {
       source: "mock-file-fallback",

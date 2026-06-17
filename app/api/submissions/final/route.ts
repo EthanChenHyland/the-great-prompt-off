@@ -4,6 +4,7 @@ import {
   ParticipantValidationError,
   RealLlmEvaluationError,
   SubmissionLimitError,
+  SubmissionStorageError,
   submitToSupabase,
 } from "@/app/lib/supabase/submission-workflow";
 import { verifyParticipantSessionToken } from "@/app/lib/supabase/participant-session-token";
@@ -47,6 +48,11 @@ export async function POST(request: Request) {
 
     if (error instanceof RealLlmEvaluationError) {
       return Response.json({ error: error.message }, { status: 502 });
+    }
+
+    if (error instanceof SubmissionStorageError) {
+      console.error("[submit-final] Storage failure", error.detail);
+      return Response.json({ error: error.message }, { status: 500 });
     }
 
     const message = error instanceof Error ? error.message : String(error);
