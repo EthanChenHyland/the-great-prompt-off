@@ -81,49 +81,48 @@ export default async function AdminPage() {
 
       <AdminNavigationCards />
 
-      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
-          Health check
-        </p>
-        <h2 className="mt-2 text-xl font-semibold text-slate-950">
-          Admin readiness
-        </h2>
-        <div className="mt-4 grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-4">
-          <HealthItem
-            label="Supabase connected"
-            value={data.health.supabaseConnected ? "Yes" : "No"}
-          />
-          <HealthItem
-            label="USE_REAL_LLM"
-            value={data.health.useRealLlm ? "true" : "false"}
-          />
-          <HealthItem label="OpenRouter model" value={data.health.openRouterModel} />
-          <HealthItem
-            label="Report split"
-            value={`${data.health.reportCounts.public} public / ${data.health.reportCounts.private} private`}
-          />
-          <HealthItem
-            label="Participants"
-            value={String(data.health.participantCount)}
-          />
-          <HealthItem
-            label="Test submissions"
-            value={String(data.health.testSubmissionsCount)}
-          />
-          <HealthItem
-            label="Final submissions"
-            value={String(data.health.finalSubmissionsCount)}
-          />
-          <HealthItem
-            label="Latest run"
-            value={formatDate(data.health.latestRunTimestamp) || "-"}
-          />
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Health check
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">
+            Admin readiness
+          </h2>
+          <div className="mt-4 grid gap-3 text-sm md:grid-cols-2">
+            <HealthItem
+              label="Supabase connected"
+              value={data.health.supabaseConnected ? "Yes" : "No"}
+            />
+            <HealthItem
+              label="USE_REAL_LLM"
+              value={data.health.useRealLlm ? "true" : "false"}
+            />
+            <HealthItem label="OpenRouter model" value={data.health.openRouterModel} />
+            <HealthItem
+              label="Report split"
+              value={`${data.health.reportCounts.public} public / ${data.health.reportCounts.private} private`}
+            />
+            <HealthItem
+              label="Participants"
+              value={String(data.health.participantCount)}
+            />
+            <HealthItem
+              label="Test submissions"
+              value={String(data.health.testSubmissionsCount)}
+            />
+            <HealthItem
+              label="Final submissions"
+              value={String(data.health.finalSubmissionsCount)}
+            />
+            <HealthItem
+              label="Latest run"
+              value={formatDate(data.health.latestRunTimestamp) || "-"}
+            />
+          </div>
         </div>
-      </section>
-
-      <div className="max-w-xl">
         <AdminResetPanel />
-      </div>
+      </section>
     </AdminPageFrame>
   );
 }

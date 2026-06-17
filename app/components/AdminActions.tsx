@@ -54,7 +54,7 @@ export function AdminResetPanel() {
     }
 
     setConfirmation("");
-    setMessage("Workshop run/submission data reset.");
+    setMessage("Leaderboard, submissions, and run history cleared.");
     router.refresh();
     setIsPending(false);
   }
@@ -62,14 +62,19 @@ export function AdminResetPanel() {
   return (
     <section className="rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
-        Admin reset
+        Destructive organizer action
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
-        Reset run data
+        Clear leaderboard & submissions
       </h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">
-        Deletes only prompt run items, submissions, and prompt runs. Participants,
-        access codes, reports, answer keys, and challenges are preserved.
+        Clears test attempts, final submissions, leaderboard results, and run
+        history.
+      </p>
+      <p className="mt-2 rounded-md border border-rose-100 bg-rose-50 p-3 text-sm leading-6 text-rose-900">
+        Type RESET to confirm. This deletes prompt run items, submissions, and
+        prompt runs. Participants, access codes, cases/reports, answer keys, and
+        challenges are preserved.
       </p>
       <input
         value={confirmation}
@@ -83,7 +88,7 @@ export function AdminResetPanel() {
         disabled={confirmation !== "RESET" || isPending}
         className="mt-3 h-10 rounded-md bg-rose-700 px-4 text-sm font-semibold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300"
       >
-        {isPending ? "Resetting..." : "Reset workshop run data"}
+        {isPending ? "Clearing..." : "Clear leaderboard & submissions"}
       </button>
       {message ? (
         <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">
