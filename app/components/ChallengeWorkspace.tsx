@@ -74,7 +74,11 @@ type SafeSubmissionFeedback = {
     totalFields: number;
     strictJsonValid: boolean;
     recoveredJsonUsed: boolean;
+    nestedObjectUsed: boolean;
     normalizationUsed: boolean;
+    keyNormalizationUsed: boolean;
+    valueNormalizationUsed: boolean;
+    ignoredOuterKey: string | null;
     missingFields: string[];
     invalidFields: Array<{
       field: string;
@@ -1176,12 +1180,16 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
                       </span>
                       <span>Formatting cleanup used?</span>
                       <span className="text-right font-semibold text-slate-800">
-                        {report.recoveredJsonUsed || report.normalizationUsed
+                        {report.recoveredJsonUsed ||
+                        report.nestedObjectUsed ||
+                        report.normalizationUsed
                           ? "Yes"
                           : "No"}
                       </span>
                     </div>
-                    {report.recoveredJsonUsed || report.normalizationUsed ? (
+                    {report.recoveredJsonUsed ||
+                    report.nestedObjectUsed ||
+                    report.normalizationUsed ? (
                       <p className="rounded-md bg-teal-50 p-2 text-teal-900">
                         Accepted after formatting cleanup.
                       </p>
@@ -1204,6 +1212,23 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
                       values={report.invalidFields.map(
                         (field) => `${field.field}: ${formatDiagnosticValue(field.value)}`,
                       )}
+                    />
+                    <DiagnosticList
+                      label="Cleanup details"
+                      values={[
+                        report.recoveredJsonUsed
+                          ? "Recovered JSON from extra text or a code block"
+                          : "",
+                        report.nestedObjectUsed && report.ignoredOuterKey
+                          ? `Used nested object inside ${report.ignoredOuterKey}`
+                          : "",
+                        report.keyNormalizationUsed
+                          ? "Normalized human-readable field names"
+                          : "",
+                        report.valueNormalizationUsed
+                          ? "Normalized short answer phrases"
+                          : "",
+                      ].filter(Boolean)}
                     />
                     <DiagnosticList
                       label="Ignored extra fields"

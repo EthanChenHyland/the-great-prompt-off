@@ -60,7 +60,11 @@ export type ScoringResult = {
 export type ScoringDiagnostics = {
   strict_json_valid: boolean;
   recovered_json_used: boolean;
+  nested_object_used: boolean;
   normalization_used: boolean;
+  key_normalization_used: boolean;
+  value_normalization_used: boolean;
+  ignored_outer_key: string | null;
   ignored_extra_fields: string[];
 };
 

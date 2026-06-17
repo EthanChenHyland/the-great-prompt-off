@@ -117,7 +117,11 @@ export type SafeSubmissionFeedback = {
     totalFields: number;
     strictJsonValid: boolean;
     recoveredJsonUsed: boolean;
+    nestedObjectUsed: boolean;
     normalizationUsed: boolean;
+    keyNormalizationUsed: boolean;
+    valueNormalizationUsed: boolean;
+    ignoredOuterKey: string | null;
     missingFields: string[];
     invalidFields: Array<{
       field: string;
@@ -762,7 +766,11 @@ function createSafeFeedback(
       totalFields: item.score.per_field.length,
       strictJsonValid: item.score.diagnostics.strict_json_valid,
       recoveredJsonUsed: item.score.diagnostics.recovered_json_used,
+      nestedObjectUsed: item.score.diagnostics.nested_object_used,
       normalizationUsed: item.score.diagnostics.normalization_used,
+      keyNormalizationUsed: item.score.diagnostics.key_normalization_used,
+      valueNormalizationUsed: item.score.diagnostics.value_normalization_used,
+      ignoredOuterKey: item.score.diagnostics.ignored_outer_key,
       missingFields: item.score.missing_fields,
       invalidFields: item.score.invalid_fields,
       ignoredExtraFields: item.score.diagnostics.ignored_extra_fields,
