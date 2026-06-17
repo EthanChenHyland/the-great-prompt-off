@@ -116,8 +116,6 @@ type ParticipantValidationResponse = {
 };
 
 const initialPrompt = "";
-const workspaceBuildMarker = "access-code-format-v1";
-
 export function ChallengeWorkspace({
   initialParticipantId,
   reports,
@@ -582,9 +580,6 @@ export function ChallengeWorkspace({
             <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
               Test attempts and final submissions can use live LLM mode
             </p>
-            <p className="mt-2 w-fit rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
-              Build: {workspaceBuildMarker}
-            </p>
             <DataSourceStatus
               error={challengeDataError}
               status={challengeDataStatus}
@@ -746,19 +741,14 @@ function DataSourceStatus({
     );
   }
 
-  const sourceLabel =
-    status.source === "supabase" ? "Supabase" : "Local mock fallback";
-
   return (
     <div className="mt-2 max-w-3xl rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span
-          className={`font-semibold ${
-            status.source === "supabase" ? "text-teal-700" : "text-amber-700"
-          }`}
-        >
-          Data source: {sourceLabel}
-        </span>
+        {status.source === "mock-file-fallback" ? (
+          <span className="font-semibold text-amber-700">
+            Local fallback data
+          </span>
+        ) : null}
         <span className="font-semibold text-slate-800">
           {status.challenge?.title || challenge.title}
         </span>
@@ -979,11 +969,11 @@ function SubmissionPanel({
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
         Test attempts and final
       </h2>
-      <p className="mt-1 text-xs font-semibold text-slate-500">
-        {source === "supabase"
-          ? "Submission source: Supabase"
-          : "Submission source: local browser fallback"}
-      </p>
+      {source !== "supabase" ? (
+        <p className="mt-1 text-xs font-semibold text-amber-700">
+          Local browser submission fallback is active.
+        </p>
+      ) : null}
       <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
         Test attempts are counted and use the same 5 public reports. Final
         submission can only be used once and runs on 45 hidden reports. Real LLM

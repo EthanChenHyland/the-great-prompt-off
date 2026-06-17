@@ -30,6 +30,14 @@ export default async function AdminParticipantsPage() {
         backHref="/admin"
         title="Participants"
         subtitle="Manage participant identity, access code status, activation, and participant-specific run clears."
+        actions={
+          <a
+            href="/api/admin/export/access-codes"
+            className="inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
+          >
+            Export access codes CSV
+          </a>
+        }
       />
 
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
