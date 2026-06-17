@@ -2,6 +2,7 @@ import {
   fallbackStatus,
   getFallbackSubmissionScore,
   ParticipantValidationError,
+  RealLlmEvaluationError,
   SubmissionLimitError,
   submitToSupabase,
 } from "@/app/lib/supabase/submission-workflow";
@@ -31,6 +32,10 @@ export async function POST(request: Request) {
 
     if (error instanceof ParticipantValidationError) {
       return Response.json({ error: error.message }, { status: 400 });
+    }
+
+    if (error instanceof RealLlmEvaluationError) {
+      return Response.json({ error: error.message }, { status: 502 });
     }
 
     const message = error instanceof Error ? error.message : String(error);

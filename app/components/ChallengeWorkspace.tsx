@@ -60,6 +60,12 @@ type SubmissionPromptDebug = PromptDebug & {
   kind: SubmissionKind;
 };
 
+type SubmissionRunMode = {
+  kind: SubmissionKind;
+  evaluationMode: "mock" | "real_llm";
+  model: string | null;
+};
+
 type ChallengeWorkspaceProps = {
   initialParticipantId: string;
   reports: SampleReport[];
@@ -106,7 +112,7 @@ type ParticipantValidationResponse = {
 };
 
 const initialPrompt = "";
-const workspaceBuildMarker = "workflow-polish-v1";
+const workspaceBuildMarker = "public-real-v1";
 
 const examplePrompt = `You are extracting structured findings from a knee MRI report.
 
@@ -147,6 +153,8 @@ export function ChallengeWorkspace({
   const [sampleRunError, setSampleRunError] = useState("");
   const [lastSubmissionPromptDebug, setLastSubmissionPromptDebug] =
     useState<SubmissionPromptDebug | null>(null);
+  const [lastSubmissionRunMode, setLastSubmissionRunMode] =
+    useState<SubmissionRunMode | null>(null);
   const [challengeDataStatus, setChallengeDataStatus] =
     useState<ChallengeDataStatus | null>(null);
   const [challengeDataError, setChallengeDataError] = useState("");
@@ -363,6 +371,13 @@ export function ChallengeWorkspace({
     }
 
     setPendingAction(kind);
+    setSubmissionMessage(
+      kind === "public"
+        ? "Submitting public attempt. This may take longer when Real LLM mode is enabled."
+        : "Submitting final attempt.",
+    );
+    setLastSubmissionPromptDebug(null);
+    setLastSubmissionRunMode(null);
 
     try {
       const promptDebug = await createPromptDebug(prompt);
@@ -407,6 +422,11 @@ export function ChallengeWorkspace({
       setLastSubmissionPromptDebug({
         ...promptDebug,
         kind,
+      });
+      setLastSubmissionRunMode({
+        kind,
+        evaluationMode: score.evaluationMode,
+        model: score.model,
       });
       setSubmissionMessage(
         `${kind === "public" ? "Public" : "Final"} submission saved: ${Math.round(
@@ -586,7 +606,7 @@ export function ChallengeWorkspace({
               {challenge.title}
             </h1>
             <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
-              Sample runs can use live LLM mode; public and final scoring are not live LLM yet
+              Sample and public submissions can use live LLM mode; final scoring is not live LLM yet
             </p>
             <p className="mt-2 w-fit rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
               Build: {workspaceBuildMarker}
@@ -663,6 +683,7 @@ export function ChallengeWorkspace({
                   : localParticipantHistory.publicSubmissions.at(-1)?.score ?? null
               }
               message={submissionMessage}
+              runMode={lastSubmissionRunMode}
               promptDebug={lastSubmissionPromptDebug}
               onSubmitFinal={submitFinal}
               onSubmitPublic={submitPublic}
@@ -1096,6 +1117,7 @@ function SubmissionPanel({
   pendingAction,
   participantReady,
   promptDebug,
+  runMode,
   publicSubmissionLimit,
   publicSubmissionsUsed,
   remainingPublicSubmissions,
@@ -1110,6 +1132,7 @@ function SubmissionPanel({
   pendingAction: "sample" | "public" | "final" | null;
   participantReady: boolean;
   promptDebug: SubmissionPromptDebug | null;
+  runMode: SubmissionRunMode | null;
   publicSubmissionLimit: number;
   publicSubmissionsUsed: number;
   remainingPublicSubmissions: number;
@@ -1130,8 +1153,8 @@ function SubmissionPanel({
       </p>
       <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
         Public attempts are counted. Final submission can only be used once.
-        Real LLM public/final evaluation is not enabled yet; once enabled, it may
-        take longer and may incur API cost.
+        Public Real LLM evaluation may take longer and may incur API cost when
+        enabled. Final Real LLM evaluation is not enabled yet.
       </div>
       <div className="mt-4 grid gap-3">
         <div className="rounded-md border border-slate-200 px-3 py-3">
@@ -1187,6 +1210,14 @@ function SubmissionPanel({
       {message ? (
         <p className="mt-4 rounded-md bg-teal-50 p-3 text-sm leading-6 text-teal-900">
           {message}
+        </p>
+      ) : null}
+      {runMode ? (
+        <p className="mt-4 w-fit rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+          Last {runMode.kind === "public" ? "public" : "final"} mode:{" "}
+          {runMode.evaluationMode === "real_llm"
+            ? `Real LLM${runMode.model ? `: ${runMode.model}` : ""}`
+            : "Mock"}
         </p>
       ) : null}
       {promptDebug ? (
@@ -1436,6 +1467,8 @@ type RunSampleResponse = {
 
 type SubmitScoreResponse = SubmissionStatus & {
   kind: SubmissionKind;
+  evaluationMode: "mock" | "real_llm";
+  model: string | null;
   score: number;
   correctFields: number;
   totalFields: number;

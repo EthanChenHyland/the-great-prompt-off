@@ -1,9 +1,28 @@
 import "server-only";
 
 import { getAnswerKeyItems } from "@/app/lib/challenge-data";
+import {
+  extractReportWithOpenRouter,
+  getOpenRouterModel,
+  hasOpenRouterApiKey,
+  shouldUseRealLlm,
+} from "@/app/lib/openrouter";
 import { normalizeParticipantCode } from "@/app/lib/participant-codes";
-import { evaluateAnswerKeySet } from "@/app/lib/mock-evaluation";
-import type { AnswerKeyItem, ReportSplit, ScoreSummary, SubmissionKind } from "@/app/lib/types";
+import {
+  evaluateAnswerKeySet,
+  summarizeReportResults,
+} from "@/app/lib/mock-evaluation";
+import { scoreModelOutput } from "@/app/lib/scoring";
+import type {
+  AnswerKey,
+  AnswerKeyItem,
+  FindingKey,
+  FindingValue,
+  ReportSplit,
+  ScoreSummary,
+  ScoringResult,
+  SubmissionKind,
+} from "@/app/lib/types";
 import { createSupabaseAdminClient } from "./admin";
 
 type DataSource = "supabase" | "mock-file-fallback";
@@ -37,6 +56,7 @@ type ReportRow = {
   external_id: string;
   filename: string | null;
   split: ReportSplit;
+  report_text: string;
 };
 
 type AnswerKeyRow = {
@@ -62,11 +82,30 @@ export type SubmissionStatusResponse = {
 
 export type SubmitScoreResponse = SubmissionStatusResponse & {
   kind: SubmissionKind;
+  evaluationMode: "mock" | "real_llm";
+  model: string | null;
   score: number;
   correctFields: number;
   totalFields: number;
   reportCount: number;
   summary: ScoreSummary;
+};
+
+type EvaluatedReport = {
+  reportId: string;
+  supabaseReportId?: string;
+  prediction: Partial<AnswerKey>;
+  score: ScoringResult;
+  modelOutput: string;
+  error: string | null;
+};
+
+type EvaluationResult = {
+  mode: "mock" | "real_llm";
+  model: string | null;
+  summary: ScoreSummary;
+  reportCount: number;
+  items: EvaluatedReport[];
 };
 
 export type LeaderboardRow = {
@@ -161,7 +200,11 @@ export async function submitToSupabase({
 
   const split: ReportSplit = kind === "public" ? "public" : "private";
   const answerKeys = await getSupabaseAnswerKeysForSplit(supabase, challenge.id, split);
-  const summary = evaluateAnswerKeySet(answerKeys, prompt);
+  const evaluation = await evaluateSubmission({
+    answerKeys,
+    kind,
+    prompt,
+  });
   const now = new Date().toISOString();
   const attemptNumber =
     kind === "public" ? currentStatus.publicSubmissionsUsed + 1 : 1;
@@ -175,12 +218,14 @@ export async function submitToSupabase({
       participant_id: participant.id,
       run_type: runType,
       prompt_text: promptText,
-      model: challenge.locked_model,
-      total_reports: answerKeys.length,
-      correct_fields: summary.correct,
-      total_fields: summary.total,
-      field_accuracy: summary.accuracy,
-      overall_score: summary.accuracy,
+      model:
+        evaluation.model ||
+        (evaluation.mode === "mock" ? "mock-evaluator" : challenge.locked_model),
+      total_reports: evaluation.reportCount,
+      correct_fields: evaluation.summary.correct,
+      total_fields: evaluation.summary.total,
+      field_accuracy: evaluation.summary.accuracy,
+      overall_score: evaluation.summary.accuracy,
       completed_at: now,
     })
     .select("id")
@@ -190,16 +235,45 @@ export async function submitToSupabase({
     throw new Error(`Failed to store prompt run: ${promptRunError.message}`);
   }
 
+  if (evaluation.items.length > 0) {
+    const { error: runItemsError } = await supabase
+      .from("prompt_run_items")
+      .insert(
+        evaluation.items.map((item) => ({
+          prompt_run_id: promptRun.id,
+          report_id: item.supabaseReportId,
+          raw_model_output: item.modelOutput,
+          parsed_output: parseJsonObject(item.modelOutput),
+          valid_json: item.score.valid_json,
+          missing_fields: item.score.missing_fields,
+          invalid_fields: item.score.invalid_fields,
+          field_accuracy: item.score.field_accuracy,
+          overall_score: item.score.overall_score,
+          acl_tear: item.prediction.acl_tear ?? null,
+          mcl_injury: item.prediction.mcl_injury ?? null,
+          meniscus_tear: item.prediction.meniscus_tear ?? null,
+          fracture: item.prediction.fracture ?? null,
+          osteoarthritis: item.prediction.osteoarthritis ?? null,
+          effusion: item.prediction.effusion ?? null,
+          error_message: item.error,
+        })),
+      );
+
+    if (runItemsError) {
+      throw new Error(`Failed to store per-report outputs: ${runItemsError.message}`);
+    }
+  }
+
   const { error: submissionError } = await supabase.from("submissions").insert({
     challenge_id: challenge.id,
     participant_id: participant.id,
     prompt_run_id: promptRun.id,
     submission_type: kind,
     attempt_number: attemptNumber,
-    score: summary.accuracy,
-    correct_fields: summary.correct,
-    total_fields: summary.total,
-    report_count: answerKeys.length,
+    score: evaluation.summary.accuracy,
+    correct_fields: evaluation.summary.correct,
+    total_fields: evaluation.summary.total,
+    report_count: evaluation.reportCount,
     submitted_at: now,
   });
 
@@ -220,11 +294,13 @@ export async function submitToSupabase({
   return {
     ...nextStatus,
     kind,
-    score: summary.accuracy,
-    correctFields: summary.correct,
-    totalFields: summary.total,
-    reportCount: answerKeys.length,
-    summary,
+    evaluationMode: evaluation.mode,
+    model: evaluation.model,
+    score: evaluation.summary.accuracy,
+    correctFields: evaluation.summary.correct,
+    totalFields: evaluation.summary.total,
+    reportCount: evaluation.reportCount,
+    summary: evaluation.summary,
   };
 }
 
@@ -272,6 +348,8 @@ export function getFallbackSubmissionScore(
 
   return {
     kind,
+    evaluationMode: "mock",
+    model: null,
     score: summary.accuracy,
     correctFields: summary.correct,
     totalFields: summary.total,
@@ -283,6 +361,84 @@ export function getFallbackSubmissionScore(
 export class SubmissionLimitError extends Error {}
 
 export class ParticipantValidationError extends Error {}
+
+export class RealLlmEvaluationError extends Error {}
+
+async function evaluateSubmission({
+  answerKeys,
+  kind,
+  prompt,
+}: {
+  answerKeys: Array<AnswerKeyItem & { supabaseReportId?: string; text?: string }>;
+  kind: SubmissionKind;
+  prompt: string;
+}): Promise<EvaluationResult> {
+  if (kind === "public" && shouldUseRealLlm()) {
+    return evaluatePublicWithRealLlm(answerKeys, prompt);
+  }
+
+  const summary = evaluateAnswerKeySet(answerKeys, prompt);
+
+  return {
+    mode: "mock",
+    model: null,
+    summary,
+    reportCount: answerKeys.length,
+    items: [],
+  };
+}
+
+async function evaluatePublicWithRealLlm(
+  answerKeys: Array<AnswerKeyItem & { supabaseReportId?: string; text?: string }>,
+  prompt: string,
+): Promise<EvaluationResult> {
+  if (!hasOpenRouterApiKey()) {
+    throw new RealLlmEvaluationError(
+      "OPENROUTER_API_KEY is required when USE_REAL_LLM=true. Public attempt was not counted.",
+    );
+  }
+
+  const model = getOpenRouterModel();
+
+  try {
+    const items = await Promise.all(
+      answerKeys.map(async (item) => {
+        if (!item.text) {
+          throw new Error(`Missing report text for ${item.id}.`);
+        }
+
+        const modelOutput = await extractReportWithOpenRouter({
+          prompt,
+          reportText: item.text,
+        });
+        const score = scoreModelOutput(modelOutput, item.answer_key);
+
+        return {
+          reportId: item.id,
+          supabaseReportId: item.supabaseReportId,
+          prediction: predictionFromScore(score.per_field),
+          score,
+          modelOutput,
+          error: validationMessage(score),
+        };
+      }),
+    );
+
+    return {
+      mode: "real_llm",
+      model,
+      summary: summarizeReportResults(items),
+      reportCount: answerKeys.length,
+      items,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    throw new RealLlmEvaluationError(
+      `Real public evaluation failed before completion: ${message}. Public attempt was not counted.`,
+    );
+  }
+}
 
 async function getActiveChallenge(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
@@ -368,7 +524,7 @@ async function getSupabaseAnswerKeysForSplit(
 ) {
   const { data: reports, error: reportsError } = await supabase
     .from("reports")
-    .select("id, external_id, filename, split")
+    .select("id, external_id, filename, split, report_text")
     .eq("challenge_id", challengeId)
     .eq("split", split)
     .order("external_id", { ascending: true })
@@ -408,8 +564,10 @@ async function getSupabaseAnswerKeysForSplit(
 
     return {
       id: report.external_id,
+      supabaseReportId: report.id,
       filename: report.filename || report.external_id,
       split: report.split,
+      text: report.report_text,
       answer_key: {
         acl_tear: answerKey.acl_tear,
         mcl_injury: answerKey.mcl_injury,
@@ -418,8 +576,57 @@ async function getSupabaseAnswerKeysForSplit(
         osteoarthritis: answerKey.osteoarthritis,
         effusion: answerKey.effusion,
       },
-    } satisfies AnswerKeyItem;
+    } satisfies AnswerKeyItem & { supabaseReportId: string; text: string };
   });
+}
+
+function validationMessage(score: ScoringResult) {
+  if (!score.valid_json) {
+    return "Model output was not valid JSON.";
+  }
+
+  const problems: string[] = [];
+
+  if (score.missing_fields.length > 0) {
+    problems.push(`Missing fields: ${score.missing_fields.join(", ")}`);
+  }
+
+  if (score.invalid_fields.length > 0) {
+    problems.push(
+      `Invalid fields: ${score.invalid_fields
+        .map((field) => field.field)
+        .join(", ")}`,
+    );
+  }
+
+  return problems.length > 0 ? problems.join(". ") : null;
+}
+
+function predictionFromScore(
+  perField: Array<{
+    field: FindingKey;
+    actual: FindingValue | null;
+  }>,
+): Partial<AnswerKey> {
+  return Object.fromEntries(
+    perField
+      .filter((field) => field.actual !== null)
+      .map((field) => [field.field, field.actual]),
+  ) as Partial<AnswerKey>;
+}
+
+function parseJsonObject(value: string) {
+  try {
+    const parsed = JSON.parse(value);
+
+    if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 async function getParticipantCodes(
