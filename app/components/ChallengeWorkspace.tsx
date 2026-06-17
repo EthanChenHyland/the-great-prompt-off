@@ -50,6 +50,12 @@ type ReportResult = {
   error?: string | null;
 };
 
+type SampleRunDebug = {
+  promptHash: string;
+  promptLength: number;
+  promptPreview: string;
+};
+
 type ChallengeWorkspaceProps = {
   initialParticipantId: string;
   reports: SampleReport[];
@@ -128,6 +134,11 @@ export function ChallengeWorkspace({
     mode: "mock" | "real_llm" | null;
     model: string | null;
   }>({ mode: null, model: null });
+  const [sampleRunDebug, setSampleRunDebug] = useState<SampleRunDebug | null>(
+    null,
+  );
+  const [pendingSamplePromptPreview, setPendingSamplePromptPreview] =
+    useState("");
   const [sampleRunError, setSampleRunError] = useState("");
   const [challengeDataStatus, setChallengeDataStatus] =
     useState<ChallengeDataStatus | null>(null);
@@ -272,18 +283,32 @@ export function ChallengeWorkspace({
   }, [leaderboardResponse, submissionStore]);
 
   async function runSampleReports() {
+    const runPrompt = prompt;
+
     setSubmissionMessage("");
     setSampleRunError("");
+    setResults([]);
+    setSampleRunMode({ mode: null, model: null });
+    setSampleRunDebug(null);
+    setPendingSamplePromptPreview(previewPrompt(runPrompt));
     setPendingAction("sample");
 
     try {
-      const response = await postPrompt<RunSampleResponse>("/api/run-sample", prompt);
+      const response = await postPrompt<RunSampleResponse>(
+        "/api/run-sample",
+        runPrompt,
+      );
       setResults(response.results);
       setSampleRunMode({
         mode: response.mode,
         model: response.model,
       });
+      setSampleRunDebug(response.debug);
+      setPendingSamplePromptPreview("");
     } catch (error) {
+      setResults([]);
+      setSampleRunMode({ mode: null, model: null });
+      setSampleRunDebug(null);
       setSampleRunError(
         error instanceof Error
           ? error.message
@@ -597,7 +622,10 @@ export function ChallengeWorkspace({
 
           <aside className="grid gap-4">
             <ResultsPanel
+              isRunning={pendingAction === "sample"}
+              pendingPromptPreview={pendingSamplePromptPreview}
               results={results}
+              sampleRunDebug={sampleRunDebug}
               sampleRunError={sampleRunError}
               sampleRunMode={sampleRunMode}
               summary={summary}
@@ -910,12 +938,18 @@ function ReportViewer({
 }
 
 function ResultsPanel({
+  isRunning,
+  pendingPromptPreview,
   results,
+  sampleRunDebug,
   sampleRunError,
   sampleRunMode,
   summary,
 }: {
+  isRunning: boolean;
+  pendingPromptPreview: string;
   results: ReportResult[];
+  sampleRunDebug: SampleRunDebug | null;
   sampleRunError: string;
   sampleRunMode: {
     mode: "mock" | "real_llm" | null;
@@ -937,6 +971,14 @@ function ResultsPanel({
       <p className="mt-2 text-sm text-slate-500">
         {summary.correct} of {summary.total} fields correct
       </p>
+      {isRunning ? (
+        <div className="mt-3 rounded-md border border-teal-100 bg-teal-50 p-3 text-sm leading-6 text-teal-900">
+          <p className="font-semibold">Running sample test...</p>
+          {pendingPromptPreview ? (
+            <p className="mt-1 text-xs">Prompt: {pendingPromptPreview}</p>
+          ) : null}
+        </div>
+      ) : null}
       {sampleRunMode.mode ? (
         <p className="mt-2 w-fit rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
           {sampleRunMode.mode === "real_llm"
@@ -944,10 +986,22 @@ function ResultsPanel({
             : "Mock mode"}
         </p>
       ) : null}
+      {sampleRunDebug ? (
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+          <p className="font-semibold text-slate-800">Last run prompt</p>
+          <p className="mt-1 break-words">{sampleRunDebug.promptPreview}</p>
+          <p className="mt-1 font-mono">
+            hash {sampleRunDebug.promptHash} - {sampleRunDebug.promptLength} chars
+          </p>
+        </div>
+      ) : null}
       <div className="mt-5 grid gap-2">
         {results.length === 0 ? (
           <p className="rounded-md bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            {sampleRunError || "Run the sample reports to populate local scoring."}
+            {sampleRunError ||
+              (isRunning
+                ? "Waiting for the current sample run to finish."
+                : "Run the sample reports to populate local scoring.")}
           </p>
         ) : (
           results.map((result, index) => (
@@ -1187,6 +1241,10 @@ function summarizeResults(results: ReportResult[]): ScoreSummary {
   };
 }
 
+function previewPrompt(prompt: string) {
+  return prompt.length > 80 ? `${prompt.slice(0, 80)}...` : prompt;
+}
+
 async function postPrompt<TResponse>(url: string, prompt: string) {
   const response = await fetch(url, {
     method: "POST",
@@ -1287,6 +1345,7 @@ async function postSubmission(
 type RunSampleResponse = {
   mode: "mock" | "real_llm";
   model: string | null;
+  debug: SampleRunDebug;
   results: ReportResult[];
   summary: ScoreSummary;
 };

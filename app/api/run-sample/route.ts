@@ -16,12 +16,29 @@ import type {
   FindingValue,
   ScoringResult,
 } from "@/app/lib/types";
+import { createHash } from "node:crypto";
 
 export async function POST(request: Request) {
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
 
   if (!isPromptRequest(body)) {
     return Response.json({ error: "Expected prompt string." }, { status: 400 });
+  }
+
+  const prompt = body.prompt;
+  const trimmedPrompt = prompt.trim();
+
+  if (!trimmedPrompt) {
+    return Response.json(
+      { error: "Enter a prompt before running the sample test." },
+      { status: 400 },
+    );
+  }
+
+  const debug = getPromptDebug(prompt);
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("[run-sample] prompt debug", debug);
   }
 
   const reports = await getSampleReports();
@@ -33,6 +50,7 @@ export async function POST(request: Request) {
           error: "OPENROUTER_API_KEY is required when USE_REAL_LLM=true.",
           mode: "real_llm",
           model: getOpenRouterModel(),
+          debug,
         },
         { status: 500 },
       );
@@ -42,7 +60,7 @@ export async function POST(request: Request) {
       reports.map(async (report) => {
         try {
           const modelOutput = await extractReportWithOpenRouter({
-            prompt: body.prompt,
+            prompt,
             reportText: report.text,
           });
           const score = scoreModelOutput(modelOutput, report.answer_key);
@@ -75,19 +93,30 @@ export async function POST(request: Request) {
     return Response.json({
       mode: "real_llm",
       model: getOpenRouterModel(),
+      debug,
       results,
       summary: summarizeReportResults(results),
     });
   }
 
-  const results = evaluateSampleReports(reports, body.prompt);
+  const results = evaluateSampleReports(reports, prompt);
 
   return Response.json({
     mode: "mock",
     model: null,
+    debug,
     results,
     summary: summarizeReportResults(results),
   });
+}
+
+function getPromptDebug(prompt: string) {
+  return {
+    promptHash: createHash("sha256").update(prompt).digest("hex").slice(0, 12),
+    promptLength: prompt.length,
+    promptPreview:
+      prompt.length > 80 ? `${prompt.slice(0, 80)}...` : prompt,
+  };
 }
 
 function validationMessage(score: ScoringResult) {
