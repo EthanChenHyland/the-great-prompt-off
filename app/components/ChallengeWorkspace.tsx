@@ -10,7 +10,6 @@ import {
 } from "../lib/challenge-constants";
 import { normalizeParticipantCode } from "../lib/participant-codes";
 import {
-  clearParticipantId,
   saveParticipantId,
   useSavedParticipantId,
 } from "../lib/participant-session";
@@ -197,8 +196,6 @@ export function ChallengeWorkspace({
           if (validation.valid) {
             saveParticipantId(validation.participantCode);
             setParticipantId(validation.participantCode);
-          } else {
-            clearParticipantId();
           }
         }
       } catch (error) {
@@ -437,12 +434,6 @@ export function ChallengeWorkspace({
     router.push("/");
   }
 
-  function switchParticipant() {
-    clearParticipantId();
-    setParticipantId("");
-    window.location.assign("/");
-  }
-
   function exitToHome() {
     router.push("/");
   }
@@ -620,13 +611,6 @@ export function ChallengeWorkspace({
               className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
             >
               Exit challenge
-            </button>
-            <button
-              type="button"
-              onClick={switchParticipant}
-              className="h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700"
-            >
-              Switch participant
             </button>
           </div>
         </header>
