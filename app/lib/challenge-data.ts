@@ -32,7 +32,7 @@ export function getLeaderboardRows(participantId?: string) {
 
 export async function getSampleReports(): Promise<SampleReport[]> {
   const sampleFiles = typedManifest
-    .filter((item) => item.split === "sample")
+    .filter((item) => item.split === "public")
     .slice(0, 5);
 
   return Promise.all(

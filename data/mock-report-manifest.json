@@ -2,227 +2,227 @@
   {
     "id": "synthetic-report-001",
     "filename": "synthetic_report_001.txt",
-    "split": "sample"
+    "split": "public"
   },
   {
     "id": "synthetic-report-002",
     "filename": "synthetic_report_002.txt",
-    "split": "sample"
+    "split": "public"
   },
   {
     "id": "synthetic-report-003",
     "filename": "synthetic_report_003.txt",
-    "split": "sample"
+    "split": "public"
   },
   {
     "id": "synthetic-report-004",
     "filename": "synthetic_report_004.txt",
-    "split": "sample"
+    "split": "public"
   },
   {
     "id": "synthetic-report-005",
     "filename": "synthetic_report_005.txt",
-    "split": "sample"
+    "split": "public"
   },
   {
     "id": "synthetic-report-006",
     "filename": "synthetic_report_006.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-007",
     "filename": "synthetic_report_007.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-008",
     "filename": "synthetic_report_008.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-009",
     "filename": "synthetic_report_009.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-010",
     "filename": "synthetic_report_010.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-011",
     "filename": "synthetic_report_011.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-012",
     "filename": "synthetic_report_012.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-013",
     "filename": "synthetic_report_013.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-014",
     "filename": "synthetic_report_014.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-015",
     "filename": "synthetic_report_015.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-016",
     "filename": "synthetic_report_016.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-017",
     "filename": "synthetic_report_017.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-018",
     "filename": "synthetic_report_018.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-019",
     "filename": "synthetic_report_019.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-020",
     "filename": "synthetic_report_020.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-021",
     "filename": "synthetic_report_021.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-022",
     "filename": "synthetic_report_022.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-023",
     "filename": "synthetic_report_023.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-024",
     "filename": "synthetic_report_024.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-025",
     "filename": "synthetic_report_025.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-026",
     "filename": "synthetic_report_026.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-027",
     "filename": "synthetic_report_027.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-028",
     "filename": "synthetic_report_028.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-029",
     "filename": "synthetic_report_029.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-030",
     "filename": "synthetic_report_030.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-031",
     "filename": "synthetic_report_031.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-032",
     "filename": "synthetic_report_032.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-033",
     "filename": "synthetic_report_033.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-034",
     "filename": "synthetic_report_034.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-035",
     "filename": "synthetic_report_035.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-036",
     "filename": "synthetic_report_036.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-037",
     "filename": "synthetic_report_037.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-038",
     "filename": "synthetic_report_038.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-039",
     "filename": "synthetic_report_039.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-040",
     "filename": "synthetic_report_040.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-041",
     "filename": "synthetic_report_041.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-042",
     "filename": "synthetic_report_042.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-043",
     "filename": "synthetic_report_043.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-044",
     "filename": "synthetic_report_044.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-045",
     "filename": "synthetic_report_045.txt",
-    "split": "public"
+    "split": "private"
   },
   {
     "id": "synthetic-report-046",

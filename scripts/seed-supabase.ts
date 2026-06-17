@@ -234,7 +234,7 @@ async function main() {
 
   console.log(`Seeded challenge: ${challengeTitle} (${challengeSlug})`);
   console.log(
-    `Seeded ${manifest.length} reports: ${splitCounts.sample} sample, ${splitCounts.public} public, ${splitCounts.private} private.`,
+    `Seeded ${manifest.length} reports: ${splitCounts.public} public test, ${splitCounts.private} hidden final, ${splitCounts.sample} legacy sample.`,
   );
   console.log(`Seeded ${answerKeyRows.length} answer keys.`);
   console.log(`Seeded ${participantRows.length} mock participants.`);

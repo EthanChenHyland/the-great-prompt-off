@@ -111,9 +111,9 @@ export function LandingPage() {
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
               Participants write prompts that extract six structured findings
-              from synthetic, non-PHI knee MRI reports. Practice on sample
-              reports, then use limited public attempts before your final
-              locked submission.
+              from synthetic, non-PHI knee MRI reports. Use counted test
+              attempts on public test reports to refine your prompt before one
+              locked final submission on hidden reports.
             </p>
           </div>
 
@@ -181,19 +181,19 @@ export function LandingPage() {
               <div>
                 <p className="text-2xl font-semibold text-slate-950">5</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  Sample reports
+                  Test attempts
                 </p>
               </div>
               <div>
-                <p className="text-2xl font-semibold text-slate-950">6</p>
+                <p className="text-2xl font-semibold text-slate-950">5</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  Extraction fields
+                  Public test reports
                 </p>
               </div>
               <div>
-                <p className="text-2xl font-semibold text-slate-950">LLM</p>
+                <p className="text-2xl font-semibold text-slate-950">45</p>
                 <p className="mt-1 text-xs uppercase tracking-wide text-slate-500">
-                  Sample testing
+                  Hidden final reports
                 </p>
               </div>
             </div>

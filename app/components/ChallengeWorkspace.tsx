@@ -13,7 +13,6 @@ import {
   saveParticipantId,
   useSavedParticipantId,
 } from "../lib/participant-session";
-import { countCorrectFields } from "../lib/mock-evaluation";
 import {
   createSubmissionId,
   getLocalLeaderboardRows,
@@ -23,11 +22,8 @@ import {
   useSubmissionStore,
 } from "../lib/submissions";
 import type {
-  AnswerKey,
-  FindingValue,
   SampleReport,
   ScoreSummary,
-  ScoringResult,
   StoredSubmission,
   SubmissionKind,
 } from "../lib/types";
@@ -40,21 +36,11 @@ type LeaderboardRow = {
   submittedAt?: string;
 };
 
-type ReportResult = {
-  reportId: string;
-  prediction: Partial<AnswerKey>;
-  score: ScoringResult;
-  modelOutput?: string;
-  error?: string | null;
-};
-
-type SampleRunDebug = {
+type PromptDebug = {
   promptHash: string;
   promptLength: number;
   promptPreview: string;
 };
-
-type PromptDebug = SampleRunDebug;
 
 type SubmissionPromptDebug = PromptDebug & {
   kind: SubmissionKind;
@@ -112,21 +98,7 @@ type ParticipantValidationResponse = {
 };
 
 const initialPrompt = "";
-const workspaceBuildMarker = "public-real-v1";
-
-const examplePrompt = `You are extracting structured findings from a knee MRI report.
-
-Return only valid JSON with these exact keys:
-{
-  "acl_tear": "present | absent | uncertain",
-  "mcl_injury": "present | absent | uncertain",
-  "meniscus_tear": "present | absent | uncertain",
-  "fracture": "present | absent | uncertain",
-  "osteoarthritis": "present | absent | uncertain",
-  "effusion": "present | absent | uncertain"
-}
-
-Use "uncertain" only when the report does not provide enough evidence.`;
+const workspaceBuildMarker = "public-test-v1";
 
 export function ChallengeWorkspace({
   initialParticipantId,
@@ -140,17 +112,6 @@ export function ChallengeWorkspace({
   const submissionStore = useSubmissionStore();
   const [activeReportId, setActiveReportId] = useState(reports[0]?.id ?? "");
   const [prompt, setPrompt] = useState(initialPrompt);
-  const [results, setResults] = useState<ReportResult[]>([]);
-  const [sampleRunMode, setSampleRunMode] = useState<{
-    mode: "mock" | "real_llm" | null;
-    model: string | null;
-  }>({ mode: null, model: null });
-  const [sampleRunDebug, setSampleRunDebug] = useState<SampleRunDebug | null>(
-    null,
-  );
-  const [pendingSamplePromptPreview, setPendingSamplePromptPreview] =
-    useState("");
-  const [sampleRunError, setSampleRunError] = useState("");
   const [lastSubmissionPromptDebug, setLastSubmissionPromptDebug] =
     useState<SubmissionPromptDebug | null>(null);
   const [lastSubmissionRunMode, setLastSubmissionRunMode] =
@@ -167,9 +128,9 @@ export function ChallengeWorkspace({
   const [leaderboardResponse, setLeaderboardResponse] =
     useState<LeaderboardResponse | null>(null);
   const [submissionMessage, setSubmissionMessage] = useState("");
-  const [pendingAction, setPendingAction] = useState<
-    "sample" | "public" | "final" | null
-  >(null);
+  const [pendingAction, setPendingAction] = useState<"public" | "final" | null>(
+    null,
+  );
   const activeParticipantId = normalizeParticipantCode(
     participantId || savedParticipantId,
   );
@@ -286,7 +247,6 @@ export function ChallengeWorkspace({
   }, [activeParticipantId, participantValidation?.valid]);
 
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
-  const summary = useMemo(() => summarizeResults(results), [results]);
   const currentRows = useMemo(() => {
     if (leaderboardResponse?.source === "supabase") {
       return leaderboardResponse.rows;
@@ -294,43 +254,6 @@ export function ChallengeWorkspace({
 
     return getLocalLeaderboardRows(submissionStore);
   }, [leaderboardResponse, submissionStore]);
-
-  async function runSampleReports() {
-    const runPrompt = prompt;
-
-    setSubmissionMessage("");
-    setSampleRunError("");
-    setResults([]);
-    setSampleRunMode({ mode: null, model: null });
-    setSampleRunDebug(null);
-    setPendingSamplePromptPreview(previewPrompt(runPrompt));
-    setPendingAction("sample");
-
-    try {
-      const response = await postPrompt<RunSampleResponse>(
-        "/api/run-sample",
-        runPrompt,
-      );
-      setResults(response.results);
-      setSampleRunMode({
-        mode: response.mode,
-        model: response.model,
-      });
-      setSampleRunDebug(response.promptDebug ?? response.debug ?? null);
-      setPendingSamplePromptPreview("");
-    } catch (error) {
-      setResults([]);
-      setSampleRunMode({ mode: null, model: null });
-      setSampleRunDebug(null);
-      setSampleRunError(
-        error instanceof Error
-          ? error.message
-          : "Sample test failed. Please try again.",
-      );
-    } finally {
-      setPendingAction(null);
-    }
-  }
 
   function submitPublic() {
     submitMockScore("public");
@@ -352,7 +275,7 @@ export function ChallengeWorkspace({
 
     if (kind === "public") {
       const confirmed = window.confirm(
-        `Use 1 public attempt for this prompt? You have ${remainingPublicSubmissions} public attempt${remainingPublicSubmissions === 1 ? "" : "s"} remaining.`,
+        `Use 1 test attempt for this prompt? You have ${remainingPublicSubmissions} test attempt${remainingPublicSubmissions === 1 ? "" : "s"} remaining.`,
       );
 
       if (!confirmed) {
@@ -373,7 +296,7 @@ export function ChallengeWorkspace({
     setPendingAction(kind);
     setSubmissionMessage(
       kind === "public"
-        ? "Submitting public attempt. This may take longer when Real LLM mode is enabled."
+        ? "Submitting test attempt. This may take longer when Real LLM mode is enabled."
         : "Submitting final attempt.",
     );
     setLastSubmissionPromptDebug(null);
@@ -407,7 +330,7 @@ export function ChallengeWorkspace({
         const result = saveSubmission(submission);
 
         if (!result.ok && result.reason === "public_limit_reached") {
-          setSubmissionMessage("Public submission limit reached for this participant.");
+          setSubmissionMessage("Test attempt limit reached for this participant.");
           return;
         }
 
@@ -429,7 +352,7 @@ export function ChallengeWorkspace({
         model: score.model,
       });
       setSubmissionMessage(
-        `${kind === "public" ? "Public" : "Final"} submission saved: ${Math.round(
+        `${kind === "public" ? "Test attempt" : "Final"} submission saved: ${Math.round(
           score.score,
         )}% across ${score.reportCount} reports${
           score.source === "supabase" ? " in Supabase" : " in this browser"
@@ -439,7 +362,7 @@ export function ChallengeWorkspace({
       setSubmissionMessage(
         error instanceof Error
           ? error.message
-          : `${kind === "public" ? "Public" : "Final"} submission failed. Please try again.`,
+          : `${kind === "public" ? "Test attempt" : "Final"} submission failed. Please try again.`,
       );
     } finally {
       setPendingAction(null);
@@ -457,8 +380,6 @@ export function ChallengeWorkspace({
   function exitToHome() {
     router.push("/");
   }
-
-  const activeResult = results.find((result) => result.reportId === activeReport?.id);
 
   if (!activeParticipantId) {
     return (
@@ -606,7 +527,7 @@ export function ChallengeWorkspace({
               {challenge.title}
             </h1>
             <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
-              Sample and public submissions can use live LLM mode; final scoring is not live LLM yet
+              Test attempts can use live LLM mode; final scoring is not live LLM yet
             </p>
             <p className="mt-2 w-fit rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
               Build: {workspaceBuildMarker}
@@ -640,7 +561,6 @@ export function ChallengeWorkspace({
 
           <section className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <PromptEditor
-              onRun={runSampleReports}
               prompt={prompt}
               remainingPublicSubmissions={remainingPublicSubmissions}
               setPrompt={setPrompt}
@@ -653,7 +573,6 @@ export function ChallengeWorkspace({
             {activeReport ? (
               <ReportViewer
                 activeReport={activeReport}
-                activeResult={activeResult}
                 reports={reports}
                 setActiveReportId={setActiveReportId}
               />
@@ -661,15 +580,6 @@ export function ChallengeWorkspace({
           </section>
 
           <aside className="grid gap-4">
-            <ResultsPanel
-              isRunning={pendingAction === "sample"}
-              pendingPromptPreview={pendingSamplePromptPreview}
-              results={results}
-              sampleRunDebug={sampleRunDebug}
-              sampleRunError={sampleRunError}
-              sampleRunMode={sampleRunMode}
-              summary={summary}
-            />
             <SubmissionPanel
               finalSubmissionUsed={finalSubmissionUsed}
               finalScore={
@@ -750,9 +660,9 @@ function TaskSidebar() {
       <div className="mt-6 border-t border-slate-200 pt-5">
         <h3 className="text-sm font-semibold text-slate-800">Workflow</h3>
         <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-          <li>Sample: practice on 5 reports; does not count.</li>
-          <li>Public: counted attempts with a limited allowance.</li>
-          <li>Final: one locked submission for final scoring.</li>
+          <li>Test Attempts: 5 counted attempts on reports 001-005.</li>
+          <li>Use test scores to refine your prompt.</li>
+          <li>Final: one locked submission on 45 hidden reports.</li>
         </ul>
       </div>
     </aside>
@@ -799,8 +709,8 @@ function DataSourceStatus({
           {status.challenge?.title || challenge.title}
         </span>
         <span>
-          Reports: {status.reportCounts.sample} sample /{" "}
-          {status.reportCounts.public} public / {status.reportCounts.private} private
+          Reports: {status.reportCounts.public} public test /{" "}
+          {status.reportCounts.private} hidden final
         </span>
         <span>Participants: {status.participantCount}</span>
       </div>
@@ -815,7 +725,6 @@ function DataSourceStatus({
 
 function PromptEditor({
   finalSubmissionUsed,
-  onRun,
   onSubmitFinal,
   onSubmitPublic,
   participantReady,
@@ -825,16 +734,15 @@ function PromptEditor({
   setPrompt,
 }: {
   finalSubmissionUsed: boolean;
-  onRun: () => void;
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
   participantReady: boolean;
-  pendingAction: "sample" | "public" | "final" | null;
+  pendingAction: "public" | "final" | null;
   prompt: string;
   remainingPublicSubmissions: number;
   setPrompt: (value: string) => void;
 }) {
-  const [showExample, setShowExample] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -853,17 +761,16 @@ function PromptEditor({
       </div>
       <div className="mt-4 grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
         <p>
-          <span className="font-semibold text-slate-800">Sample</span> is practice:
-          5 sample reports, unlimited runs, no counted attempts.
+          <span className="font-semibold text-slate-800">Test Attempts</span> are
+          counted: 5 attempts on the same 5 public test reports.
         </p>
         <p>
-          <span className="font-semibold text-slate-800">Public</span> uses counted
-          attempts. Do not click repeatedly; real LLM public mode may take longer
-          and may incur API cost once enabled.
+          Use each test score to refine your prompt. Do not click repeatedly;
+          real LLM test attempts may take longer and may incur API cost.
         </p>
         <p>
           <span className="font-semibold text-slate-800">Final</span> can only be
-          used once and is locked after submission.
+          used once and runs on 45 hidden reports.
         </p>
       </div>
       <textarea
@@ -876,39 +783,41 @@ function PromptEditor({
       <div className="mt-4 rounded-md border border-slate-200 bg-slate-50">
         <button
           type="button"
-          onClick={() => setShowExample((current) => !current)}
+          onClick={() => setShowHelp((current) => !current)}
           className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:text-teal-700"
-          aria-expanded={showExample}
+          aria-expanded={showHelp}
         >
-          <span>Example prompt</span>
+          <span>Prompt guidance</span>
           <span className="text-xs text-slate-500">
-            {showExample ? "Hide" : "Need help?"}
+            {showHelp ? "Hide" : "Need help?"}
           </span>
         </button>
-        {showExample ? (
-          <div className="border-t border-slate-200 p-4">
-            <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 font-mono text-xs leading-5 text-slate-700">
-              {examplePrompt}
-            </pre>
-            <button
-              type="button"
-              onClick={() => setPrompt(examplePrompt)}
-              className="mt-3 h-10 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
-            >
-              Use this example
-            </button>
+        {showHelp ? (
+          <div className="grid gap-4 border-t border-slate-200 p-4 text-sm leading-6 text-slate-700">
+            <div>
+              <p className="font-semibold text-slate-900">Required fields</p>
+              <div className="mt-2 grid gap-1 font-mono text-xs">
+                {findingKeys.map((key) => (
+                  <span key={key}>{key}</span>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">Allowed values</p>
+              <p className="mt-1 font-mono text-xs">present / absent / uncertain</p>
+            </div>
+            <ul className="list-disc space-y-1 pl-5">
+              <li>Tell the model to return structured JSON.</li>
+              <li>Include all six required fields.</li>
+              <li>Define how to decide present, absent, and uncertain.</li>
+              <li>Specify how to handle ambiguous report language.</li>
+              <li>Ask for JSON only, with no markdown or explanation.</li>
+              <li>Use test attempts to refine your prompt before final submission.</li>
+            </ul>
           </div>
         ) : null}
       </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={pendingAction !== null}
-          className="h-11 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800"
-        >
-          {pendingAction === "sample" ? "Running..." : "Run sample test"}
-        </button>
         <button
           type="button"
           onClick={onSubmitPublic}
@@ -919,7 +828,7 @@ function PromptEditor({
           }
           className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
-          {pendingAction === "public" ? "Submitting..." : "Submit public"}
+          {pendingAction === "public" ? "Submitting..." : "Use test attempt"}
         </button>
         <button
           type="button"
@@ -936,19 +845,17 @@ function PromptEditor({
 
 function ReportViewer({
   activeReport,
-  activeResult,
   reports,
   setActiveReportId,
 }: {
   activeReport: SampleReport;
-  activeResult?: ReportResult;
   reports: SampleReport[];
   setActiveReportId: (id: string) => void;
 }) {
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
-        Sample reports
+        Public test reports
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
         {challenge.sampleRange}
@@ -972,137 +879,6 @@ function ReportViewer({
       <article className="mt-4 max-h-[360px] overflow-auto whitespace-pre-wrap rounded-md border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-6 text-slate-800">
         {activeReport.text}
       </article>
-      <div className="mt-4 rounded-md border border-slate-200">
-        <div className="grid grid-cols-3 border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-          <span>Field</span>
-          <span>Mock output</span>
-          <span>Answer key</span>
-        </div>
-        {findingKeys.map((key) => (
-          <div
-            key={key}
-            className="grid grid-cols-3 items-center border-b border-slate-100 px-3 py-2 text-sm last:border-b-0"
-          >
-            <span className="font-mono text-xs text-slate-700">{key}</span>
-            <ValueBadge value={activeResult?.prediction[key]} />
-            <ValueBadge value={activeReport.answer_key[key]} quiet />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ResultsPanel({
-  isRunning,
-  pendingPromptPreview,
-  results,
-  sampleRunDebug,
-  sampleRunError,
-  sampleRunMode,
-  summary,
-}: {
-  isRunning: boolean;
-  pendingPromptPreview: string;
-  results: ReportResult[];
-  sampleRunDebug: SampleRunDebug | null;
-  sampleRunError: string;
-  sampleRunMode: {
-    mode: "mock" | "real_llm" | null;
-    model: string | null;
-  };
-  summary: ScoreSummary;
-}) {
-  return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
-        Results
-      </p>
-      <div className="mt-2 flex items-end justify-between">
-        <h2 className="text-xl font-semibold text-slate-950">Sample score</h2>
-        <p className="text-3xl font-semibold text-slate-950">
-          {Math.round(summary.accuracy)}%
-        </p>
-      </div>
-      <p className="mt-2 text-sm text-slate-500">
-        {summary.correct} of {summary.total} fields correct
-      </p>
-      {isRunning ? (
-        <div className="mt-3 rounded-md border border-teal-100 bg-teal-50 p-3 text-sm leading-6 text-teal-900">
-          <p className="font-semibold">Running sample test...</p>
-          {pendingPromptPreview ? (
-            <p className="mt-1 text-xs">Prompt: {pendingPromptPreview}</p>
-          ) : null}
-        </div>
-      ) : null}
-      {sampleRunMode.mode ? (
-        <p className="mt-2 w-fit rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-          {sampleRunMode.mode === "real_llm"
-            ? `Real LLM mode${sampleRunMode.model ? `: ${sampleRunMode.model}` : ""}`
-            : "Mock mode"}
-        </p>
-      ) : null}
-      {sampleRunDebug ? (
-        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-          <p className="font-semibold text-slate-800">Last run prompt</p>
-          <p className="mt-1 break-words">{sampleRunDebug.promptPreview}</p>
-          <p className="mt-1 font-mono">
-            hash {sampleRunDebug.promptHash} - {sampleRunDebug.promptLength} chars
-          </p>
-        </div>
-      ) : null}
-      <div className="mt-5 grid gap-2">
-        {results.length === 0 ? (
-          <p className="rounded-md bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            {sampleRunError ||
-              (isRunning
-                ? "Waiting for the current sample run to finish."
-                : "Run the sample reports to populate local scoring.")}
-          </p>
-        ) : (
-          results.map((result, index) => (
-            <div
-              key={result.reportId}
-              className="rounded-md border border-slate-200 px-3 py-2"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-sm font-semibold text-slate-700">
-                  Report {String(index + 1).padStart(3, "0")}
-                </span>
-                <span className="text-sm text-slate-600">
-                  {countCorrectFields(result.score)}/{findingKeys.length}
-                </span>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <span
-                  className={`rounded-md px-2 py-1 text-xs font-semibold ${
-                    result.score.valid_json
-                      ? "bg-emerald-50 text-emerald-800"
-                      : "bg-red-50 text-red-800"
-                  }`}
-                >
-                  {result.score.valid_json ? "Valid JSON" : "Invalid JSON"}
-                </span>
-                {result.score.missing_fields.length > 0 ? (
-                  <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
-                    Missing fields
-                  </span>
-                ) : null}
-                {result.score.invalid_fields.length > 0 ? (
-                  <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
-                    Invalid values
-                  </span>
-                ) : null}
-              </div>
-              {result.error ? (
-                <p className="mt-2 text-xs leading-5 text-red-700">
-                  {result.error}
-                </p>
-              ) : null}
-            </div>
-          ))
-        )}
-      </div>
     </section>
   );
 }
@@ -1129,7 +905,7 @@ function SubmissionPanel({
   message: string;
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
-  pendingAction: "sample" | "public" | "final" | null;
+  pendingAction: "public" | "final" | null;
   participantReady: boolean;
   promptDebug: SubmissionPromptDebug | null;
   runMode: SubmissionRunMode | null;
@@ -1144,7 +920,7 @@ function SubmissionPanel({
         Submissions
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
-        Public and final
+        Test attempts and final
       </h2>
       <p className="mt-1 text-xs font-semibold text-slate-500">
         {source === "supabase"
@@ -1152,14 +928,14 @@ function SubmissionPanel({
           : "Submission source: local browser fallback"}
       </p>
       <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
-        Public attempts are counted. Final submission can only be used once.
-        Public Real LLM evaluation may take longer and may incur API cost when
-        enabled. Final Real LLM evaluation is not enabled yet.
+        Test attempts are counted and use the same 5 public reports. Final
+        submission can only be used once and runs on 45 hidden reports. Real LLM
+        test attempts may take longer and may incur API cost when enabled.
       </div>
       <div className="mt-4 grid gap-3">
         <div className="rounded-md border border-slate-200 px-3 py-3">
           <p className="text-sm font-semibold text-slate-700">
-            Public submissions remaining
+            Test attempts remaining
           </p>
           <p className="mt-1 text-2xl font-semibold text-slate-950">
             {remainingPublicSubmissions}
@@ -1169,7 +945,7 @@ function SubmissionPanel({
           </p>
           {latestPublicScore !== null ? (
             <p className="mt-2 text-sm text-slate-600">
-              Latest public score: {Math.round(latestPublicScore)}%
+              Latest test score: {Math.round(latestPublicScore)}%
             </p>
           ) : null}
           <button
@@ -1181,8 +957,8 @@ function SubmissionPanel({
               pendingAction !== null
             }
             className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-          >
-            {pendingAction === "public" ? "Submitting..." : "Submit public"}
+        >
+            {pendingAction === "public" ? "Submitting..." : "Use test attempt"}
           </button>
         </div>
         <div className="rounded-md border border-slate-200 px-3 py-3">
@@ -1214,7 +990,7 @@ function SubmissionPanel({
       ) : null}
       {runMode ? (
         <p className="mt-4 w-fit rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-          Last {runMode.kind === "public" ? "public" : "final"} mode:{" "}
+          Last {runMode.kind === "public" ? "test attempt" : "final"} mode:{" "}
           {runMode.evaluationMode === "real_llm"
             ? `Real LLM${runMode.model ? `: ${runMode.model}` : ""}`
             : "Mock"}
@@ -1223,7 +999,7 @@ function SubmissionPanel({
       {promptDebug ? (
         <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
           <p className="font-semibold text-slate-800">
-            Last {promptDebug.kind === "public" ? "public" : "final"} prompt
+            Last {promptDebug.kind === "public" ? "test attempt" : "final"} prompt
           </p>
           <p className="mt-1 break-words">{promptDebug.promptPreview}</p>
           <p className="mt-1 font-mono">
@@ -1272,7 +1048,7 @@ function Leaderboard({
                 {row.participant}
               </p>
               <p className="text-xs text-slate-500">
-                {row.final ? "Final submitted" : "Mock draft"}
+                {row.final ? "Final submitted" : "Test attempt"}
               </p>
             </div>
             <span className="text-right font-semibold text-slate-950">
@@ -1283,48 +1059,6 @@ function Leaderboard({
       </div>
     </section>
   );
-}
-
-function ValueBadge({
-  quiet = false,
-  value,
-}: {
-  quiet?: boolean;
-  value?: FindingValue;
-}) {
-  if (!value) {
-    return <span className="text-sm text-slate-400">Not run</span>;
-  }
-
-  const colors: Record<FindingValue, string> = {
-    present: quiet
-      ? "bg-amber-50 text-amber-800"
-      : "bg-amber-100 text-amber-900",
-    absent: quiet ? "bg-emerald-50 text-emerald-800" : "bg-emerald-100 text-emerald-900",
-    uncertain: quiet
-      ? "bg-slate-100 text-slate-700"
-      : "bg-slate-200 text-slate-800",
-  };
-
-  return (
-    <span className={`w-fit rounded-md px-2 py-1 text-xs font-semibold ${colors[value]}`}>
-      {value}
-    </span>
-  );
-}
-
-function summarizeResults(results: ReportResult[]): ScoreSummary {
-  const correct = results.reduce(
-    (sum, result) => sum + countCorrectFields(result.score),
-    0,
-  );
-  const total = results.length * findingKeys.length;
-
-  return {
-    correct,
-    total,
-    accuracy: total === 0 ? 0 : (correct / total) * 100,
-  };
 }
 
 function previewPrompt(prompt: string) {
@@ -1357,28 +1091,6 @@ async function hashPrompt(prompt: string) {
   }
 
   return hash.toString(16).padStart(8, "0").slice(0, 12);
-}
-
-async function postPrompt<TResponse>(url: string, prompt: string) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ prompt }),
-  });
-
-  if (!response.ok) {
-    const errorBody = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-
-    throw new Error(
-      errorBody?.error || `Request failed with status ${response.status}`,
-    );
-  }
-
-  return (await response.json()) as TResponse;
 }
 
 async function validateParticipantCode(participantCode: string) {
@@ -1455,15 +1167,6 @@ async function postSubmission(
 
   return (await response.json()) as SubmitScoreResponse;
 }
-
-type RunSampleResponse = {
-  mode: "mock" | "real_llm";
-  model: string | null;
-  promptDebug?: SampleRunDebug;
-  debug?: SampleRunDebug;
-  results: ReportResult[];
-  summary: ScoreSummary;
-};
 
 type SubmitScoreResponse = SubmissionStatus & {
   kind: SubmissionKind;

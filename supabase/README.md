@@ -26,9 +26,15 @@ Required environment variables:
 
 The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and report text files from `public/mock-reports/`. It upserts one active challenge, all reports, all answer keys, and mock participants `P001` through `P050`, so it is safe to run more than once.
 
+Current workshop split:
+
+- Reports `001` through `005` are `public` and power the five counted Test Attempts.
+- Reports `006` through `050` are `private` and are reserved for the hidden final set.
+- The schema still allows the older `sample` split for compatibility, but the participant UI no longer exposes a separate Sample workflow.
+
 ## Read-only challenge data API
 
-`GET /api/challenge-data` reads seeded challenge metadata from Supabase with the server-only admin client. It returns the active challenge, report counts by split, sample report metadata, participant count, and answer key count. It does not return answer key contents.
+`GET /api/challenge-data` reads seeded challenge metadata from Supabase with the server-only admin client. It returns the active challenge, report counts by split, public test report metadata, participant count, and answer key count. It does not return answer key contents.
 
 If Supabase environment variables are missing, Supabase is unavailable, or the database has not been seeded, the route returns the same shape from local mock files with `source: "mock-file-fallback"` and a `fallbackReason`.
 
@@ -41,15 +47,15 @@ The app has Supabase-backed submission routes for future database mode:
 - `POST /api/submissions/final`
 - `GET /api/leaderboard`
 
-These routes use the server-only service role client. Public and final submissions are still evaluated with the mock scoring behavior for now, but successful Supabase-mode submissions create `prompt_runs` and `submissions` rows. If Supabase is unavailable or unseeded, the frontend falls back to the existing browser `localStorage` submission store.
+These routes use the server-only service role client. Public/Test Attempt submissions can use real OpenRouter evaluation when `USE_REAL_LLM=true`; final submissions still use the mock scoring behavior for now. Successful Supabase-mode submissions create `prompt_runs` and `submissions` rows. If Supabase is unavailable or unseeded, the frontend falls back to the existing browser `localStorage` submission store.
 
 ## Tables
 
 - `participants`: Workshop identities and roles. The current participant ID maps to `participant_code`.
 - `challenges`: Challenge configuration, instructions, output schema, locked model, active state, and submission limits.
-- `reports`: Synthetic report text for each challenge, with `sample`, `public`, or `private` split.
+- `reports`: Synthetic report text for each challenge. The current participant workflow uses `public` for reports `001`-`005` and `private` for reports `006`-`050`; `sample` remains a legacy-compatible split value.
 - `answer_keys`: Structured adjudicated labels for each report.
-- `prompt_runs`: One prompt execution against sample, public, or final/private reports.
+- `prompt_runs`: One prompt execution against public test or final/private reports.
 - `prompt_run_items`: Per-report model output, parsed JSON, validation details, and score.
 - `submissions`: Public and final submissions tied to prompt runs. Final submissions power the leaderboard.
 
@@ -63,7 +69,7 @@ Today:
 Later:
 
 - `participants` replaces the participant ID session/profile record.
-- `prompt_runs` and `prompt_run_items` replace local sample run state.
+- `prompt_runs` and `prompt_run_items` replace local test/final run state.
 - `submissions` replaces local public/final submission history.
 - Final leaderboard rows should query `submissions` where `submission_type = 'final'`.
 
@@ -75,7 +81,7 @@ Participant-facing:
 - Their own `prompt_runs`.
 - Their own `prompt_run_items`.
 - Their own `submissions`.
-- Sample reports for active challenges.
+- Public test reports exposed through controlled API routes.
 - Public/final scores exposed through controlled views or API routes.
 
 Admin-only:
@@ -91,7 +97,7 @@ Admin-only:
 RLS should eventually protect:
 
 - `participants`: participants can read/update only their own profile; admins can manage all.
-- `reports`: participants can read sample reports; public/private report access should happen only through server-controlled challenge flows.
+- `reports`: participants can read public test reports; private report access should happen only through server-controlled final challenge flows.
 - `answer_keys`: admin-only.
 - `prompt_runs` and `prompt_run_items`: participants can access only their own records; admins can inspect all.
 - `submissions`: participants can read their own submissions; admins can read all; final leaderboard should expose only safe aggregate fields.
