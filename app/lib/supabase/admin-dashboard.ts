@@ -211,31 +211,10 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
 export async function resetWorkshopRunData() {
   const supabase = createSupabaseAdminClient();
-  const { error: runItemsError } = await supabase
-    .from("prompt_run_items")
-    .delete()
-    .not("id", "is", null);
+  const { error } = await supabase.rpc("admin_reset_workshop_run_data");
 
-  if (runItemsError) {
-    throw new Error(`Failed to delete prompt run items: ${runItemsError.message}`);
-  }
-
-  const { error: submissionsError } = await supabase
-    .from("submissions")
-    .delete()
-    .not("id", "is", null);
-
-  if (submissionsError) {
-    throw new Error(`Failed to delete submissions: ${submissionsError.message}`);
-  }
-
-  const { error: promptRunsError } = await supabase
-    .from("prompt_runs")
-    .delete()
-    .not("id", "is", null);
-
-  if (promptRunsError) {
-    throw new Error(`Failed to delete prompt runs: ${promptRunsError.message}`);
+  if (error) {
+    throw new Error(`Failed to reset workshop run data: ${error.message}`);
   }
 }
 
@@ -275,47 +254,12 @@ export async function regenerateParticipantAccessCode(participantCode: string) {
 
 export async function clearParticipantRunData(participantCode: string) {
   const supabase = createSupabaseAdminClient();
-  const participant = await getParticipantByCode(participantCode);
+  const { error } = await supabase.rpc("admin_clear_participant_run_data", {
+    target_participant_code: participantCode,
+  });
 
-  const { data: runs, error: runsError } = await supabase
-    .from("prompt_runs")
-    .select("id")
-    .eq("participant_id", participant.id)
-    .returns<Array<{ id: string }>>();
-
-  if (runsError) {
-    throw new Error(`Failed to load participant runs: ${runsError.message}`);
-  }
-
-  const runIds = runs.map((run) => run.id);
-
-  if (runIds.length > 0) {
-    const { error: runItemsError } = await supabase
-      .from("prompt_run_items")
-      .delete()
-      .in("prompt_run_id", runIds);
-
-    if (runItemsError) {
-      throw new Error(`Failed to delete participant run items: ${runItemsError.message}`);
-    }
-  }
-
-  const { error: submissionsError } = await supabase
-    .from("submissions")
-    .delete()
-    .eq("participant_id", participant.id);
-
-  if (submissionsError) {
-    throw new Error(`Failed to delete participant submissions: ${submissionsError.message}`);
-  }
-
-  const { error: promptRunsError } = await supabase
-    .from("prompt_runs")
-    .delete()
-    .eq("participant_id", participant.id);
-
-  if (promptRunsError) {
-    throw new Error(`Failed to delete participant prompt runs: ${promptRunsError.message}`);
+  if (error) {
+    throw new Error(`Failed to clear participant run data: ${error.message}`);
   }
 }
 
@@ -352,25 +296,6 @@ export async function updateParticipantIdentity({
   if (error) {
     throw new Error(`Failed to update participant identity: ${error.message}`);
   }
-}
-
-async function getParticipantByCode(participantCode: string) {
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from("participants")
-    .select("id, participant_code")
-    .eq("participant_code", participantCode)
-    .maybeSingle<{ id: string; participant_code: string }>();
-
-  if (error) {
-    throw new Error(`Failed to load participant: ${error.message}`);
-  }
-
-  if (!data) {
-    throw new Error(`Participant ${participantCode} not found.`);
-  }
-
-  return data;
 }
 
 function createParticipantAccessCode() {
