@@ -2,6 +2,8 @@ import manifest from "@/data/mock-report-manifest.json";
 import answerKeys from "@/data/mock-answer-keys.json";
 import { createSupabaseAdminClient } from "@/app/lib/supabase/admin";
 import { challenge as mockChallenge } from "@/app/lib/challenge-constants";
+import { getFriendlyModelName } from "@/app/lib/model-display";
+import { getOpenRouterModel } from "@/app/lib/openrouter";
 import type { ReportManifestItem } from "@/app/lib/types";
 
 type ReportSplit = "sample" | "public" | "private";
@@ -53,7 +55,7 @@ function getFallbackChallengeData(reason: string) {
       title: mockChallenge.title,
       description: mockChallenge.subtitle,
       instructions: null,
-      lockedModel: "mock-evaluator",
+      evaluationModelDisplayName: getFriendlyModelName(getOpenRouterModel()),
       publicSubmissionLimit: 5,
       finalSubmissionLimit: 1,
     },
@@ -170,7 +172,7 @@ export async function GET() {
         title: challenge.title,
         description: challenge.description,
         instructions: challenge.instructions,
-        lockedModel: challenge.locked_model,
+        evaluationModelDisplayName: getFriendlyModelName(challenge.locked_model),
         publicSubmissionLimit: challenge.public_submission_limit,
         finalSubmissionLimit: challenge.final_submission_limit,
       },

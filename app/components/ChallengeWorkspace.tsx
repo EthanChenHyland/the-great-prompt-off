@@ -47,12 +47,6 @@ type SubmissionPromptDebug = PromptDebug & {
   kind: SubmissionKind;
 };
 
-type SubmissionRunMode = {
-  kind: SubmissionKind;
-  evaluationMode: "mock" | "real_llm";
-  model: string | null;
-};
-
 type SafeSubmissionFeedback = {
   kind: SubmissionKind;
   score: number;
@@ -99,6 +93,7 @@ type ChallengeDataStatus = {
   fallbackReason: string | null;
   challenge: {
     title: string;
+    evaluationModelDisplayName?: string;
   } | null;
   reportCounts: {
     sample: number;
@@ -151,8 +146,6 @@ export function ChallengeWorkspace({
   const [prompt, setPrompt] = useState(initialPrompt);
   const [lastSubmissionPromptDebug, setLastSubmissionPromptDebug] =
     useState<SubmissionPromptDebug | null>(null);
-  const [lastSubmissionRunMode, setLastSubmissionRunMode] =
-    useState<SubmissionRunMode | null>(null);
   const [lastSubmissionFeedback, setLastSubmissionFeedback] =
     useState<SafeSubmissionFeedback | null>(null);
   const [challengeDataStatus, setChallengeDataStatus] =
@@ -343,11 +336,10 @@ export function ChallengeWorkspace({
     setPendingAction(kind);
     setSubmissionMessage(
       kind === "public"
-        ? "Submitting test attempt. This may take longer when Real LLM mode is enabled."
+        ? "Submitting test attempt. This may take a moment while the AI evaluates your prompt."
         : "Submitting final submission. This may take longer because it evaluates 45 hidden reports.",
     );
     setLastSubmissionPromptDebug(null);
-    setLastSubmissionRunMode(null);
     setLastSubmissionFeedback(null);
 
     try {
@@ -395,11 +387,6 @@ export function ChallengeWorkspace({
         ...promptDebug,
         kind,
       });
-      setLastSubmissionRunMode({
-        kind,
-        evaluationMode: score.evaluationMode,
-        model: score.model,
-      });
       setLastSubmissionFeedback(score.feedback ?? null);
       if (kind === "public") {
         const fieldDetail =
@@ -413,9 +400,7 @@ export function ChallengeWorkspace({
             : "";
 
         setSubmissionMessage(
-          `Test attempt saved: ${Math.round(score.score)}%${fieldDetail}${reportDetail}${
-            score.source === "supabase" ? " in Supabase" : " in this browser"
-          }.`,
+          `Test attempt saved: ${Math.round(score.score)}%${fieldDetail}${reportDetail}.`,
         );
       } else {
         const fieldDetail =
@@ -425,9 +410,7 @@ export function ChallengeWorkspace({
             : "";
 
         setSubmissionMessage(
-          `Final submission saved: ${Math.round(score.score)}%${fieldDetail}${
-            score.source === "supabase" ? " in Supabase" : " in this browser"
-          }.`,
+          `Final submission saved: ${Math.round(score.score)}%${fieldDetail}.`,
         );
       }
     } catch (error) {
@@ -490,8 +473,8 @@ export function ChallengeWorkspace({
             We could not validate this participant session.
           </h1>
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            Return home and try again. If Supabase is unavailable, local mock
-            fallback will accept a local participant code.
+            Return home and try again with the access code from your workshop
+            organizer.
           </p>
           <p className="mt-3 rounded-md bg-amber-50 p-3 text-sm leading-6 text-amber-900">
             {participantValidationError}
@@ -520,7 +503,7 @@ export function ChallengeWorkspace({
           </h1>
           <p className="mt-4 text-sm leading-6 text-slate-600">
             This keeps the challenge workspace limited to registered workshop
-            participants when Supabase is available.
+            participants.
           </p>
         </section>
       </main>
@@ -597,9 +580,17 @@ export function ChallengeWorkspace({
             <h1 className="mt-1 text-2xl font-semibold text-slate-950">
               {challenge.title}
             </h1>
-            <p className="mt-2 w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
-              Test attempts and final submissions can use live LLM mode
-            </p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <p className="w-fit rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-500">
+                Test attempts and final submissions are evaluated by an AI model
+              </p>
+              {challengeDataStatus?.challenge?.evaluationModelDisplayName ? (
+                <p className="w-fit rounded-md border border-teal-100 bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
+                  Evaluation model:{" "}
+                  {challengeDataStatus.challenge.evaluationModelDisplayName}
+                </p>
+              ) : null}
+            </div>
             <DataSourceStatus
               error={challengeDataError}
               status={challengeDataStatus}
@@ -662,7 +653,6 @@ export function ChallengeWorkspace({
                   : localParticipantHistory.publicSubmissions.at(-1)?.score ?? null
               }
               message={submissionMessage}
-              runMode={lastSubmissionRunMode}
               promptDebug={lastSubmissionPromptDebug}
               feedback={lastSubmissionFeedback}
               onSubmitFinal={submitFinal}
@@ -680,16 +670,10 @@ export function ChallengeWorkspace({
                   : localParticipantHistory.publicSubmissions.length
               }
               remainingPublicSubmissions={remainingPublicSubmissions}
-              source={usingSupabaseSubmissions ? "supabase" : "mock-file-fallback"}
             />
             <Leaderboard
               participantId={activeParticipantId}
               rows={currentRows}
-              source={
-                leaderboardResponse?.source === "supabase"
-                  ? "supabase"
-                  : "mock-file-fallback"
-              }
             />
           </aside>
         </div>
@@ -749,7 +733,8 @@ function DataSourceStatus({
   if (error) {
     return (
       <div className="mt-2 max-w-2xl rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-900">
-        Challenge metadata status is using the local demo view for now.
+        Challenge details are temporarily unavailable. You can continue working
+        in the challenge workspace.
       </div>
     );
   }
@@ -765,11 +750,6 @@ function DataSourceStatus({
   return (
     <div className="mt-2 max-w-3xl rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        {status.source === "mock-file-fallback" ? (
-          <span className="font-semibold text-amber-700">
-            Local fallback data
-          </span>
-        ) : null}
         <span className="font-semibold text-slate-800">
           {status.challenge?.title || challenge.title}
         </span>
@@ -779,11 +759,6 @@ function DataSourceStatus({
         </span>
         <span>Participants: {status.participantCount}</span>
       </div>
-      {status.source === "mock-file-fallback" && status.fallbackReason ? (
-        <p className="mt-1 leading-5 text-slate-500">
-          Local demo data is being used because {status.fallbackReason}
-        </p>
-      ) : null}
     </div>
   );
 }
@@ -829,12 +804,11 @@ function PromptEditor({
         </p>
         <p>
           Use each test score to refine your prompt. Do not click repeatedly;
-          real LLM test attempts may take longer and may incur API cost.
+          AI evaluation may take a little time.
         </p>
         <p>
           <span className="font-semibold text-slate-800">Final</span> can only be
-          used once and runs on 45 hidden reports. Real LLM final evaluation
-          may take longer.
+          used once and runs on 45 hidden reports.
         </p>
       </div>
       <textarea
@@ -879,26 +853,51 @@ function OutputFormatGuide() {
       <div className="mt-2 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid gap-3">
           <p>
-            The AI must answer in a very specific machine-readable format so the
-            app can score it. Even if the medical reasoning is correct, the score
-            may be 0 if the output format is wrong.
+            Your prompt will be tested by an AI model on synthetic knee MRI
+            reports. Your score is based on how well the AI&apos;s structured
+            output matches the hidden answer key.
+          </p>
+          <p>
+            The AI should answer in a specific machine-readable format so the
+            app can score it. Good medical reasoning helps, but the score also
+            depends on whether the AI returns the right fields and answer
+            choices.
           </p>
           <p>
             Think of JSON as a small form with fixed field names and fixed
-            answer choices. Tell the AI to return only one raw JSON object: the
-            first character should be {"{"} and the last should be {"}"}.
+            answer choices. Tell the AI to return one JSON object using the
+            exact six fields shown below.
           </p>
-          <p className="font-semibold">
-            Short starter sentence:{" "}
+          <p>
+            <span className="font-semibold">A strong starter sentence:</span>{" "}
             <span className="font-mono font-normal">
               Return only the six fields shown in the example, using only
               present, absent, or uncertain.
             </span>
           </p>
           <p>
-            Do not use words like intact, torn, yes, no, normal, abnormal,
-            positive, or negative. Do not include explanations, totals, tallies,
-            markdown, code fences, or extra fields.
+            The field names should describe the finding, not just the body part.
+            For example, use <span className="font-mono">acl_tear</span> instead
+            of ACL, and <span className="font-mono">mcl_injury</span> instead of
+            MCL.
+          </p>
+          <p>
+            Use only these answer choices:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {["present", "absent", "uncertain"].map((value) => (
+              <span
+                key={value}
+                className="rounded-md border border-amber-200 bg-white/70 px-2 py-1 font-mono text-xs text-slate-900"
+              >
+                {value}
+              </span>
+            ))}
+          </div>
+          <p>
+            Avoid words like intact, torn, yes, no, normal, abnormal, positive,
+            or negative. Do not include explanations, totals, tallies, markdown,
+            code fences, or extra fields.
           </p>
         </div>
         <div className="grid gap-3">
@@ -910,6 +909,7 @@ function OutputFormatGuide() {
               ))}
             </div>
           </div>
+          <p className="font-semibold text-slate-900">Example output</p>
           <pre className="overflow-auto rounded-md border border-amber-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800">
 {`{
   "acl_tear": "absent",
@@ -977,11 +977,9 @@ function SubmissionPanel({
   participantReady,
   promptDebug,
   feedback,
-  runMode,
   publicSubmissionLimit,
   publicSubmissionsUsed,
   remainingPublicSubmissions,
-  source,
 }: {
   finalSubmissionUsed: boolean;
   finalScore: number | null;
@@ -993,11 +991,9 @@ function SubmissionPanel({
   participantReady: boolean;
   promptDebug: SubmissionPromptDebug | null;
   feedback: SafeSubmissionFeedback | null;
-  runMode: SubmissionRunMode | null;
   publicSubmissionLimit: number;
   publicSubmissionsUsed: number;
   remainingPublicSubmissions: number;
-  source: SubmissionSource;
 }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -1007,16 +1003,10 @@ function SubmissionPanel({
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
         Test attempts and final
       </h2>
-      {source !== "supabase" ? (
-        <p className="mt-1 text-xs font-semibold text-amber-700">
-          Local browser submission fallback is active.
-        </p>
-      ) : null}
       <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
         Test attempts are counted and use the same 5 public reports. Final
-        submission can only be used once and runs on 45 hidden reports. Real LLM
-        test and final submissions may take longer and may incur API cost when
-        enabled.
+        submission can only be used once and runs on 45 hidden reports. Please
+        wait for each submission to finish before trying again.
       </div>
       <div className="mt-4 grid gap-3">
         <div className="rounded-md border border-slate-200 px-3 py-3">
@@ -1074,14 +1064,6 @@ function SubmissionPanel({
           {message}
         </p>
       ) : null}
-      {runMode ? (
-        <p className="mt-4 w-fit rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-          Last {runMode.kind === "public" ? "test attempt" : "final"} mode:{" "}
-          {runMode.evaluationMode === "real_llm"
-            ? `Real LLM${runMode.model ? `: ${runMode.model}` : ""}`
-          : "Mock"}
-        </p>
-      ) : null}
       {feedback ? <SafeFeedbackPanel feedback={feedback} /> : null}
       {promptDebug ? (
         <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
@@ -1090,7 +1072,7 @@ function SubmissionPanel({
           </p>
           <p className="mt-1 break-words">{promptDebug.promptPreview}</p>
           <p className="mt-1 font-mono">
-            hash {promptDebug.promptHash} - {promptDebug.promptLength} chars
+            {promptDebug.promptLength} chars
           </p>
         </div>
       ) : null}
@@ -1174,11 +1156,11 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
                   </summary>
                   <div className="mt-2 grid gap-2 text-xs leading-5 text-slate-600">
                     <div className="grid grid-cols-2 gap-2">
-                      <span>Strict JSON valid?</span>
+                      <span>Returned the required JSON format?</span>
                       <span className="text-right font-semibold text-slate-800">
                         {report.strictJsonValid ? "Yes" : "No"}
                       </span>
-                      <span>Formatting cleanup used?</span>
+                      <span>Accepted after formatting cleanup?</span>
                       <span className="text-right font-semibold text-slate-800">
                         {report.recoveredJsonUsed ||
                         report.nestedObjectUsed ||
@@ -1198,9 +1180,9 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
                     report.invalidFields.length ||
                     report.ignoredExtraFields.length ? (
                       <p className="rounded-md bg-amber-50 p-2 text-amber-900">
-                        This may not score because it did not return one raw JSON
-                        object with the exact six required fields. Values must be
-                        exactly present, absent, or uncertain.
+                        This output may not score because required fields were
+                        missing or answer choices were not in the accepted
+                        format.
                       </p>
                     ) : null}
                     <DiagnosticList
@@ -1208,7 +1190,7 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
                       values={report.missingFields}
                     />
                     <DiagnosticList
-                      label="Invalid values"
+                      label="Invalid answer choices"
                       values={report.invalidFields.map(
                         (field) => `${field.field}: ${formatDiagnosticValue(field.value)}`,
                       )}
@@ -1217,21 +1199,21 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
                       label="Cleanup details"
                       values={[
                         report.recoveredJsonUsed
-                          ? "Recovered JSON from extra text or a code block"
+                          ? "Found the JSON object inside extra text"
                           : "",
                         report.nestedObjectUsed && report.ignoredOuterKey
-                          ? `Used nested object inside ${report.ignoredOuterKey}`
+                          ? `Used the single report object inside ${report.ignoredOuterKey}`
                           : "",
                         report.keyNormalizationUsed
-                          ? "Normalized human-readable field names"
+                          ? "Matched human-readable field names to the required fields"
                           : "",
                         report.valueNormalizationUsed
-                          ? "Normalized short answer phrases"
+                          ? "Matched short answer phrases to accepted choices"
                           : "",
                       ].filter(Boolean)}
                     />
                     <DiagnosticList
-                      label="Ignored extra fields"
+                      label="Extra fields returned"
                       values={report.ignoredExtraFields}
                     />
                     <details className="rounded-md border border-slate-200 bg-slate-50 p-2">
@@ -1279,11 +1261,9 @@ function formatDiagnosticValue(value: unknown) {
 function Leaderboard({
   participantId,
   rows,
-  source,
 }: {
   participantId: string;
   rows: LeaderboardRow[];
-  source: SubmissionSource;
 }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -1291,14 +1271,12 @@ function Leaderboard({
         Leaderboard
       </p>
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
-        {source === "supabase" ? "Supabase final scores" : "Local final scores"}
+        Final leaderboard
       </h2>
       <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
         {rows.length === 0 ? (
           <p className="bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            {source === "supabase"
-              ? "Final submissions will appear here after participants submit."
-              : "Final submissions saved in this browser will appear here."}
+            Final submissions will appear here after participants submit.
           </p>
         ) : rows.map((row) => (
           <div
