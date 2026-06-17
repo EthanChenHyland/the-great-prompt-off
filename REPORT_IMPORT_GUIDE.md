@@ -1,6 +1,6 @@
 # Report Import Guide
 
-This project imports reports from local files and seeds them into Supabase. A live admin Case Manager also exists under `/admin` for small report/answer-key edits, but file-based import remains safer for bulk changes.
+This project imports reports from local files and seeds them into Supabase. A live admin Case Manager also exists under `/admin/cases` for small report/answer-key edits, but file-based import remains safer for bulk changes.
 
 ## Repo Paths
 
@@ -61,7 +61,7 @@ Changing public/private counts may require updating participant-facing text and 
 
 ## Live Admin Case Manager
 
-Logged-in admins can use `/admin` to create, view, edit, and delete individual reports and answer keys.
+Logged-in admins can use `/admin/cases` to create, view, edit, and delete individual reports and answer keys. The main `/admin` page links to the Case Manager from the organizer dashboard.
 
 Live editing notes:
 
@@ -185,4 +185,4 @@ Current expected counts after seeding:
 - Do not expose private report text to participants.
 - More private reports means more OpenRouter calls and more latency/cost for Final Submission.
 - If public/private counts change, update UI and docs so participants understand the workflow.
-- Live Case Manager exists under `/admin`, but report changes can still be file-based plus `npm run seed:supabase`.
+- Live Case Manager exists under `/admin/cases`, but report changes can still be file-based plus `npm run seed:supabase`.

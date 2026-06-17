@@ -16,10 +16,16 @@ A workshop platform for prompt-engineering practice on synthetic knee MRI report
 
 Organizers use `/admin` and log in with `ADMIN_SECRET`.
 
-The admin dashboard includes:
+Admin pages:
 
-- Health Check / Admin readiness panel.
-- Participant and results tables.
+- `/admin` = command center, Health Check / Admin readiness, overview cards, exports, reset.
+- `/admin/participants` = participant management.
+- `/admin/results` = results and leaderboard.
+- `/admin/cases` = live Case Manager.
+- `/admin/help` = organizer help and documentation notes.
+
+The admin tools include:
+
 - CSV export for access codes.
 - CSV export for results.
 - Edit participant `display_name` and `email`.
@@ -173,11 +179,13 @@ From `/admin`:
 - Export access codes CSV if needed for records.
 - Export results CSV for scoring/archive.
 
+For detailed review, use `/admin/results`.
+
 ## Security Notes
 
 - Participant login uses access codes, not email/password auth.
 - Admin access uses `ADMIN_SECRET` and an HTTP-only admin session cookie.
 - OpenRouter and Supabase service-role secrets are used server-side only.
 - Participants do not receive answer keys, private report text, private per-report feedback, or raw private comparisons.
-- Admins can edit cases live under `/admin`, but participants never receive answer keys or private report text.
+- Admins can edit cases live under `/admin/cases`, but participants never receive answer keys or private report text.
 - File-based report import remains supported and is safer for bulk updates; see `REPORT_IMPORT_GUIDE.md`.
