@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export function AdminLoginForm() {
@@ -77,6 +78,12 @@ export function AdminLoginForm() {
       >
         {isSubmitting ? "Checking..." : "Enter admin"}
       </button>
+      <Link
+        href="/"
+        className="mt-3 flex h-10 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:border-teal-500 hover:text-teal-700"
+      >
+        Back to home
+      </Link>
     </form>
   );
 }
