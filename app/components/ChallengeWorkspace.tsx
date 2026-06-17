@@ -608,6 +608,7 @@ export function ChallengeWorkspace({
           <TaskSidebar />
 
           <section className="grid min-h-0 min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+            <OutputFormatGuide />
             <PromptEditor
               prompt={prompt}
               remainingPublicSubmissions={remainingPublicSubmissions}
@@ -786,8 +787,6 @@ function PromptEditor({
   remainingPublicSubmissions: number;
   setPrompt: (value: string) => void;
 }) {
-  const [showHelp, setShowHelp] = useState(false);
-
   return (
     <section className="h-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-4">
@@ -825,91 +824,6 @@ function PromptEditor({
         spellCheck={false}
         className="mt-4 h-[470px] w-full resize-none rounded-md border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-50 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
       />
-      <div className="mt-4 rounded-md border border-slate-200 bg-slate-50">
-        <button
-          type="button"
-          onClick={() => setShowHelp((current) => !current)}
-          className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:text-teal-700"
-          aria-expanded={showHelp}
-        >
-          <span>Output format guide</span>
-          <span className="text-xs text-slate-500">
-            {showHelp ? "Hide" : "Need help?"}
-          </span>
-        </button>
-        {showHelp ? (
-          <div className="grid gap-4 border-t border-slate-200 p-4 text-sm leading-6 text-slate-700">
-            <div>
-              <p className="font-semibold text-slate-900">
-                Why format matters
-              </p>
-              <p className="mt-1">
-                The AI must answer in a very specific machine-readable format so
-                the app can score it. Even if the medical reasoning is correct,
-                the score may be 0 if the output format is wrong.
-              </p>
-              <p className="mt-2">
-                Think of JSON as a small form with fixed field names and fixed
-                answer choices.
-              </p>
-            </div>
-            <div className="grid gap-3 lg:grid-cols-2">
-              <div>
-                <p className="font-semibold text-slate-900">
-                  Exact field names
-                </p>
-                <div className="mt-2 grid gap-1 font-mono text-xs">
-                  {findingKeys.map((key) => (
-                    <span key={key}>{key}</span>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="font-semibold text-slate-900">
-                  Exact answer choices
-                </p>
-                <p className="mt-2 font-mono text-xs">
-                  present / absent / uncertain
-                </p>
-                <p className="mt-2">
-                  Do not use words like intact, torn, yes, no, normal, abnormal,
-                  positive, or negative.
-                </p>
-              </div>
-            </div>
-            <ul className="list-disc space-y-1 pl-5">
-              <li>Tell the AI to return only one raw JSON object.</li>
-              <li>The first character should be {"{"} and the last should be {"}"}.</li>
-              <li>Do not include explanations, totals, tallies, markdown, code fences, or extra fields.</li>
-              <li>Use test attempts to refine your prompt before final submission.</li>
-            </ul>
-            <div>
-              <p className="font-semibold text-slate-900">
-                Short starter sentence
-              </p>
-              <p className="mt-2 rounded-md border border-slate-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800">
-                Return only the six fields shown in the example, using only
-                present, absent, or uncertain.
-              </p>
-            </div>
-            <div>
-              <p className="font-semibold text-slate-900">
-                Copyable format example
-              </p>
-              <pre className="mt-2 overflow-auto rounded-md border border-slate-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800">
-{`{
-  "acl_tear": "absent",
-  "mcl_injury": "absent",
-  "meniscus_tear": "absent",
-  "fracture": "absent",
-  "osteoarthritis": "absent",
-  "effusion": "absent"
-}`}
-              </pre>
-            </div>
-          </div>
-        ) : null}
-      </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
@@ -931,6 +845,62 @@ function PromptEditor({
         >
           {pendingAction === "final" ? "Submitting final..." : "Submit final"}
         </button>
+      </div>
+    </section>
+  );
+}
+
+function OutputFormatGuide() {
+  return (
+    <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 shadow-sm lg:col-span-2">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-800">
+        Important output format
+      </p>
+      <div className="mt-2 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <div className="grid gap-3">
+          <p>
+            The AI must answer in a very specific machine-readable format so the
+            app can score it. Even if the medical reasoning is correct, the score
+            may be 0 if the output format is wrong.
+          </p>
+          <p>
+            Think of JSON as a small form with fixed field names and fixed
+            answer choices. Tell the AI to return only one raw JSON object: the
+            first character should be {"{"} and the last should be {"}"}.
+          </p>
+          <p className="font-semibold">
+            Short starter sentence:{" "}
+            <span className="font-mono font-normal">
+              Return only the six fields shown in the example, using only
+              present, absent, or uncertain.
+            </span>
+          </p>
+          <p>
+            Do not use words like intact, torn, yes, no, normal, abnormal,
+            positive, or negative. Do not include explanations, totals, tallies,
+            markdown, code fences, or extra fields.
+          </p>
+        </div>
+        <div className="grid gap-3">
+          <div className="grid gap-2 rounded-md border border-amber-200 bg-white/70 p-3">
+            <p className="font-semibold text-slate-900">Exact field names</p>
+            <div className="grid grid-cols-2 gap-1 font-mono text-xs text-slate-800">
+              {findingKeys.map((key) => (
+                <span key={key}>{key}</span>
+              ))}
+            </div>
+          </div>
+          <pre className="overflow-auto rounded-md border border-amber-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800">
+{`{
+  "acl_tear": "absent",
+  "mcl_injury": "absent",
+  "meniscus_tear": "absent",
+  "fracture": "absent",
+  "osteoarthritis": "absent",
+  "effusion": "absent"
+}`}
+          </pre>
+        </div>
       </div>
     </section>
   );

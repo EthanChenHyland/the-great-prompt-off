@@ -19,9 +19,11 @@ export async function POST(request: Request) {
 
     return Response.json({ ok: true });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Admin reset failed.";
+
     return Response.json(
-      { error: error instanceof Error ? error.message : "Admin reset failed." },
-      { status: 401 },
+      { error: message },
+      { status: message === "Admin session required." ? 401 : 500 },
     );
   }
 }

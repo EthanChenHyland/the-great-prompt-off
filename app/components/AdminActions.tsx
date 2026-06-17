@@ -55,8 +55,10 @@ export function AdminResetPanel() {
 
     setConfirmation("");
     setMessage("Leaderboard, submissions, and run history cleared.");
-    router.refresh();
     setIsPending(false);
+    window.setTimeout(() => {
+      router.refresh();
+    }, 1200);
   }
 
   return (
