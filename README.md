@@ -27,8 +27,11 @@ The admin dashboard includes:
 - Activate/deactivate one participant.
 - Clear one participant's run/submission data.
 - Reset all workshop run/submission data.
+- Live Case Manager for admin-only report/answer-key create, view, edit, and safe delete.
 
 The reset tools preserve participants, access codes, reports, answer keys, and challenges. Atomic reset/clear RPC functions are defined in `supabase/admin-atomic-clears.sql`.
+
+The Case Manager is convenient for small live fixes. File-based import via `REPORT_IMPORT_GUIDE.md` remains safer for bulk changes. Deleting cases with run history is blocked so prior results are not silently damaged.
 
 ## AI Pipeline
 
@@ -176,4 +179,5 @@ From `/admin`:
 - Admin access uses `ADMIN_SECRET` and an HTTP-only admin session cookie.
 - OpenRouter and Supabase service-role secrets are used server-side only.
 - Participants do not receive answer keys, private report text, private per-report feedback, or raw private comparisons.
-- There is no case/report database manager UI yet. Report changes are file/seed driven; see `REPORT_IMPORT_GUIDE.md`.
+- Admins can edit cases live under `/admin`, but participants never receive answer keys or private report text.
+- File-based report import remains supported and is safer for bulk updates; see `REPORT_IMPORT_GUIDE.md`.

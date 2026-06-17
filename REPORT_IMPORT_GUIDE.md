@@ -1,6 +1,6 @@
 # Report Import Guide
 
-This project currently imports reports from local files and seeds them into Supabase. There is no report upload/edit/delete UI yet.
+This project imports reports from local files and seeds them into Supabase. A live admin Case Manager also exists under `/admin` for small report/answer-key edits, but file-based import remains safer for bulk changes.
 
 ## Repo Paths
 
@@ -56,6 +56,21 @@ If the counts change, update participant-facing text in:
 - `DEMO_CHECKLIST.md`
 
 More private reports also means more OpenRouter calls during Final Submission.
+
+Changing public/private counts may require updating participant-facing text and docs. The current UI assumes 5 public Test Attempt reports and 45 private Final Submission reports.
+
+## Live Admin Case Manager
+
+Logged-in admins can use `/admin` to create, view, edit, and delete individual reports and answer keys.
+
+Live editing notes:
+
+- Report text and answer-key labels are visible only in the admin dashboard.
+- Deleting a report requires typing the exact filename.
+- Deleting is blocked when `prompt_run_items` exist for that report.
+- Blocked deletes preserve participant data, prompt runs, submissions, and results.
+- Live editing is higher-risk than file-based import because it changes the active database immediately.
+- File-based import remains the recommended path for bulk additions or large dataset revisions.
 
 ## Adding Reports
 
@@ -170,4 +185,4 @@ Current expected counts after seeding:
 - Do not expose private report text to participants.
 - More private reports means more OpenRouter calls and more latency/cost for Final Submission.
 - If public/private counts change, update UI and docs so participants understand the workflow.
-- There is no case database manager yet; report changes are still file-based plus `npm run seed:supabase`.
+- Live Case Manager exists under `/admin`, but report changes can still be file-based plus `npm run seed:supabase`.

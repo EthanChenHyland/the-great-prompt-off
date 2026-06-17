@@ -6,7 +6,9 @@ import {
   AdminParticipantActions,
   AdminResetPanel,
 } from "../components/AdminActions";
+import { AdminCaseManager } from "../components/AdminCaseManager";
 import { hasAdminSession } from "../lib/supabase/admin-auth";
+import { getAdminCaseManagerData } from "../lib/supabase/admin-cases";
 import { getAdminDashboardData } from "../lib/supabase/admin-dashboard";
 
 const adminBuildMarker = "admin-health-v1";
@@ -22,7 +24,10 @@ export default async function AdminPage() {
     );
   }
 
-  const data = await getAdminDashboardData();
+  const [data, caseData] = await Promise.all([
+    getAdminDashboardData(),
+    getAdminCaseManagerData(),
+  ]);
 
   return (
     <main className="min-h-screen bg-[#f7f9f8] px-6 py-6 text-slate-950">
@@ -183,6 +188,8 @@ export default async function AdminPage() {
           </div>
           <AdminResetPanel />
         </section>
+        <AdminCaseManager data={caseData} />
+        <AdminHelpSection />
       </div>
     </main>
   );
@@ -265,4 +272,48 @@ function formatDate(value: string | null) {
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(value));
+}
+
+function AdminHelpSection() {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+        Help / Documentation
+      </p>
+      <h2 className="mt-2 text-xl font-semibold text-slate-950">
+        Organizer notes
+      </h2>
+      <div className="mt-3 grid gap-3 text-sm leading-6 text-slate-600 md:grid-cols-2">
+        <div>
+          <p>
+            <span className="font-semibold text-slate-800">README.md</span> has
+            the full setup and project overview.
+          </p>
+          <p>
+            <span className="font-semibold text-slate-800">
+              REPORT_IMPORT_GUIDE.md
+            </span>{" "}
+            explains file-based report imports.
+          </p>
+          <p>
+            <span className="font-semibold text-slate-800">
+              DEMO_CHECKLIST.md
+            </span>{" "}
+            is the event-day checklist.
+          </p>
+          <p>
+            <span className="font-semibold text-slate-800">Case Manager</span>{" "}
+            supports live admin case editing. File-based import remains safer
+            for bulk changes.
+          </p>
+        </div>
+        <div>
+          <p>Export access codes before the event.</p>
+          <p>Verify Admin Health Check before the event.</p>
+          <p>Reset all workshop data before participants start.</p>
+          <p>Export results after the event.</p>
+        </div>
+      </div>
+    </section>
+  );
 }
