@@ -6,6 +6,7 @@ import {
   SubmissionLimitError,
   submitToSupabase,
 } from "@/app/lib/supabase/submission-workflow";
+import { verifyParticipantSessionToken } from "@/app/lib/supabase/participant-session-token";
 import type { SubmitScoreResponse } from "@/app/lib/supabase/submission-workflow";
 
 export async function POST(request: Request) {
@@ -13,15 +14,24 @@ export async function POST(request: Request) {
 
   if (!isSubmissionRequest(body)) {
     return Response.json(
-      { error: "Expected participantCode and prompt strings." },
+      { error: "Expected participantCode, participantToken, and prompt strings." },
       { status: 400 },
+    );
+  }
+
+  const verifiedSession = verifyParticipantSessionToken(body.participantToken);
+
+  if (verifiedSession?.participantCode !== body.participantCode.trim().toUpperCase()) {
+    return Response.json(
+      { error: "Participant session is invalid. Return home and enter your access code." },
+      { status: 401 },
     );
   }
 
   try {
     const result = await submitToSupabase({
       kind: "final",
-      participantCode: body.participantCode.trim(),
+      participantCode: verifiedSession.participantCode,
       prompt: body.prompt,
     });
 
@@ -78,14 +88,17 @@ function toFinalClientResponse(result: SubmitScoreResponse) {
 
 function isSubmissionRequest(
   value: unknown,
-): value is { participantCode: string; prompt: string } {
+): value is { participantCode: string; participantToken: string; prompt: string } {
   return (
     typeof value === "object" &&
     value !== null &&
     "participantCode" in value &&
+    "participantToken" in value &&
     "prompt" in value &&
     typeof value.participantCode === "string" &&
     value.participantCode.trim().length > 0 &&
+    typeof value.participantToken === "string" &&
+    value.participantToken.trim().length > 0 &&
     typeof value.prompt === "string"
   );
 }

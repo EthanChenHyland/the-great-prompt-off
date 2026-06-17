@@ -23,8 +23,32 @@ Required environment variables:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `PARTICIPANT_SESSION_SECRET` is optional but recommended. It signs the lightweight participant session token returned after access-code validation. If omitted, the server falls back to `SUPABASE_SERVICE_ROLE_KEY`.
 
 The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and report text files from `public/mock-reports/`. It upserts one active challenge, all reports, all answer keys, and mock participants `P001` through `P050`, so it is safe to run more than once.
+
+Seeded participants have two identifiers:
+
+- `participant_code`: friendly workshop label, such as `P001`.
+- `access_code`: unique entry code distributed privately by the organizer.
+
+For an existing database created before access codes existed, run `supabase/access-code-migration.sql`, then run:
+
+```bash
+npm run seed:supabase
+```
+
+The seed script preserves existing access codes and generates new random codes only for participants that do not already have one.
+
+Export access codes for organizer distribution from the Supabase SQL editor:
+
+```sql
+select participant_code, display_name, access_code
+from participants
+order by participant_code;
+```
+
+Do not expose this query or the full `access_code` values to participant-facing UI.
 
 Current workshop split:
 
@@ -56,7 +80,7 @@ If Supabase environment variables are missing, Supabase is unavailable, or the d
 
 The app has Supabase-backed submission routes for future database mode:
 
-- `GET /api/submissions/status?participantCode=...`
+- `GET /api/submissions/status?participantCode=...&participantToken=...`
 - `POST /api/submissions/public`
 - `POST /api/submissions/final`
 - `GET /api/leaderboard`
@@ -65,7 +89,7 @@ These routes use the server-only service role client. Public/Test Attempt submis
 
 ## Tables
 
-- `participants`: Workshop identities and roles. The current participant ID maps to `participant_code`.
+- `participants`: Workshop identities and roles. `participant_code` is the friendly label; `access_code` is the unique workshop entry code.
 - `challenges`: Challenge configuration, instructions, output schema, locked model, active state, and submission limits.
 - `reports`: Synthetic report text for each challenge. The current participant workflow uses `public` for reports `001`-`005` and `private` for reports `006`-`050`; `sample` remains a legacy-compatible split value.
 - `answer_keys`: Structured adjudicated labels for each report.

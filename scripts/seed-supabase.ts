@@ -1,5 +1,6 @@
 import { loadEnvConfig } from "@next/env";
 import { createClient } from "@supabase/supabase-js";
+import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
@@ -42,6 +43,11 @@ type ReportRow = {
   external_id: string;
 };
 
+type ParticipantRow = {
+  participant_code: string;
+  access_code: string | null;
+};
+
 function getRequiredEnv(name: string) {
   const value = process.env[name];
 
@@ -52,6 +58,12 @@ function getRequiredEnv(name: string) {
   }
 
   return value;
+}
+
+function createParticipantAccessCode() {
+  return `GPO-${randomBytes(3).toString("hex").toUpperCase()}-${randomBytes(3)
+    .toString("hex")
+    .toUpperCase()}`;
 }
 
 async function readJsonFile<T>(relativePath: string) {
@@ -206,11 +218,49 @@ async function main() {
     throw new Error(`Failed to upsert answer keys: ${answerKeysError.message}`);
   }
 
+  const { data: existingParticipants, error: existingParticipantsError } =
+    await supabase
+      .from("participants")
+      .select("participant_code, access_code")
+      .returns<ParticipantRow[]>();
+
+  if (existingParticipantsError) {
+    throw new Error(
+      `Failed to load existing participant access codes: ${existingParticipantsError.message}`,
+    );
+  }
+
+  const existingAccessCodeByParticipant = new Map(
+    existingParticipants.map((participant) => [
+      participant.participant_code,
+      participant.access_code,
+    ]),
+  );
+  const allExistingAccessCodes = new Set(
+    existingParticipants
+      .map((participant) => participant.access_code)
+      .filter((accessCode): accessCode is string => Boolean(accessCode)),
+  );
+  const usedAccessCodes = new Set<string>();
   const participantRows = Array.from({ length: 50 }, (_, index) => {
     const participantNumber = String(index + 1).padStart(3, "0");
+    const participantCode = `P${participantNumber}`;
+    const existingAccessCode =
+      existingAccessCodeByParticipant.get(participantCode) || null;
+    let accessCode = existingAccessCode || createParticipantAccessCode();
+
+    while (
+      !existingAccessCode &&
+      (usedAccessCodes.has(accessCode) || allExistingAccessCodes.has(accessCode))
+    ) {
+      accessCode = createParticipantAccessCode();
+    }
+
+    usedAccessCodes.add(accessCode);
 
     return {
-      participant_code: `P${participantNumber}`,
+      participant_code: participantCode,
+      access_code: accessCode,
       display_name: `Participant ${participantNumber}`,
       role: "participant",
     };
@@ -237,7 +287,10 @@ async function main() {
     `Seeded ${manifest.length} reports: ${splitCounts.public} public test, ${splitCounts.private} hidden final, ${splitCounts.sample} legacy sample.`,
   );
   console.log(`Seeded ${answerKeyRows.length} answer keys.`);
-  console.log(`Seeded ${participantRows.length} mock participants.`);
+  console.log(`Seeded ${participantRows.length} mock participants with access codes.`);
+  console.log(
+    "Export access codes with: select participant_code, display_name, access_code from participants order by participant_code;",
+  );
 }
 
 main().catch((error: unknown) => {

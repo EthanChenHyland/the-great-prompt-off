@@ -12,6 +12,7 @@ import { normalizeParticipantCode } from "../lib/participant-codes";
 import {
   saveParticipantId,
   useSavedParticipantId,
+  useSavedParticipantToken,
 } from "../lib/participant-session";
 import {
   createSubmissionId,
@@ -110,11 +111,12 @@ type ParticipantValidationResponse = {
   source: "supabase" | "mock-file-fallback";
   valid: boolean;
   participantCode: string;
+  participantToken: string | null;
   message: string;
 };
 
 const initialPrompt = "";
-const workspaceBuildMarker = "final-real-v1";
+const workspaceBuildMarker = "access-codes-v1";
 
 export function ChallengeWorkspace({
   initialParticipantId,
@@ -125,6 +127,7 @@ export function ChallengeWorkspace({
     normalizeParticipantCode(initialParticipantId),
   );
   const savedParticipantId = useSavedParticipantId();
+  const savedParticipantToken = useSavedParticipantToken();
   const submissionStore = useSubmissionStore();
   const [activeReportId, setActiveReportId] = useState(reports[0]?.id ?? "");
   const [prompt, setPrompt] = useState(initialPrompt);
@@ -152,6 +155,7 @@ export function ChallengeWorkspace({
   const activeParticipantId = normalizeParticipantCode(
     participantId || savedParticipantId,
   );
+  const activeParticipantToken = savedParticipantToken;
   const localParticipantHistory = activeParticipantId
     ? getParticipantHistory(submissionStore, activeParticipantId)
     : { publicSubmissions: [], finalSubmission: null };
@@ -166,7 +170,7 @@ export function ChallengeWorkspace({
       : Boolean(localParticipantHistory.finalSubmission);
 
   useEffect(() => {
-    if (!activeParticipantId) {
+    if (!activeParticipantId || !activeParticipantToken) {
       return;
     }
 
@@ -174,13 +178,16 @@ export function ChallengeWorkspace({
 
     async function validateCurrentParticipant() {
       try {
-        const validation = await validateParticipantCode(activeParticipantId);
+        const validation = await validateParticipantSession(
+          activeParticipantId,
+          activeParticipantToken,
+        );
 
         if (!ignore) {
           setParticipantValidation(validation);
           setParticipantValidationError("");
 
-          if (validation.valid) {
+          if (validation.valid && validation.participantToken) {
             saveParticipantId(validation.participantCode);
             setParticipantId(validation.participantCode);
           }
@@ -201,7 +208,7 @@ export function ChallengeWorkspace({
     return () => {
       ignore = true;
     };
-  }, [activeParticipantId]);
+  }, [activeParticipantId, activeParticipantToken]);
 
   useEffect(() => {
     let ignore = false;
@@ -239,7 +246,11 @@ export function ChallengeWorkspace({
   }, []);
 
   useEffect(() => {
-    if (!activeParticipantId || participantValidation?.valid !== true) {
+    if (
+      !activeParticipantId ||
+      !activeParticipantToken ||
+      participantValidation?.valid !== true
+    ) {
       return;
     }
 
@@ -247,7 +258,7 @@ export function ChallengeWorkspace({
 
     async function loadSubmissionData() {
       const [status, leaderboard] = await Promise.all([
-        getSubmissionStatus(activeParticipantId),
+        getSubmissionStatus(activeParticipantId, activeParticipantToken),
         getLeaderboard(),
       ]);
 
@@ -262,7 +273,7 @@ export function ChallengeWorkspace({
     return () => {
       ignore = true;
     };
-  }, [activeParticipantId, participantValidation?.valid]);
+  }, [activeParticipantId, activeParticipantToken, participantValidation?.valid]);
 
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const currentRows = useMemo(() => {
@@ -282,8 +293,8 @@ export function ChallengeWorkspace({
   }
 
   async function submitMockScore(kind: SubmissionKind) {
-    if (!activeParticipantId) {
-      setSubmissionMessage("Enter a participant ID before submitting.");
+    if (!activeParticipantId || !activeParticipantToken) {
+      setSubmissionMessage("Enter your participant access code before submitting.");
       return;
     }
 
@@ -328,6 +339,7 @@ export function ChallengeWorkspace({
           ? "/api/submissions/public"
           : "/api/submissions/final",
         activeParticipantId,
+        activeParticipantToken,
         prompt,
       );
 
@@ -423,7 +435,7 @@ export function ChallengeWorkspace({
     router.push("/");
   }
 
-  if (!activeParticipantId) {
+  if (!activeParticipantId || !activeParticipantToken) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f7f9f8] px-6 text-slate-950">
         <section className="w-full max-w-lg rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
@@ -431,12 +443,11 @@ export function ChallengeWorkspace({
             Participant required
           </p>
           <h1 className="mt-3 text-2xl font-semibold text-slate-950">
-            Enter a participant ID before opening the challenge.
+            Enter a participant access code before opening the challenge.
           </h1>
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            The home page is the participant check-in point for this local mock
-            workshop. Return home, enter your assigned ID, then continue to the
-            workspace.
+            The home page is the participant check-in point. Return home, enter
+            your unique workshop access code, then continue to the workspace.
           </p>
           <button
             type="button"
@@ -458,7 +469,7 @@ export function ChallengeWorkspace({
             Participant check unavailable
           </p>
           <h1 className="mt-3 text-2xl font-semibold text-slate-950">
-            We could not validate this participant code.
+            We could not validate this participant session.
           </h1>
           <p className="mt-4 text-sm leading-6 text-slate-600">
             Return home and try again. If Supabase is unavailable, local mock
@@ -509,7 +520,7 @@ export function ChallengeWorkspace({
             This participant code is not registered.
           </h1>
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            Use one of the seeded workshop codes, P001 through P050, then return
+            Use the unique access code from your workshop organizer, then return
             to the workspace.
           </p>
           <p className="mt-3 rounded-md bg-amber-50 p-3 text-sm leading-6 text-amber-900">
@@ -1207,11 +1218,14 @@ async function hashPrompt(prompt: string) {
   return hash.toString(16).padStart(8, "0").slice(0, 12);
 }
 
-async function validateParticipantCode(participantCode: string) {
+async function validateParticipantSession(
+  participantCode: string,
+  participantToken: string,
+) {
   const response = await fetch(
     `/api/participants/validate?participantCode=${encodeURIComponent(
       participantCode,
-    )}`,
+    )}&participantToken=${encodeURIComponent(participantToken)}`,
   );
 
   if (!response.ok) {
@@ -1221,9 +1235,14 @@ async function validateParticipantCode(participantCode: string) {
   return (await response.json()) as ParticipantValidationResponse;
 }
 
-async function getSubmissionStatus(participantCode: string) {
+async function getSubmissionStatus(
+  participantCode: string,
+  participantToken: string,
+) {
   const response = await fetch(
-    `/api/submissions/status?participantCode=${encodeURIComponent(participantCode)}`,
+    `/api/submissions/status?participantCode=${encodeURIComponent(
+      participantCode,
+    )}&participantToken=${encodeURIComponent(participantToken)}`,
   );
 
   if (!response.ok) {
@@ -1259,6 +1278,7 @@ async function getLeaderboard() {
 async function postSubmission(
   url: string,
   participantCode: string,
+  participantToken: string,
   prompt: string,
 ) {
   const response = await fetch(url, {
@@ -1266,7 +1286,7 @@ async function postSubmission(
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ participantCode, prompt }),
+    body: JSON.stringify({ participantCode, participantToken, prompt }),
   });
 
   if (!response.ok) {

@@ -1,7 +1,10 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { participantStorageKey } from "./challenge-constants";
+import {
+  participantSessionTokenStorageKey,
+  participantStorageKey,
+} from "./challenge-constants";
 import { normalizeParticipantCode } from "./participant-codes";
 
 const participantSessionEvent = "great-prompt-off-participant-session";
@@ -16,6 +19,14 @@ function getParticipantSnapshot() {
   }
 
   return window.localStorage.getItem(participantStorageKey) ?? "";
+}
+
+function getParticipantTokenSnapshot() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  return window.localStorage.getItem(participantSessionTokenStorageKey) ?? "";
 }
 
 function getServerSnapshot() {
@@ -40,6 +51,14 @@ export function useSavedParticipantId() {
   );
 }
 
+export function useSavedParticipantToken() {
+  return useSyncExternalStore(
+    subscribeToParticipantSession,
+    getParticipantTokenSnapshot,
+    getServerSnapshot,
+  );
+}
+
 export function saveParticipantId(participantId: string) {
   window.localStorage.setItem(
     participantStorageKey,
@@ -48,7 +67,14 @@ export function saveParticipantId(participantId: string) {
   emitParticipantSessionChange();
 }
 
+export function saveParticipantSession(participantId: string, participantToken: string) {
+  saveParticipantId(participantId);
+  window.localStorage.setItem(participantSessionTokenStorageKey, participantToken);
+  emitParticipantSessionChange();
+}
+
 export function clearParticipantId() {
   window.localStorage.removeItem(participantStorageKey);
+  window.localStorage.removeItem(participantSessionTokenStorageKey);
   emitParticipantSessionChange();
 }

@@ -174,7 +174,7 @@ export async function getSupabaseSubmissionStatus(
 
   if (!participant) {
     throw new ParticipantValidationError(
-      "Participant code not found. Use a seeded workshop code from P001 through P050.",
+      "Participant session is valid, but the participant is not registered.",
     );
   }
 
@@ -199,7 +199,7 @@ export async function submitToSupabase({
 
   if (!participant) {
     throw new ParticipantValidationError(
-      "Participant code not found. Use a seeded workshop code from P001 through P050.",
+      "Participant session is valid, but the participant is not registered.",
     );
   }
 

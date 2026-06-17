@@ -12,16 +12,20 @@ create type finding_value as enum ('present', 'absent', 'uncertain');
 create table participants (
   id uuid primary key default gen_random_uuid(),
   participant_code text not null unique,
+  access_code text not null unique,
   display_name text,
   role app_role not null default 'participant',
   auth_user_id uuid unique,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  check (length(trim(participant_code)) > 0)
+  check (length(trim(participant_code)) > 0),
+  check (length(trim(access_code)) >= 12)
 );
 
 comment on table participants is
-  'Stores workshop participant/admin identities. participant_code maps to the current mock participant ID.';
+  'Stores workshop participant/admin identities. participant_code is the friendly label; access_code is the unguessable workshop entry code.';
+comment on column participants.access_code is
+  'Unique workshop access code used before full email/password authentication exists. Keep server/admin-only.';
 comment on column participants.auth_user_id is
   'Future optional link to Supabase auth.users.id when authentication is added.';
 
@@ -172,6 +176,7 @@ create unique index submissions_public_attempt_number_unique
   where submission_type = 'public';
 
 create index participants_role_idx on participants (role);
+create index participants_access_code_idx on participants (access_code);
 create index challenges_active_idx on challenges (is_active);
 create index reports_challenge_split_idx on reports (challenge_id, split);
 create index prompt_runs_participant_challenge_idx on prompt_runs (participant_id, challenge_id);
