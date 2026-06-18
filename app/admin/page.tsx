@@ -12,10 +12,13 @@ import {
   AdminNavigationCards,
   AdminPageFrame,
   AdminSectionNav,
+  AdminTable,
   formatDate,
   HealthItem,
   MetricCard,
+  score,
 } from "../components/AdminLayout";
+import type { AdminParticipantRow } from "../lib/supabase/admin-dashboard";
 import { hasAdminSession } from "../lib/supabase/admin-auth";
 import { getAdminDashboardData } from "../lib/supabase/admin-dashboard";
 
@@ -87,6 +90,75 @@ export default async function AdminPage() {
 
       <AdminNavigationCards />
 
+      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <MetricCard
+          label="Active participants"
+          value={data.progressSummary.activeParticipants}
+        />
+        <MetricCard
+          label="With test attempt"
+          value={data.progressSummary.participantsWithTestAttempt}
+        />
+        <MetricCard
+          label="Final submitted"
+          value={data.progressSummary.participantsWithFinalSubmitted}
+        />
+        <MetricCard
+          label="No activity"
+          value={data.progressSummary.participantsWithNoActivity}
+        />
+        <MetricCard
+          label="Average final"
+          value={score(data.progressSummary.averageFinalScore) || "-"}
+        />
+        <MetricCard
+          label="Best final"
+          value={score(data.progressSummary.bestFinalScore) || "-"}
+        />
+      </section>
+
+      <div className="grid gap-3">
+        {data.progressSummary.participantsWithTestAttempt === 0 &&
+        data.progressSummary.participantsWithFinalSubmitted === 0 ? (
+          <p className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 shadow-sm">
+            No participant run activity yet. This monitor will update as
+            participants submit Test Attempts and Final Submissions.
+          </p>
+        ) : null}
+        <AdminTable
+          title="Participant progress monitor"
+          columns={[
+            "Status",
+            "Participant",
+            "Display name",
+            "Active",
+            "Tests used",
+            "Tests left",
+            "Best test",
+            "Latest test",
+            "Final",
+            "Final score",
+            "Latest activity",
+          ]}
+          rows={data.participants.map((participant) => [
+            <ProgressStatusBadge
+              key={`${participant.participantCode}-status`}
+              participant={participant}
+            />,
+            participant.participantCode,
+            participant.displayName || "",
+            participant.isActive ? "Yes" : "No",
+            String(participant.testAttemptsUsed),
+            String(participant.testAttemptsRemaining),
+            score(participant.bestTestScore),
+            score(participant.latestTestScore),
+            participant.finalSubmitted ? "Yes" : "No",
+            score(participant.finalScore),
+            formatDate(participant.latestActivityAt),
+          ])}
+        />
+      </div>
+
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
@@ -140,4 +212,39 @@ export default async function AdminPage() {
       </section>
     </AdminPageFrame>
   );
+}
+
+function ProgressStatusBadge({
+  participant,
+}: {
+  participant: AdminParticipantRow;
+}) {
+  const label = progressStatusLabel(participant.progressStatus);
+  const className = {
+    final_submitted: "border-teal-200 bg-teal-50 text-teal-800",
+    inactive: "border-slate-200 bg-slate-100 text-slate-600",
+    no_activity: "border-amber-200 bg-amber-50 text-amber-800",
+    practicing: "border-cyan-200 bg-cyan-50 text-cyan-800",
+  }[participant.progressStatus];
+
+  return (
+    <span
+      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${className}`}
+    >
+      {label}
+    </span>
+  );
+}
+
+function progressStatusLabel(status: AdminParticipantRow["progressStatus"]) {
+  switch (status) {
+    case "final_submitted":
+      return "Final submitted";
+    case "inactive":
+      return "Inactive";
+    case "no_activity":
+      return "No activity";
+    case "practicing":
+      return "Practicing";
+  }
 }

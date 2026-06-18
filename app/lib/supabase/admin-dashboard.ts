@@ -15,12 +15,24 @@ export type AdminParticipantRow = {
   accessCode: string;
   isActive: boolean;
   testAttemptsUsed: number;
+  testAttemptsRemaining: number;
   finalSubmitted: boolean;
   latestTestScore: number | null;
   bestTestScore: number | null;
   finalScore: number | null;
   finalSubmittedAt: string | null;
   finalModelName: string | null;
+  latestActivityAt: string | null;
+  progressStatus: "inactive" | "no_activity" | "practicing" | "final_submitted";
+};
+
+export type AdminProgressSummary = {
+  activeParticipants: number;
+  participantsWithTestAttempt: number;
+  participantsWithFinalSubmitted: number;
+  participantsWithNoActivity: number;
+  averageFinalScore: number | null;
+  bestFinalScore: number | null;
 };
 
 export type AdminDashboardData = {
@@ -49,6 +61,7 @@ export type AdminDashboardData = {
     latestRunTimestamp: string | null;
   };
   participants: AdminParticipantRow[];
+  progressSummary: AdminProgressSummary;
   leaderboard: AdminParticipantRow[];
 };
 
@@ -71,6 +84,7 @@ type SubmissionRow = {
 
 type PromptRunRow = {
   id: string;
+  participant_id: string;
   model: string;
   completed_at: string | null;
   created_at: string;
@@ -85,6 +99,7 @@ type ChallengeControlRow = {
   event_phase: EventPhase;
   leaderboard_visibility: LeaderboardVisibility;
   event_announcement: string;
+  public_submission_limit: number;
 };
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
@@ -99,7 +114,9 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     await Promise.all([
     supabase
       .from("challenges")
-      .select("id, event_phase, leaderboard_visibility, event_announcement")
+      .select(
+        "id, event_phase, leaderboard_visibility, event_announcement, public_submission_limit",
+      )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -116,7 +133,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .returns<SubmissionRow[]>(),
     supabase
       .from("prompt_runs")
-      .select("id, model, completed_at, created_at")
+      .select("id, participant_id, model, completed_at, created_at")
       .order("created_at", { ascending: false })
       .returns<PromptRunRow[]>(),
     supabase.from("reports").select("split").returns<ReportCountRow[]>(),
@@ -143,7 +160,14 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   }
 
   const runsById = new Map(runsResult.data.map((run) => [run.id, run]));
+  const runsByParticipant = new Map<string, PromptRunRow[]>();
   const submissionsByParticipant = new Map<string, SubmissionRow[]>();
+
+  for (const run of runsResult.data) {
+    const participantRuns = runsByParticipant.get(run.participant_id) || [];
+    participantRuns.push(run);
+    runsByParticipant.set(run.participant_id, participantRuns);
+  }
 
   for (const submission of submissionsResult.data) {
     const participantSubmissions =
@@ -164,9 +188,20 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       testSubmissions.length > 0
         ? Math.max(...testSubmissions.map((submission) => submission.score))
         : null;
+    const participantRuns = runsByParticipant.get(participant.id) || [];
     const finalRun = finalSubmission
       ? runsById.get(finalSubmission.prompt_run_id) || null
       : null;
+    const latestActivityAt = getLatestTimestamp([
+      ...submissions.map((submission) => submission.submitted_at),
+      ...participantRuns.map((run) => run.completed_at || run.created_at),
+    ]);
+    const progressStatus = getParticipantProgressStatus({
+      finalSubmitted: Boolean(finalSubmission),
+      isActive: participant.is_active,
+      latestActivityAt,
+      testAttemptsUsed: testSubmissions.length,
+    });
 
     return {
       participantCode: participant.participant_code,
@@ -175,12 +210,18 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       accessCode: participant.access_code || "",
       isActive: participant.is_active,
       testAttemptsUsed: testSubmissions.length,
+      testAttemptsRemaining: Math.max(
+        0,
+        challengeResult.data.public_submission_limit - testSubmissions.length,
+      ),
       finalSubmitted: Boolean(finalSubmission),
       latestTestScore: latestTest?.score ?? null,
       bestTestScore,
       finalScore: finalSubmission?.score ?? null,
       finalSubmittedAt: finalSubmission?.submitted_at ?? null,
       finalModelName: finalRun?.model ?? null,
+      latestActivityAt,
+      progressStatus,
     };
   });
 
@@ -198,6 +239,34 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       [report.split]: (counts[report.split] || 0) + 1,
     }),
     { sample: 0, public: 0, private: 0 } as Record<ReportCountRow["split"], number>,
+  );
+  const finalScores = participants
+    .map((participant) => participant.finalScore)
+    .filter((score): score is number => score !== null);
+  const progressSummary: AdminProgressSummary = {
+    activeParticipants: participants.filter((participant) => participant.isActive)
+      .length,
+    participantsWithTestAttempt: participants.filter(
+      (participant) => participant.testAttemptsUsed > 0,
+    ).length,
+    participantsWithFinalSubmitted: participants.filter(
+      (participant) => participant.finalSubmitted,
+    ).length,
+    participantsWithNoActivity: participants.filter(
+      (participant) => participant.progressStatus === "no_activity",
+    ).length,
+    averageFinalScore:
+      finalScores.length > 0
+        ? finalScores.reduce((sum, score) => sum + score, 0) / finalScores.length
+        : null,
+    bestFinalScore: finalScores.length > 0 ? Math.max(...finalScores) : null,
+  };
+  const progressSortedParticipants = [...participants].sort(
+    (left, right) =>
+      progressStatusRank(right.progressStatus) -
+        progressStatusRank(left.progressStatus) ||
+      right.testAttemptsUsed - left.testAttemptsUsed ||
+      left.participantCode.localeCompare(right.participantCode),
   );
 
   return {
@@ -230,7 +299,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       finalSubmissionsCount,
       latestRunTimestamp,
     },
-    participants,
+    participants: progressSortedParticipants,
+    progressSummary,
     leaderboard: [...participants].sort((a, b) => {
       const bScore = b.finalScore ?? -1;
       const aScore = a.finalScore ?? -1;
@@ -242,6 +312,58 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       return (b.bestTestScore ?? -1) - (a.bestTestScore ?? -1);
     }),
   };
+}
+
+function getLatestTimestamp(values: Array<string | null | undefined>) {
+  const timestamps = values
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value).getTime())
+    .filter((value) => Number.isFinite(value));
+
+  if (timestamps.length === 0) {
+    return null;
+  }
+
+  return new Date(Math.max(...timestamps)).toISOString();
+}
+
+function getParticipantProgressStatus({
+  finalSubmitted,
+  isActive,
+  latestActivityAt,
+  testAttemptsUsed,
+}: {
+  finalSubmitted: boolean;
+  isActive: boolean;
+  latestActivityAt: string | null;
+  testAttemptsUsed: number;
+}): AdminParticipantRow["progressStatus"] {
+  if (!isActive) {
+    return "inactive";
+  }
+
+  if (finalSubmitted) {
+    return "final_submitted";
+  }
+
+  if (testAttemptsUsed > 0 || latestActivityAt) {
+    return "practicing";
+  }
+
+  return "no_activity";
+}
+
+function progressStatusRank(status: AdminParticipantRow["progressStatus"]) {
+  switch (status) {
+    case "final_submitted":
+      return 4;
+    case "practicing":
+      return 3;
+    case "no_activity":
+      return 2;
+    case "inactive":
+      return 1;
+  }
 }
 
 export async function updateActiveChallengePhase(phase: EventPhase) {
