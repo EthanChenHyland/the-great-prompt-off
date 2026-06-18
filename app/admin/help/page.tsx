@@ -69,7 +69,7 @@ const helpSections = [
   {
     title: "Resetting workshop data",
     items: [
-      "The full reset deletes prompt run items, submissions, and prompt runs.",
+      "The full reset deletes prompt run items, submissions, prompt runs, and extra Test Attempt grants.",
       "The reset preserves participants, access codes, reports, answer keys, and challenges.",
       "Atomic reset functions should exist in Supabase before relying on reset tools.",
     ],

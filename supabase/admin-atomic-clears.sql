@@ -31,11 +31,14 @@ begin
 
   delete from prompt_runs
   where participant_id = target_participant_id;
+
+  delete from participant_attempt_overrides
+  where participant_code = trim(target_participant_code);
 end;
 $$;
 
 comment on function public.admin_clear_participant_run_data(text) is
-  'Admin-only RPC. Atomically deletes prompt_run_items, submissions, and prompt_runs for one participant while preserving participant identity, access codes, reports, answer keys, and challenges.';
+  'Admin-only RPC. Atomically deletes prompt_run_items, submissions, prompt_runs, and Test Attempt overrides for one participant while preserving participant identity, access codes, reports, answer keys, and challenges.';
 
 create or replace function public.admin_reset_workshop_run_data()
 returns void
@@ -47,11 +50,12 @@ begin
   delete from prompt_run_items where true;
   delete from submissions where true;
   delete from prompt_runs where true;
+  delete from participant_attempt_overrides where true;
 end;
 $$;
 
 comment on function public.admin_reset_workshop_run_data() is
-  'Admin-only RPC. Atomically deletes all prompt_run_items, submissions, and prompt_runs while preserving participants, access codes, reports, answer keys, and challenges.';
+  'Admin-only RPC. Atomically deletes all prompt_run_items, submissions, prompt_runs, and Test Attempt overrides while preserving participants, access codes, reports, answer keys, and challenges.';
 
 revoke execute on function public.admin_clear_participant_run_data(text)
   from public, anon, authenticated;

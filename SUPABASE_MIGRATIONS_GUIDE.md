@@ -213,6 +213,7 @@ Deletes:
 - `prompt_run_items`
 - `submissions`
 - `prompt_runs`
+- `participant_attempt_overrides`
 
 Preserves:
 
@@ -225,7 +226,7 @@ Preserves:
 
 ### `admin_clear_participant_run_data(target_participant_code text)`
 
-Deletes the same run/submission data, but only for one participant.
+Deletes the same run/submission data and Test Attempt override, but only for one participant.
 
 Preserves:
 
@@ -235,6 +236,7 @@ Preserves:
 - answer keys
 - challenges
 - other participants' runs and submissions
+- other participants' Test Attempt overrides
 
 These RPC functions are safer than app-side deletes because the related deletes happen inside the database. That reduces the chance of a partial reset where one table is cleared but a later table fails.
 
@@ -249,7 +251,7 @@ These RPC functions are safer than app-side deletes because the related deletes 
   - `supabase/event-timer.sql`
 - Run `npm run seed:supabase` with production Supabase environment variables.
 - Verify the active challenge has `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.
-- Verify reset RPC functions exist.
+- Verify reset RPC functions exist and were updated from `supabase/admin-atomic-clears.sql`.
 - Verify report counts.
 - Verify answer-key coverage.
 - Verify participants and access codes.
@@ -331,7 +333,7 @@ select
 
 ## Warnings
 
-- Do not run reset during the event unless you intentionally want to clear Test Attempts, Final Submissions, leaderboard results, and run history.
+- Do not run reset during the event unless you intentionally want to clear Test Attempts, Final Submissions, leaderboard results, run history, and extra Test Attempt grants.
 - Do not expose `answer_keys` to participants.
 - Do not edit private reports during live submissions unless absolutely necessary.
 - SQL changes affect the live Supabase database.

@@ -41,7 +41,7 @@ The admin tools include:
 - Reset all workshop run/submission data.
 - Live Case Manager for admin-only report/answer-key create, view, edit, and safe delete.
 
-The reset tools preserve participants, access codes, reports, answer keys, and challenges. Atomic reset/clear RPC functions are defined in `supabase/admin-atomic-clears.sql`.
+The reset tools clear run/submission data and extra Test Attempt grants while preserving participants, access codes, reports, answer keys, and challenges. Atomic reset/clear RPC functions are defined in `supabase/admin-atomic-clears.sql`.
 
 The Case Manager is convenient for small live fixes. File-based import via `REPORT_IMPORT_GUIDE.md` remains safer for bulk changes. Deleting cases with run history is blocked so prior results are not silently damaged.
 

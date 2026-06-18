@@ -124,7 +124,7 @@ CSV exports require the admin session:
 Admin v1.5 participant tools:
 
 - Regenerate one participant access code from that participant row. This requires confirming the participant code and invalidates the old access code.
-- Clear one participant's run/submission data. This requires confirming the participant code and deletes only that participant's `prompt_run_items`, `submissions`, and `prompt_runs`.
+- Clear one participant's run/submission data. This requires confirming the participant code and deletes only that participant's `prompt_run_items`, `submissions`, `prompt_runs`, and extra Test Attempt override.
 - Deactivate/reactivate one participant. Inactive participants cannot log in or submit, but existing submissions remain stored.
 - Email is currently a nullable metadata field shown/exported by Admin v1.5. Email/password auth is not implemented.
 
@@ -133,6 +133,7 @@ The admin reset requires typing `RESET` and deletes only:
 - `prompt_run_items`
 - `submissions`
 - `prompt_runs`
+- `participant_attempt_overrides`
 
 It does not delete:
 
