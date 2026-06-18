@@ -42,6 +42,7 @@ create table challenges (
   public_submission_limit integer not null default 5,
   final_submission_limit integer not null default 1,
   event_phase text not null default 'not_started',
+  leaderboard_visibility text not null default 'practice',
   is_active boolean not null default false,
   created_by uuid references participants(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -51,7 +52,8 @@ create table challenges (
   check (length(trim(locked_model)) > 0),
   check (public_submission_limit >= 0),
   check (final_submission_limit >= 0),
-  check (event_phase in ('not_started', 'practice_open', 'final_open', 'ended'))
+  check (event_phase in ('not_started', 'practice_open', 'final_open', 'ended')),
+  check (leaderboard_visibility in ('hidden', 'practice', 'final', 'ended', 'always'))
 );
 
 comment on table challenges is
@@ -60,6 +62,8 @@ comment on column challenges.locked_model is
   'The model selected by admins for database-backed runs/submissions.';
 comment on column challenges.event_phase is
   'Organizer-controlled event phase that gates participant workspace actions and submissions.';
+comment on column challenges.leaderboard_visibility is
+  'Organizer-controlled participant leaderboard visibility mode.';
 
 create table reports (
   id uuid primary key default gen_random_uuid(),

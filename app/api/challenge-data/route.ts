@@ -6,6 +6,7 @@ import { challenge as mockChallenge } from "@/app/lib/challenge-constants";
 import { getFriendlyModelName } from "@/app/lib/model-display";
 import { getOpenRouterModel } from "@/app/lib/openrouter";
 import type { EventPhase } from "@/app/lib/event-phase";
+import type { LeaderboardVisibility } from "@/app/lib/leaderboard-visibility";
 import type { ReportManifestItem } from "@/app/lib/types";
 
 type ReportSplit = "sample" | "public" | "private";
@@ -20,6 +21,7 @@ type ChallengeRow = {
   public_submission_limit: number;
   final_submission_limit: number;
   event_phase: EventPhase;
+  leaderboard_visibility: LeaderboardVisibility;
 };
 
 type ReportMetadataRow = {
@@ -62,6 +64,7 @@ function getFallbackChallengeData(reason: string) {
       publicSubmissionLimit: fallbackChallengeConfig.publicSubmissionLimit,
       finalSubmissionLimit: fallbackChallengeConfig.finalSubmissionLimit,
       eventPhase: "practice_open" satisfies EventPhase,
+      leaderboardVisibility: "practice" satisfies LeaderboardVisibility,
     },
     reportCounts,
     sampleReports: typedManifest
@@ -99,7 +102,7 @@ export async function GET() {
     const { data: challenge, error: challengeError } = await supabase
       .from("challenges")
       .select(
-        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit, event_phase",
+        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -180,6 +183,7 @@ export async function GET() {
         publicSubmissionLimit: challenge.public_submission_limit,
         finalSubmissionLimit: challenge.final_submission_limit,
         eventPhase: challenge.event_phase,
+        leaderboardVisibility: challenge.leaderboard_visibility,
       },
       reportCounts,
       sampleReports: reports

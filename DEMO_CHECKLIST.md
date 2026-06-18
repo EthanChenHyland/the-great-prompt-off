@@ -17,6 +17,7 @@ Short event-focused checklist. See `README.md` for setup details and `REPORT_IMP
 
 - Run required SQL/migrations for the target database.
 - Run `supabase/event-controls.sql`.
+- Run `supabase/leaderboard-visibility.sql`.
 - Run `supabase/admin-atomic-clears.sql`.
 - Run `npm run seed:supabase`.
 - Verify split counts:
@@ -65,6 +66,7 @@ Before the event, Health Check should show:
 - Set the event phase to `practice_open` when the challenge begins.
 - Set the event phase to `final_open` for the final round.
 - Set the event phase to `ended` when submissions should close.
+- Set participant leaderboard visibility from `/admin` before or during the event.
 - Participant status and leaderboard panels update automatically during the event.
 - `/admin` and `/admin/results` auto-refresh for monitoring; use manual refresh on pages with edit forms.
 

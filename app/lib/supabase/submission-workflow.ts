@@ -4,6 +4,10 @@ import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { getAnswerKeyItems } from "@/app/lib/challenge-data";
 import type { EventPhase } from "@/app/lib/event-phase";
 import {
+  canShowParticipantLeaderboard,
+  type LeaderboardVisibility,
+} from "@/app/lib/leaderboard-visibility";
+import {
   extractReportWithOpenRouter,
   getOpenRouterConcurrency,
   getOpenRouterModel,
@@ -38,6 +42,7 @@ type ActiveChallenge = {
   public_submission_limit: number;
   final_submission_limit: number;
   event_phase: EventPhase;
+  leaderboard_visibility: LeaderboardVisibility;
 };
 
 type Participant = {
@@ -169,6 +174,7 @@ export type LeaderboardRow = {
 export type LeaderboardResponse = {
   source: DataSource;
   fallbackReason: string | null;
+  visible: boolean;
   rows: LeaderboardRow[];
 };
 
@@ -189,6 +195,7 @@ export function fallbackLeaderboard(reason: string): LeaderboardResponse {
   return {
     source: "mock-file-fallback",
     fallbackReason: reason,
+    visible: process.env.ALLOW_LOCAL_FALLBACK === "true",
     rows: [],
   };
 }
@@ -386,6 +393,21 @@ export async function submitToSupabase({
 export async function getSupabaseLeaderboard(): Promise<LeaderboardResponse> {
   const supabase = createSupabaseAdminClient();
   const challenge = await getActiveChallenge(supabase);
+
+  if (
+    !canShowParticipantLeaderboard({
+      eventPhase: challenge.event_phase,
+      visibility: challenge.leaderboard_visibility,
+    })
+  ) {
+    return {
+      source: "supabase",
+      fallbackReason: null,
+      visible: false,
+      rows: [],
+    };
+  }
+
   const { data: submissions, error: submissionsError } = await supabase
     .from("submissions")
     .select("participant_id, score, submitted_at")
@@ -406,6 +428,7 @@ export async function getSupabaseLeaderboard(): Promise<LeaderboardResponse> {
   return {
     source: "supabase",
     fallbackReason: null,
+    visible: true,
     rows: submissions.map((submission, index) => ({
       rank: index + 1,
       participant:
@@ -601,7 +624,7 @@ async function getActiveChallenge(
   const { data, error } = await supabase
     .from("challenges")
     .select(
-      "id, locked_model, public_submission_limit, final_submission_limit, event_phase",
+      "id, locked_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
     )
     .eq("is_active", true)
     .order("created_at", { ascending: false })

@@ -2,6 +2,10 @@ import "server-only";
 
 import { randomBytes } from "node:crypto";
 import { isEventPhase, type EventPhase } from "@/app/lib/event-phase";
+import {
+  isLeaderboardVisibility,
+  type LeaderboardVisibility,
+} from "@/app/lib/leaderboard-visibility";
 import { createSupabaseAdminClient } from "./admin";
 
 export type AdminParticipantRow = {
@@ -28,6 +32,7 @@ export type AdminDashboardData = {
     participantsCompletedFinal: number;
     latestRunTimestamp: string | null;
     eventPhase: EventPhase;
+    leaderboardVisibility: LeaderboardVisibility;
   };
   health: {
     supabaseConnected: boolean;
@@ -77,6 +82,7 @@ type ReportCountRow = {
 type ChallengeControlRow = {
   id: string;
   event_phase: EventPhase;
+  leaderboard_visibility: LeaderboardVisibility;
 };
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
@@ -91,7 +97,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     await Promise.all([
     supabase
       .from("challenges")
-      .select("id, event_phase")
+      .select("id, event_phase, leaderboard_visibility")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -205,6 +211,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       ).length,
       latestRunTimestamp,
       eventPhase: challengeResult.data.event_phase,
+      leaderboardVisibility: challengeResult.data.leaderboard_visibility,
     },
     health: {
       supabaseConnected: true,
@@ -247,6 +254,24 @@ export async function updateActiveChallengePhase(phase: EventPhase) {
 
   if (error) {
     throw new Error(`Failed to update event phase: ${error.message}`);
+  }
+}
+
+export async function updateActiveChallengeLeaderboardVisibility(
+  visibility: LeaderboardVisibility,
+) {
+  if (!isLeaderboardVisibility(visibility)) {
+    throw new Error("Invalid leaderboard visibility.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("challenges")
+    .update({ leaderboard_visibility: visibility })
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(`Failed to update leaderboard visibility: ${error.message}`);
   }
 }
 

@@ -28,6 +28,10 @@ import {
   eventPhaseMessage,
   type EventPhase,
 } from "../lib/event-phase";
+import {
+  canShowParticipantLeaderboard,
+  type LeaderboardVisibility,
+} from "../lib/leaderboard-visibility";
 import type {
   ScoreSummary,
   StoredSubmission,
@@ -100,6 +104,7 @@ type ChallengeDataStatus = {
     id: string;
     title: string;
     eventPhase: EventPhase;
+    leaderboardVisibility: LeaderboardVisibility;
     evaluationModelDisplayName?: string;
     publicSubmissionLimit: number;
     finalSubmissionLimit: number;
@@ -128,6 +133,7 @@ type SubmissionStatus = {
 type LeaderboardResponse = {
   source: SubmissionSource;
   fallbackReason: string | null;
+  visible: boolean;
   rows: LeaderboardRow[];
 };
 
@@ -211,6 +217,12 @@ export function ChallengeWorkspace({
     : "";
   const loadedDraftKeyRef = useRef("");
   const eventPhase = challengeDataStatus?.challenge?.eventPhase ?? "practice_open";
+  const leaderboardVisibility =
+    challengeDataStatus?.challenge?.leaderboardVisibility ?? "practice";
+  const participantLeaderboardVisible = canShowParticipantLeaderboard({
+    eventPhase,
+    visibility: leaderboardVisibility,
+  });
   const phaseMessage = eventPhaseMessage(eventPhase);
   const canViewPublicReports = eventPhase !== "not_started";
   const canSubmitPublic = eventPhase === "practice_open";
@@ -338,13 +350,18 @@ export function ChallengeWorkspace({
       ignore = true;
       window.clearInterval(timer);
     };
-  }, [activeParticipantId, activeParticipantToken, participantValidation?.valid]);
+  }, [
+    activeParticipantId,
+    activeParticipantToken,
+    participantValidation?.valid,
+  ]);
 
   useEffect(() => {
     if (
       !activeParticipantId ||
       !activeParticipantToken ||
-      participantValidation?.valid !== true
+      participantValidation?.valid !== true ||
+      !participantLeaderboardVisible
     ) {
       return;
     }
@@ -376,7 +393,12 @@ export function ChallengeWorkspace({
       ignore = true;
       window.clearInterval(timer);
     };
-  }, [activeParticipantId, activeParticipantToken, participantValidation?.valid]);
+  }, [
+    activeParticipantId,
+    activeParticipantToken,
+    participantValidation?.valid,
+    participantLeaderboardVisible,
+  ]);
 
   useEffect(() => {
     if (!draftKey || loadedDraftKeyRef.current === draftKey) {
@@ -419,12 +441,16 @@ export function ChallengeWorkspace({
 
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const currentRows = useMemo(() => {
+    if (!participantLeaderboardVisible) {
+      return [];
+    }
+
     if (leaderboardResponse?.source === "supabase") {
       return leaderboardResponse.rows;
     }
 
     return getLocalLeaderboardRows(submissionStore);
-  }, [leaderboardResponse, submissionStore]);
+  }, [leaderboardResponse, participantLeaderboardVisible, submissionStore]);
 
   function submitPublic() {
     submitChallengePrompt("public");
@@ -832,6 +858,7 @@ export function ChallengeWorkspace({
             <Leaderboard
               participantId={activeParticipantId}
               rows={currentRows}
+              visible={participantLeaderboardVisible}
             />
           </aside>
         </div>
@@ -1524,9 +1551,11 @@ function formatDiagnosticValue(value: unknown) {
 function Leaderboard({
   participantId,
   rows,
+  visible,
 }: {
   participantId: string;
   rows: LeaderboardRow[];
+  visible: boolean;
 }) {
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -1536,6 +1565,11 @@ function Leaderboard({
       <h2 className="mt-2 text-xl font-semibold text-slate-950">
         Final leaderboard
       </h2>
+      {!visible ? (
+        <p className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+          Leaderboard is hidden by the organizer.
+        </p>
+      ) : (
       <div className="mt-4 overflow-hidden rounded-md border border-slate-200">
         {rows.length === 0 ? (
           <p className="bg-slate-50 p-4 text-sm leading-6 text-slate-600">
@@ -1563,6 +1597,7 @@ function Leaderboard({
           </div>
         ))}
       </div>
+      )}
     </section>
   );
 }
@@ -1649,6 +1684,7 @@ async function getLeaderboard() {
     return {
       source: "mock-file-fallback",
       fallbackReason: `Leaderboard request failed with ${response.status}.`,
+      visible: false,
       rows: [],
     } satisfies LeaderboardResponse;
   }

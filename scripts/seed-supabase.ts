@@ -10,6 +10,13 @@ const challengeSlug = "knee-mri-extraction";
 const challengeTitle = "Knee MRI Extraction Challenge";
 const defaultModel = "google/gemini-2.0-flash-001";
 const eventPhases = ["not_started", "practice_open", "final_open", "ended"] as const;
+const leaderboardVisibilityModes = [
+  "hidden",
+  "practice",
+  "final",
+  "ended",
+  "always",
+] as const;
 const findingFields = [
   "acl_tear",
   "mcl_injury",
@@ -24,6 +31,7 @@ type FindingField = (typeof findingFields)[number];
 type FindingValue = (typeof allowedFindingValues)[number];
 type ReportSplit = "sample" | "public" | "private";
 type EventPhase = (typeof eventPhases)[number];
+type LeaderboardVisibility = (typeof leaderboardVisibilityModes)[number];
 
 type ManifestReport = {
   id: string;
@@ -73,6 +81,18 @@ function getSeedEventPhase(): EventPhase {
 
   throw new Error(
     `EVENT_PHASE must be one of: ${eventPhases.join(", ")}.`,
+  );
+}
+
+function getSeedLeaderboardVisibility(): LeaderboardVisibility {
+  const value = process.env.LEADERBOARD_VISIBILITY || "practice";
+
+  if ((leaderboardVisibilityModes as readonly string[]).includes(value)) {
+    return value as LeaderboardVisibility;
+  }
+
+  throw new Error(
+    `LEADERBOARD_VISIBILITY must be one of: ${leaderboardVisibilityModes.join(", ")}.`,
   );
 }
 
@@ -179,6 +199,7 @@ async function main() {
         public_submission_limit: 5,
         final_submission_limit: 1,
         event_phase: getSeedEventPhase(),
+        leaderboard_visibility: getSeedLeaderboardVisibility(),
         is_active: true,
       },
       { onConflict: "slug" },

@@ -2,6 +2,7 @@ import { AdminLoginForm } from "../components/AdminLoginForm";
 import { AdminAutoRefresh } from "../components/AdminAutoRefresh";
 import {
   AdminEventControls,
+  AdminLeaderboardVisibilityControls,
   AdminLogoutButton,
   AdminResetPanel,
 } from "../components/AdminActions";
@@ -127,6 +128,9 @@ export default async function AdminPage() {
         </div>
         <div className="grid gap-5">
           <AdminEventControls currentPhase={data.overview.eventPhase} />
+          <AdminLeaderboardVisibilityControls
+            currentVisibility={data.overview.leaderboardVisibility}
+          />
           <AdminResetPanel />
         </div>
       </section>
