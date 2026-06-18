@@ -417,36 +417,82 @@ export async function getSupabaseLeaderboard(): Promise<LeaderboardResponse> {
     };
   }
 
+  if (challenge.event_phase === "not_started") {
+    return {
+      source: "supabase",
+      fallbackReason: null,
+      visible: true,
+      rows: [],
+    };
+  }
+
+  const submissionType: SubmissionKind =
+    challenge.event_phase === "practice_open" ? "public" : "final";
   const { data: submissions, error: submissionsError } = await supabase
     .from("submissions")
     .select("participant_id, score, submitted_at")
     .eq("challenge_id", challenge.id)
-    .eq("submission_type", "final")
+    .eq("submission_type", submissionType)
     .order("score", { ascending: false })
     .order("submitted_at", { ascending: true })
-    .limit(25)
     .returns<Array<Pick<SubmissionRow, "participant_id" | "score" | "submitted_at">>>();
 
   if (submissionsError) {
     throw new Error(`Failed to load leaderboard: ${submissionsError.message}`);
   }
 
-  const participantIds = [...new Set(submissions.map((row) => row.participant_id))];
+  const leaderboardSubmissions =
+    submissionType === "public"
+      ? getBestPublicLeaderboardSubmissions(submissions)
+      : submissions.slice(0, 25);
+  const participantIds = [
+    ...new Set(leaderboardSubmissions.map((row) => row.participant_id)),
+  ];
   const participantCodes = await getParticipantCodes(supabase, participantIds);
 
   return {
     source: "supabase",
     fallbackReason: null,
     visible: true,
-    rows: submissions.map((submission, index) => ({
+    rows: leaderboardSubmissions.map((submission, index) => ({
       rank: index + 1,
       participant:
         participantCodes.get(submission.participant_id) || submission.participant_id,
       score: Math.round(submission.score),
-      final: true,
+      final: submissionType === "final",
       submittedAt: submission.submitted_at,
     })),
   };
+}
+
+function getBestPublicLeaderboardSubmissions(
+  submissions: Array<Pick<SubmissionRow, "participant_id" | "score" | "submitted_at">>,
+) {
+  const bestByParticipant = new Map<
+    string,
+    Pick<SubmissionRow, "participant_id" | "score" | "submitted_at">
+  >();
+
+  for (const submission of submissions) {
+    const currentBest = bestByParticipant.get(submission.participant_id);
+
+    if (
+      !currentBest ||
+      submission.score > currentBest.score ||
+      (submission.score === currentBest.score &&
+        submission.submitted_at < currentBest.submitted_at)
+    ) {
+      bestByParticipant.set(submission.participant_id, submission);
+    }
+  }
+
+  return [...bestByParticipant.values()]
+    .sort(
+      (left, right) =>
+        right.score - left.score ||
+        left.submitted_at.localeCompare(right.submitted_at),
+    )
+    .slice(0, 25);
 }
 
 export function getFallbackSubmissionScore(
