@@ -13,13 +13,12 @@ import {
   AdminNavigationCards,
   AdminPageFrame,
   AdminSectionNav,
-  AdminTable,
   formatDate,
   HealthItem,
   MetricCard,
   score,
 } from "../components/AdminLayout";
-import type { AdminParticipantRow } from "../lib/supabase/admin-dashboard";
+import { AdminProgressMonitor } from "../components/AdminProgressMonitor";
 import { hasAdminSession } from "../lib/supabase/admin-auth";
 import { getAdminDashboardData } from "../lib/supabase/admin-dashboard";
 
@@ -126,38 +125,7 @@ export default async function AdminPage() {
             participants submit Test Attempts and Final Submissions.
           </p>
         ) : null}
-        <AdminTable
-          title="Participant progress monitor"
-          columns={[
-            "Status",
-            "Participant",
-            "Display name",
-            "Active",
-            "Tests used",
-            "Tests left",
-            "Best test",
-            "Latest test",
-            "Final",
-            "Final score",
-            "Latest activity",
-          ]}
-          rows={data.participants.map((participant) => [
-            <ProgressStatusBadge
-              key={`${participant.participantCode}-status`}
-              participant={participant}
-            />,
-            participant.participantCode,
-            participant.displayName || "",
-            participant.isActive ? "Yes" : "No",
-            String(participant.testAttemptsUsed),
-            String(participant.testAttemptsRemaining),
-            score(participant.bestTestScore),
-            score(participant.latestTestScore),
-            participant.finalSubmitted ? "Yes" : "No",
-            score(participant.finalScore),
-            formatDate(participant.latestActivityAt),
-          ])}
-        />
+        <AdminProgressMonitor participants={data.participants} />
       </div>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
@@ -217,39 +185,4 @@ export default async function AdminPage() {
       </section>
     </AdminPageFrame>
   );
-}
-
-function ProgressStatusBadge({
-  participant,
-}: {
-  participant: AdminParticipantRow;
-}) {
-  const label = progressStatusLabel(participant.progressStatus);
-  const className = {
-    final_submitted: "border-teal-200 bg-teal-50 text-teal-800",
-    inactive: "border-slate-200 bg-slate-100 text-slate-600",
-    no_activity: "border-amber-200 bg-amber-50 text-amber-800",
-    practicing: "border-cyan-200 bg-cyan-50 text-cyan-800",
-  }[participant.progressStatus];
-
-  return (
-    <span
-      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold ${className}`}
-    >
-      {label}
-    </span>
-  );
-}
-
-function progressStatusLabel(status: AdminParticipantRow["progressStatus"]) {
-  switch (status) {
-    case "final_submitted":
-      return "Final submitted";
-    case "inactive":
-      return "Inactive";
-    case "no_activity":
-      return "No activity";
-    case "practicing":
-      return "Practicing";
-  }
 }
