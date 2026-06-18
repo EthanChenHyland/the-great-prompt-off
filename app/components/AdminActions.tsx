@@ -532,11 +532,13 @@ export function AdminEventTimerControls({
 export function AdminParticipantActions({
   displayName,
   email,
+  extraPublicAttempts,
   isActive,
   participantCode,
 }: {
   displayName: string | null;
   email: string | null;
+  extraPublicAttempts: number;
   isActive: boolean;
   participantCode: string;
 }) {
@@ -560,6 +562,7 @@ export function AdminParticipantActions({
     });
     const responseBody = (await response.json().catch(() => null)) as {
       accessCode?: string;
+      extraPublicAttempts?: number;
       error?: string;
     } | null;
 
@@ -609,6 +612,30 @@ export function AdminParticipantActions({
 
     if (result) {
       setMessage("Participant run data cleared.");
+    }
+  }
+
+  async function grantExtraTestAttempt() {
+    const confirmation = window.prompt(
+      `Grant one extra Test Attempt to ${participantCode}? Type ${participantCode} to confirm.`,
+    );
+
+    if (confirmation !== participantCode) {
+      return;
+    }
+
+    const result = await postAction(
+      "/api/admin/participants/grant-extra-test-attempt",
+      {
+        participantCode,
+        confirmation,
+      },
+    );
+
+    if (result) {
+      setMessage(
+        `Extra Test Attempts: ${result.extraPublicAttempts ?? extraPublicAttempts + 1}.`,
+      );
     }
   }
 
@@ -678,6 +705,14 @@ export function AdminParticipantActions({
           className="h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:border-rose-600 hover:text-rose-700 disabled:cursor-not-allowed disabled:bg-slate-100"
         >
           Clear data
+        </button>
+        <button
+          type="button"
+          onClick={grantExtraTestAttempt}
+          disabled={isPending || !isActive}
+          className="h-8 rounded-md border border-slate-300 px-2 text-xs font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:bg-slate-100"
+        >
+          Grant +1 test
         </button>
         <button
           type="button"

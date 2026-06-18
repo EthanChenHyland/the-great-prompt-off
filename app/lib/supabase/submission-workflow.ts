@@ -90,6 +90,7 @@ export type SubmissionStatusResponse = {
   source: DataSource;
   fallbackReason: string | null;
   publicSubmissionLimit: number;
+  extraPublicAttempts: number;
   publicSubmissionsUsed: number;
   remainingPublicSubmissions: number;
   latestPublicScore: number | null;
@@ -183,6 +184,7 @@ export function fallbackStatus(reason: string): SubmissionStatusResponse {
     source: "mock-file-fallback",
     fallbackReason: reason,
     publicSubmissionLimit: fallbackChallengeConfig.publicSubmissionLimit,
+    extraPublicAttempts: 0,
     publicSubmissionsUsed: 0,
     remainingPublicSubmissions: fallbackChallengeConfig.publicSubmissionLimit,
     latestPublicScore: null,
@@ -220,7 +222,12 @@ export async function getSupabaseSubmissionStatus(
     throw new ParticipantValidationError("This participant is inactive.");
   }
 
-  return getSubmissionStatusForParticipant(supabase, challenge, participant.id);
+  return getSubmissionStatusForParticipant(
+    supabase,
+    challenge,
+    participant.id,
+    participant.participant_code,
+  );
 }
 
 export async function submitToSupabase({
@@ -253,6 +260,7 @@ export async function submitToSupabase({
     supabase,
     challenge,
     participant.id,
+    participant.participant_code,
   );
 
   if (kind === "public" && challenge.event_phase !== "practice_open") {
@@ -374,6 +382,7 @@ export async function submitToSupabase({
     supabase,
     challenge,
     participant.id,
+    participant.participant_code,
   );
 
   return {
@@ -659,6 +668,7 @@ async function getSubmissionStatusForParticipant(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   challenge: ActiveChallenge,
   participantId: string,
+  participantCode: string,
 ): Promise<SubmissionStatusResponse> {
   const { data, error } = await supabase
     .from("submissions")
@@ -680,21 +690,42 @@ async function getSubmissionStatusForParticipant(
   const finalSubmission =
     data.find((submission) => submission.submission_type === "final") ?? null;
   const latestPublic = publicSubmissions[publicSubmissions.length - 1] ?? null;
+  const extraPublicAttempts = await getExtraPublicAttempts(supabase, participantCode);
+  const publicSubmissionLimit =
+    challenge.public_submission_limit + extraPublicAttempts;
   const remainingPublicSubmissions = Math.max(
     0,
-    challenge.public_submission_limit - publicSubmissions.length,
+    publicSubmissionLimit - publicSubmissions.length,
   );
 
   return {
     source: "supabase",
     fallbackReason: null,
-    publicSubmissionLimit: challenge.public_submission_limit,
+    publicSubmissionLimit,
+    extraPublicAttempts,
     publicSubmissionsUsed: publicSubmissions.length,
     remainingPublicSubmissions,
     latestPublicScore: latestPublic?.score ?? null,
     finalSubmissionUsed: Boolean(finalSubmission),
     finalScore: finalSubmission?.score ?? null,
   };
+}
+
+async function getExtraPublicAttempts(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  participantCode: string,
+) {
+  const { data, error } = await supabase
+    .from("participant_attempt_overrides")
+    .select("extra_public_attempts")
+    .eq("participant_code", participantCode)
+    .maybeSingle<{ extra_public_attempts: number }>();
+
+  if (error) {
+    throw new Error(`Failed to load participant attempt overrides: ${error.message}`);
+  }
+
+  return data?.extra_public_attempts ?? 0;
 }
 
 async function getSupabaseAnswerKeysForSplit(

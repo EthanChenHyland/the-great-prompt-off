@@ -9,6 +9,7 @@ export type AdminProgressParticipant = {
   participantCode: string;
   displayName: string | null;
   isActive: boolean;
+  extraPublicAttempts: number;
   testAttemptsUsed: number;
   testAttemptsRemaining: number;
   latestTestScore: number | null;
@@ -137,6 +138,7 @@ export function AdminProgressMonitor({
           "Active",
           "Tests used",
           "Tests left",
+          "Extra tests",
           "Best test",
           "Latest test",
           "Final",
@@ -153,6 +155,9 @@ export function AdminProgressMonitor({
           participant.isActive ? "Yes" : "No",
           String(participant.testAttemptsUsed),
           String(participant.testAttemptsRemaining),
+          participant.extraPublicAttempts > 0
+            ? `+${participant.extraPublicAttempts}`
+            : "",
           score(participant.bestTestScore),
           score(participant.latestTestScore),
           participant.finalSubmitted ? "Yes" : "No",

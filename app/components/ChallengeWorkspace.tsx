@@ -126,6 +126,7 @@ type SubmissionStatus = {
   source: SubmissionSource;
   fallbackReason: string | null;
   publicSubmissionLimit: number;
+  extraPublicAttempts?: number;
   publicSubmissionsUsed: number;
   remainingPublicSubmissions: number;
   latestPublicScore: number | null;

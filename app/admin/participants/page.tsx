@@ -54,6 +54,7 @@ export default async function AdminParticipantsPage() {
           "Access code",
           "Status",
           "Tests",
+          "Extra tests",
           "Final",
           "Latest test",
           "Best test",
@@ -67,6 +68,9 @@ export default async function AdminParticipantsPage() {
           participant.accessCode,
           participant.isActive ? "Active" : "Inactive",
           String(participant.testAttemptsUsed),
+          participant.extraPublicAttempts > 0
+            ? `+${participant.extraPublicAttempts}`
+            : "",
           participant.finalSubmitted ? "Yes" : "No",
           score(participant.latestTestScore),
           score(participant.bestTestScore),
@@ -75,6 +79,7 @@ export default async function AdminParticipantsPage() {
             key={participant.participantCode}
             displayName={participant.displayName}
             email={participant.email}
+            extraPublicAttempts={participant.extraPublicAttempts}
             isActive={participant.isActive}
             participantCode={participant.participantCode}
           />,

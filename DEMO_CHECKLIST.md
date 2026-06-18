@@ -20,6 +20,7 @@ Short event-focused checklist. See `README.md` for setup details and `REPORT_IMP
 - Run `supabase/leaderboard-visibility.sql`.
 - Run `supabase/event-announcement.sql`.
 - Run `supabase/event-timer.sql`.
+- Run `supabase/participant-attempt-overrides.sql`.
 - Run `supabase/admin-atomic-clears.sql`.
 - Run `npm run seed:supabase`.
 - Verify split counts:
@@ -72,6 +73,7 @@ Before the event, Health Check should show:
 - Use the Event Announcement panel in `/admin` to set or clear a short live participant banner.
 - Use the Event Timer panel in `/admin` to set or clear a display-only participant countdown.
 - Participant status and leaderboard panels update automatically during the event.
+- Use `/admin/participants` to grant one extra Test Attempt only as a live-event rescue.
 - Open `/display/leaderboard` on the projector if you want a big-screen leaderboard display.
 - `/admin` and `/admin/results` auto-refresh for monitoring; use manual refresh on pages with edit forms.
 

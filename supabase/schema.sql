@@ -31,6 +31,18 @@ comment on column participants.access_code is
 comment on column participants.auth_user_id is
   'Future optional link to Supabase auth.users.id when authentication is added.';
 
+create table participant_attempt_overrides (
+  participant_code text primary key references participants(participant_code) on update cascade on delete cascade,
+  extra_public_attempts integer not null default 0,
+  updated_at timestamptz not null default now(),
+  check (extra_public_attempts >= 0)
+);
+
+comment on table participant_attempt_overrides is
+  'Stores narrow admin overrides for extra public Test Attempts. Does not affect Final Submission.';
+comment on column participant_attempt_overrides.extra_public_attempts is
+  'Additional public Test Attempts granted by an admin for this participant.';
+
 create table challenges (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
@@ -197,6 +209,7 @@ create unique index submissions_public_attempt_number_unique
 create index participants_role_idx on participants (role);
 create index participants_access_code_idx on participants (access_code);
 create index participants_active_idx on participants (is_active);
+create index participant_attempt_overrides_updated_at_idx on participant_attempt_overrides (updated_at desc);
 create index challenges_active_idx on challenges (is_active);
 create index reports_challenge_split_idx on reports (challenge_id, split);
 create index prompt_runs_participant_challenge_idx on prompt_runs (participant_id, challenge_id);

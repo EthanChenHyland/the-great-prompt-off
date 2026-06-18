@@ -14,6 +14,7 @@ export type AdminParticipantRow = {
   email: string | null;
   accessCode: string;
   isActive: boolean;
+  extraPublicAttempts: number;
   testAttemptsUsed: number;
   testAttemptsRemaining: number;
   finalSubmitted: boolean;
@@ -106,11 +107,17 @@ type ChallengeControlRow = {
   public_submission_limit: number;
 };
 
+type ParticipantAttemptOverrideRow = {
+  participant_code: string;
+  extra_public_attempts: number;
+};
+
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   const supabase = createSupabaseAdminClient();
   const [
     challengeResult,
     participantsResult,
+    attemptOverridesResult,
     submissionsResult,
     runsResult,
     reportsResult,
@@ -130,6 +137,10 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .select("id, participant_code, display_name, email, access_code, is_active")
       .order("participant_code", { ascending: true })
       .returns<ParticipantRow[]>(),
+    supabase
+      .from("participant_attempt_overrides")
+      .select("participant_code, extra_public_attempts")
+      .returns<ParticipantAttemptOverrideRow[]>(),
     supabase
       .from("submissions")
       .select("participant_id, submission_type, score, submitted_at, prompt_run_id")
@@ -151,6 +162,12 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     throw new Error(`Failed to load participants: ${participantsResult.error.message}`);
   }
 
+  if (attemptOverridesResult.error) {
+    throw new Error(
+      `Failed to load participant attempt overrides: ${attemptOverridesResult.error.message}`,
+    );
+  }
+
   if (submissionsResult.error) {
     throw new Error(`Failed to load submissions: ${submissionsResult.error.message}`);
   }
@@ -164,6 +181,12 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   }
 
   const runsById = new Map(runsResult.data.map((run) => [run.id, run]));
+  const extraAttemptsByParticipantCode = new Map(
+    attemptOverridesResult.data.map((override) => [
+      override.participant_code,
+      override.extra_public_attempts,
+    ]),
+  );
   const runsByParticipant = new Map<string, PromptRunRow[]>();
   const submissionsByParticipant = new Map<string, SubmissionRow[]>();
 
@@ -206,6 +229,10 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       latestActivityAt,
       testAttemptsUsed: testSubmissions.length,
     });
+    const extraPublicAttempts =
+      extraAttemptsByParticipantCode.get(participant.participant_code) ?? 0;
+    const effectivePublicSubmissionLimit =
+      challengeResult.data.public_submission_limit + extraPublicAttempts;
 
     return {
       participantCode: participant.participant_code,
@@ -213,10 +240,11 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       email: participant.email,
       accessCode: participant.access_code || "",
       isActive: participant.is_active,
+      extraPublicAttempts,
       testAttemptsUsed: testSubmissions.length,
       testAttemptsRemaining: Math.max(
         0,
-        challengeResult.data.public_submission_limit - testSubmissions.length,
+        effectivePublicSubmissionLimit - testSubmissions.length,
       ),
       finalSubmitted: Boolean(finalSubmission),
       latestTestScore: latestTest?.score ?? null,
@@ -521,6 +549,55 @@ export async function clearParticipantRunData(participantCode: string) {
   if (error) {
     throw new Error(`Failed to clear participant run data: ${adminRpcError(error.message)}`);
   }
+}
+
+export async function grantExtraPublicAttempt(participantCode: string) {
+  const supabase = createSupabaseAdminClient();
+  const normalizedParticipantCode = participantCode.trim().toUpperCase();
+  const { data: participant, error: participantError } = await supabase
+    .from("participants")
+    .select("participant_code, is_active")
+    .eq("participant_code", normalizedParticipantCode)
+    .maybeSingle<{ participant_code: string; is_active: boolean }>();
+
+  if (participantError) {
+    throw new Error(`Failed to load participant: ${participantError.message}`);
+  }
+
+  if (!participant) {
+    throw new Error("Participant not found.");
+  }
+
+  if (!participant.is_active) {
+    throw new Error("Reactivate this participant before granting an extra Test Attempt.");
+  }
+
+  const { data: existing, error: existingError } = await supabase
+    .from("participant_attempt_overrides")
+    .select("extra_public_attempts")
+    .eq("participant_code", normalizedParticipantCode)
+    .maybeSingle<{ extra_public_attempts: number }>();
+
+  if (existingError) {
+    throw new Error(
+      `Failed to load participant attempt override: ${existingError.message}`,
+    );
+  }
+
+  const extraPublicAttempts = (existing?.extra_public_attempts ?? 0) + 1;
+  const { error: upsertError } = await supabase
+    .from("participant_attempt_overrides")
+    .upsert({
+      participant_code: normalizedParticipantCode,
+      extra_public_attempts: extraPublicAttempts,
+      updated_at: new Date().toISOString(),
+    });
+
+  if (upsertError) {
+    throw new Error(`Failed to grant extra Test Attempt: ${upsertError.message}`);
+  }
+
+  return extraPublicAttempts;
 }
 
 function adminRpcError(message: string) {
