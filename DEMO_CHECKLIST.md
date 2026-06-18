@@ -19,6 +19,7 @@ Short event-focused checklist. See `README.md` for setup details and `REPORT_IMP
 - Run `supabase/event-controls.sql`.
 - Run `supabase/leaderboard-visibility.sql`.
 - Run `supabase/event-announcement.sql`.
+- Run `supabase/event-timer.sql`.
 - Run `supabase/admin-atomic-clears.sql`.
 - Run `npm run seed:supabase`.
 - Verify split counts:
@@ -69,6 +70,7 @@ Before the event, Health Check should show:
 - Set the event phase to `ended` when submissions should close.
 - Set participant leaderboard visibility from `/admin` before or during the event.
 - Use the Event Announcement panel in `/admin` to set or clear a short live participant banner.
+- Use the Event Timer panel in `/admin` to set or clear a display-only participant countdown.
 - Participant status and leaderboard panels update automatically during the event.
 - `/admin` and `/admin/results` auto-refresh for monitoring; use manual refresh on pages with edit forms.
 

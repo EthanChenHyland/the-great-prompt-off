@@ -23,6 +23,8 @@ type ChallengeRow = {
   event_phase: EventPhase;
   leaderboard_visibility: LeaderboardVisibility;
   event_announcement: string;
+  event_timer_ends_at: string | null;
+  event_timer_label: string;
 };
 
 type ReportMetadataRow = {
@@ -67,6 +69,8 @@ function getFallbackChallengeData(reason: string) {
       eventPhase: "practice_open" satisfies EventPhase,
       leaderboardVisibility: "practice" satisfies LeaderboardVisibility,
       eventAnnouncement: "",
+      eventTimerEndsAt: null,
+      eventTimerLabel: "",
     },
     reportCounts,
     sampleReports: typedManifest
@@ -104,7 +108,7 @@ export async function GET() {
     const { data: challenge, error: challengeError } = await supabase
       .from("challenges")
       .select(
-        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility, event_announcement",
+        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -187,6 +191,8 @@ export async function GET() {
         eventPhase: challenge.event_phase,
         leaderboardVisibility: challenge.leaderboard_visibility,
         eventAnnouncement: challenge.event_announcement,
+        eventTimerEndsAt: challenge.event_timer_ends_at,
+        eventTimerLabel: challenge.event_timer_label,
       },
       reportCounts,
       sampleReports: reports

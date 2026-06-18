@@ -44,6 +44,8 @@ create table challenges (
   event_phase text not null default 'not_started',
   leaderboard_visibility text not null default 'practice',
   event_announcement text not null default '',
+  event_timer_ends_at timestamptz null,
+  event_timer_label text not null default '',
   is_active boolean not null default false,
   created_by uuid references participants(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -67,6 +69,10 @@ comment on column challenges.leaderboard_visibility is
   'Organizer-controlled participant leaderboard visibility mode.';
 comment on column challenges.event_announcement is
   'Short organizer announcement shown as plain text in the participant workspace.';
+comment on column challenges.event_timer_ends_at is
+  'Optional display-only organizer timer end time shown in the participant workspace.';
+comment on column challenges.event_timer_label is
+  'Optional short label for the display-only organizer timer.';
 
 create table reports (
   id uuid primary key default gen_random_uuid(),

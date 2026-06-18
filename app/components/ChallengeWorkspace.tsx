@@ -106,6 +106,8 @@ type ChallengeDataStatus = {
     eventPhase: EventPhase;
     leaderboardVisibility: LeaderboardVisibility;
     eventAnnouncement: string;
+    eventTimerEndsAt: string | null;
+    eventTimerLabel: string;
     evaluationModelDisplayName?: string;
     publicSubmissionLimit: number;
     finalSubmissionLimit: number;
@@ -168,6 +170,7 @@ export function ChallengeWorkspace({
     useState<ChallengeDataStatus | null>(null);
   const [challengeDataError, setChallengeDataError] = useState("");
   const [lastStatusUpdated, setLastStatusUpdated] = useState<Date | null>(null);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [statusRefreshWarning, setStatusRefreshWarning] = useState("");
   const [participantValidation, setParticipantValidation] =
     useState<ParticipantValidationResponse | null>(null);
@@ -222,6 +225,9 @@ export function ChallengeWorkspace({
     challengeDataStatus?.challenge?.leaderboardVisibility ?? "practice";
   const eventAnnouncement =
     challengeDataStatus?.challenge?.eventAnnouncement.trim() ?? "";
+  const eventTimerEndsAt = challengeDataStatus?.challenge?.eventTimerEndsAt ?? null;
+  const eventTimerLabel =
+    challengeDataStatus?.challenge?.eventTimerLabel.trim() ?? "";
   const participantLeaderboardVisible = canShowParticipantLeaderboard({
     eventPhase,
     visibility: leaderboardVisibility,
@@ -313,6 +319,20 @@ export function ChallengeWorkspace({
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!eventTimerEndsAt) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [eventTimerEndsAt]);
 
   useEffect(() => {
     if (
@@ -789,6 +809,13 @@ export function ChallengeWorkspace({
         {eventAnnouncement ? (
           <EventAnnouncementBanner announcement={eventAnnouncement} />
         ) : null}
+        {eventTimerEndsAt ? (
+          <EventTimerCountdown
+            endsAt={eventTimerEndsAt}
+            label={eventTimerLabel}
+            now={currentTime}
+          />
+        ) : null}
         <LiveUpdateStatus
           lastUpdated={lastStatusUpdated}
           warning={statusRefreshWarning}
@@ -900,6 +927,43 @@ function EventAnnouncementBanner({ announcement }: { announcement: string }) {
         Organizer announcement
       </p>
       <p className="mt-1 font-medium">{announcement}</p>
+    </section>
+  );
+}
+
+function EventTimerCountdown({
+  endsAt,
+  label,
+  now,
+}: {
+  endsAt: string;
+  label: string;
+  now: number;
+}) {
+  const endTimestamp = Date.parse(endsAt);
+
+  if (!Number.isFinite(endTimestamp)) {
+    return null;
+  }
+
+  const remainingSeconds = Math.max(0, Math.ceil((endTimestamp - now) / 1000));
+  const displayLabel = label || "Event timer";
+  const minutes = Math.floor(remainingSeconds / 60);
+  const seconds = remainingSeconds % 60;
+  const formattedRemaining = `${String(minutes).padStart(2, "0")}:${String(
+    seconds,
+  ).padStart(2, "0")}`;
+
+  return (
+    <section className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm leading-6 text-indigo-950">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-800">
+        Event timer
+      </p>
+      <p className="mt-1 font-medium">
+        {remainingSeconds > 0
+          ? `${displayLabel} ends in ${formattedRemaining}.`
+          : "Timer ended."}
+      </p>
     </section>
   );
 }
@@ -1186,9 +1250,8 @@ function OutputFormatGuide() {
 }`}
           </pre>
           <p className="text-sm leading-6 text-amber-950">
-            Tip: The field names should describe the finding being scored, not
-            just the body part. For example,{" "}
-            <span className="font-mono">acl_tear</span> is clearer than ACL.
+            Tip: The exact field names matter. Use the field names shown above
+            rather than making up your own labels.
           </p>
         </div>
       </div>

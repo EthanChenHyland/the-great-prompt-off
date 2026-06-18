@@ -3,6 +3,7 @@ import { AdminAutoRefresh } from "../components/AdminAutoRefresh";
 import {
   AdminEventAnnouncementControls,
   AdminEventControls,
+  AdminEventTimerControls,
   AdminLeaderboardVisibilityControls,
   AdminLogoutButton,
   AdminResetPanel,
@@ -203,6 +204,10 @@ export default async function AdminPage() {
           <AdminEventControls currentPhase={data.overview.eventPhase} />
           <AdminEventAnnouncementControls
             currentAnnouncement={data.overview.eventAnnouncement}
+          />
+          <AdminEventTimerControls
+            currentEndsAt={data.overview.eventTimerEndsAt}
+            currentLabel={data.overview.eventTimerLabel}
           />
           <AdminLeaderboardVisibilityControls
             currentVisibility={data.overview.leaderboardVisibility}

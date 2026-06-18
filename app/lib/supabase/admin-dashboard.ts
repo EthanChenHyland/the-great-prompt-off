@@ -46,6 +46,8 @@ export type AdminDashboardData = {
     eventPhase: EventPhase;
     leaderboardVisibility: LeaderboardVisibility;
     eventAnnouncement: string;
+    eventTimerEndsAt: string | null;
+    eventTimerLabel: string;
   };
   health: {
     supabaseConnected: boolean;
@@ -99,6 +101,8 @@ type ChallengeControlRow = {
   event_phase: EventPhase;
   leaderboard_visibility: LeaderboardVisibility;
   event_announcement: string;
+  event_timer_ends_at: string | null;
+  event_timer_label: string;
   public_submission_limit: number;
 };
 
@@ -115,7 +119,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     supabase
       .from("challenges")
       .select(
-        "id, event_phase, leaderboard_visibility, event_announcement, public_submission_limit",
+        "id, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label, public_submission_limit",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -284,6 +288,8 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       eventPhase: challengeResult.data.event_phase,
       leaderboardVisibility: challengeResult.data.leaderboard_visibility,
       eventAnnouncement: challengeResult.data.event_announcement,
+      eventTimerEndsAt: challengeResult.data.event_timer_ends_at,
+      eventTimerLabel: challengeResult.data.event_timer_label,
     },
     health: {
       supabaseConnected: true,
@@ -416,6 +422,51 @@ export async function updateActiveChallengeAnnouncement(announcement: string) {
   if (error) {
     throw new Error(`Failed to update announcement: ${error.message}`);
   }
+}
+
+export async function updateActiveChallengeTimer({
+  durationMinutes,
+  label,
+}: {
+  durationMinutes: number | null;
+  label: string;
+}) {
+  const normalizedLabel = label.trim();
+
+  if (normalizedLabel.length > 80) {
+    throw new Error("Timer label must be 80 characters or fewer.");
+  }
+
+  if (
+    durationMinutes !== null &&
+    (!Number.isInteger(durationMinutes) ||
+      durationMinutes < 1 ||
+      durationMinutes > 180)
+  ) {
+    throw new Error("Timer duration must be between 1 and 180 minutes.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const eventTimerEndsAt =
+    durationMinutes === null
+      ? null
+      : new Date(Date.now() + durationMinutes * 60 * 1000).toISOString();
+  const { error } = await supabase
+    .from("challenges")
+    .update({
+      event_timer_ends_at: eventTimerEndsAt,
+      event_timer_label: durationMinutes === null ? "" : normalizedLabel,
+    })
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(`Failed to update event timer: ${error.message}`);
+  }
+
+  return {
+    eventTimerEndsAt,
+    eventTimerLabel: durationMinutes === null ? "" : normalizedLabel,
+  };
 }
 
 export async function resetWorkshopRunData() {

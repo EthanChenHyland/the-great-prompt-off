@@ -400,6 +400,135 @@ export function AdminEventAnnouncementControls({
   );
 }
 
+export function AdminEventTimerControls({
+  currentEndsAt,
+  currentLabel,
+}: {
+  currentEndsAt: string | null;
+  currentLabel: string;
+}) {
+  const router = useRouter();
+  const [label, setLabel] = useState(currentLabel);
+  const [durationMinutes, setDurationMinutes] = useState("10");
+  const [message, setMessage] = useState("");
+  const [isPending, setIsPending] = useState(false);
+  const remaining = 80 - label.length;
+
+  async function postTimer(body: Record<string, unknown>) {
+    setIsPending(true);
+    setMessage("");
+
+    const response = await fetch("/api/admin/event-timer", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+    const responseBody = (await response.json().catch(() => null)) as {
+      error?: string;
+      eventTimerEndsAt?: string | null;
+      eventTimerLabel?: string;
+    } | null;
+
+    if (!response.ok) {
+      setMessage(responseBody?.error || "Could not update event timer.");
+      setIsPending(false);
+      return;
+    }
+
+    setLabel(responseBody?.eventTimerLabel || "");
+    setMessage(responseBody?.eventTimerEndsAt ? "Timer set." : "Timer cleared.");
+    setIsPending(false);
+    router.refresh();
+  }
+
+  function setTimer() {
+    postTimer({
+      durationMinutes: Number(durationMinutes),
+      label,
+    });
+  }
+
+  function clearTimer() {
+    postTimer({ clear: true });
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+        Event timer
+      </p>
+      <h2 className="mt-2 text-xl font-semibold text-slate-950">
+        Display countdown
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Show a live countdown in the participant workspace. This is
+        display-only and does not change event phase when it ends.
+      </p>
+      {currentEndsAt ? (
+        <p className="mt-3 rounded-md border border-teal-100 bg-teal-50 p-3 text-sm leading-6 text-teal-900">
+          Current timer: {currentLabel || "Event timer"} ends at{" "}
+          {new Date(currentEndsAt).toLocaleTimeString([], {
+            hour: "numeric",
+            minute: "2-digit",
+          })}
+        </p>
+      ) : null}
+      <label className="mt-4 grid gap-1 text-sm font-semibold text-slate-700">
+        Timer label
+        <input
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          maxLength={80}
+          placeholder="Practice round"
+          className="h-10 rounded-md border border-slate-300 px-3 font-normal outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+        />
+      </label>
+      <div className="mt-2 text-xs text-slate-500">
+        {Math.max(0, remaining)} characters remaining
+      </div>
+      <label className="mt-3 grid gap-1 text-sm font-semibold text-slate-700">
+        Duration
+        <select
+          value={durationMinutes}
+          onChange={(event) => setDurationMinutes(event.target.value)}
+          className="h-10 rounded-md border border-slate-300 bg-white px-3 font-normal outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+        >
+          {[5, 10, 15, 20, 30, 45, 60, 90, 120, 180].map((minutes) => (
+            <option key={minutes} value={minutes}>
+              {minutes} minutes
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={setTimer}
+          disabled={isPending || label.length > 80}
+          className="h-10 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isPending ? "Saving..." : "Set timer"}
+        </button>
+        <button
+          type="button"
+          onClick={clearTimer}
+          disabled={isPending || !currentEndsAt}
+          className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          Clear
+        </button>
+      </div>
+      {message ? (
+        <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+          {message}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function AdminParticipantActions({
   displayName,
   email,

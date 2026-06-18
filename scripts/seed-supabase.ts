@@ -201,6 +201,8 @@ async function main() {
         event_phase: getSeedEventPhase(),
         leaderboard_visibility: getSeedLeaderboardVisibility(),
         event_announcement: "",
+        event_timer_ends_at: null,
+        event_timer_label: "",
         is_active: true,
       },
       { onConflict: "slug" },
