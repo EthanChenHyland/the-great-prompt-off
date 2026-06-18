@@ -1134,36 +1134,25 @@ function OutputFormatGuide() {
       <div className="mt-2 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
         <div className="grid gap-3">
           <p>
-            Your prompt will be tested by an AI model on synthetic knee MRI
-            reports. Your score is based on how well the AI&apos;s structured
-            output matches the hidden answer key.
+            Your prompt will be tested by the evaluation model on synthetic
+            knee MRI reports. Your score is based on how well the model&apos;s
+            structured output matches the hidden answer key.
           </p>
           <p>
-            The AI should answer in a specific machine-readable format so the
-            app can score it. Good medical reasoning helps, but the score also
-            depends on whether the AI returns the right fields and answer
-            choices.
+            The model should answer using a small machine-readable form. You do
+            not need to know programming: just tell the model to keep the field
+            names exactly the same and choose one of the allowed answer words
+            for each field.
           </p>
           <p>
-            Think of JSON as a small form with fixed field names and fixed
-            answer choices. Tell the AI to return one JSON object using the
-            exact six fields shown below.
-          </p>
-          <p>
-            <span className="font-semibold">A strong starter sentence:</span>{" "}
+            <span className="font-semibold">A useful starter sentence:</span>{" "}
             <span className="font-mono font-normal">
-              Return only the six fields shown in the example, using only
-              present, absent, or uncertain.
+              Return one JSON object using exactly the six fields shown below.
+              For each field, use only present, absent, or uncertain.
             </span>
           </p>
           <p>
-            The field names should describe the finding, not just the body part.
-            For example, use <span className="font-mono">acl_tear</span> instead
-            of ACL, and <span className="font-mono">mcl_injury</span> instead of
-            MCL.
-          </p>
-          <p>
-            Use only these answer choices:
+            Allowed answer choices:
           </p>
           <div className="flex flex-wrap gap-2">
             {["present", "absent", "uncertain"].map((value) => (
@@ -1175,11 +1164,6 @@ function OutputFormatGuide() {
               </span>
             ))}
           </div>
-          <p>
-            Avoid words like intact, torn, yes, no, normal, abnormal, positive,
-            or negative. Do not include explanations, totals, tallies, markdown,
-            code fences, or extra fields.
-          </p>
         </div>
         <div className="grid gap-3">
           <div className="grid gap-2 rounded-md border border-amber-200 bg-white/70 p-3">
@@ -1201,6 +1185,11 @@ function OutputFormatGuide() {
   "effusion": "absent"
 }`}
           </pre>
+          <p className="text-sm leading-6 text-amber-950">
+            Tip: The field names should describe the finding being scored, not
+            just the body part. For example,{" "}
+            <span className="font-mono">acl_tear</span> is clearer than ACL.
+          </p>
         </div>
       </div>
     </section>
