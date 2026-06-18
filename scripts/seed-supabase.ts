@@ -200,6 +200,7 @@ async function main() {
         final_submission_limit: 1,
         event_phase: getSeedEventPhase(),
         leaderboard_visibility: getSeedLeaderboardVisibility(),
+        event_announcement: "",
         is_active: true,
       },
       { onConflict: "slug" },

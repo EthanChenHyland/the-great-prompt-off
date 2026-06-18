@@ -43,6 +43,7 @@ create table challenges (
   final_submission_limit integer not null default 1,
   event_phase text not null default 'not_started',
   leaderboard_visibility text not null default 'practice',
+  event_announcement text not null default '',
   is_active boolean not null default false,
   created_by uuid references participants(id) on delete set null,
   created_at timestamptz not null default now(),
@@ -64,6 +65,8 @@ comment on column challenges.event_phase is
   'Organizer-controlled event phase that gates participant workspace actions and submissions.';
 comment on column challenges.leaderboard_visibility is
   'Organizer-controlled participant leaderboard visibility mode.';
+comment on column challenges.event_announcement is
+  'Short organizer announcement shown as plain text in the participant workspace.';
 
 create table reports (
   id uuid primary key default gen_random_uuid(),

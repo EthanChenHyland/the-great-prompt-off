@@ -1,6 +1,7 @@
 import { AdminLoginForm } from "../components/AdminLoginForm";
 import { AdminAutoRefresh } from "../components/AdminAutoRefresh";
 import {
+  AdminEventAnnouncementControls,
   AdminEventControls,
   AdminLeaderboardVisibilityControls,
   AdminLogoutButton,
@@ -128,6 +129,9 @@ export default async function AdminPage() {
         </div>
         <div className="grid gap-5">
           <AdminEventControls currentPhase={data.overview.eventPhase} />
+          <AdminEventAnnouncementControls
+            currentAnnouncement={data.overview.eventAnnouncement}
+          />
           <AdminLeaderboardVisibilityControls
             currentVisibility={data.overview.leaderboardVisibility}
           />

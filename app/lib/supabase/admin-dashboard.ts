@@ -33,6 +33,7 @@ export type AdminDashboardData = {
     latestRunTimestamp: string | null;
     eventPhase: EventPhase;
     leaderboardVisibility: LeaderboardVisibility;
+    eventAnnouncement: string;
   };
   health: {
     supabaseConnected: boolean;
@@ -83,6 +84,7 @@ type ChallengeControlRow = {
   id: string;
   event_phase: EventPhase;
   leaderboard_visibility: LeaderboardVisibility;
+  event_announcement: string;
 };
 
 export async function getAdminDashboardData(): Promise<AdminDashboardData> {
@@ -97,7 +99,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     await Promise.all([
     supabase
       .from("challenges")
-      .select("id, event_phase, leaderboard_visibility")
+      .select("id, event_phase, leaderboard_visibility, event_announcement")
       .eq("is_active", true)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -212,6 +214,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       latestRunTimestamp,
       eventPhase: challengeResult.data.event_phase,
       leaderboardVisibility: challengeResult.data.leaderboard_visibility,
+      eventAnnouncement: challengeResult.data.event_announcement,
     },
     health: {
       supabaseConnected: true,
@@ -272,6 +275,24 @@ export async function updateActiveChallengeLeaderboardVisibility(
 
   if (error) {
     throw new Error(`Failed to update leaderboard visibility: ${error.message}`);
+  }
+}
+
+export async function updateActiveChallengeAnnouncement(announcement: string) {
+  const normalizedAnnouncement = announcement.trim();
+
+  if (normalizedAnnouncement.length > 240) {
+    throw new Error("Announcement must be 240 characters or fewer.");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { error } = await supabase
+    .from("challenges")
+    .update({ event_announcement: normalizedAnnouncement })
+    .eq("is_active", true);
+
+  if (error) {
+    throw new Error(`Failed to update announcement: ${error.message}`);
   }
 }
 

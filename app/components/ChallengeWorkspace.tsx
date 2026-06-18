@@ -105,6 +105,7 @@ type ChallengeDataStatus = {
     title: string;
     eventPhase: EventPhase;
     leaderboardVisibility: LeaderboardVisibility;
+    eventAnnouncement: string;
     evaluationModelDisplayName?: string;
     publicSubmissionLimit: number;
     finalSubmissionLimit: number;
@@ -219,6 +220,8 @@ export function ChallengeWorkspace({
   const eventPhase = challengeDataStatus?.challenge?.eventPhase ?? "practice_open";
   const leaderboardVisibility =
     challengeDataStatus?.challenge?.leaderboardVisibility ?? "practice";
+  const eventAnnouncement =
+    challengeDataStatus?.challenge?.eventAnnouncement.trim() ?? "";
   const participantLeaderboardVisible = canShowParticipantLeaderboard({
     eventPhase,
     visibility: leaderboardVisibility,
@@ -783,6 +786,9 @@ export function ChallengeWorkspace({
         </header>
 
         <PhaseNotice eventPhase={eventPhase} message={phaseMessage} />
+        {eventAnnouncement ? (
+          <EventAnnouncementBanner announcement={eventAnnouncement} />
+        ) : null}
         <LiveUpdateStatus
           lastUpdated={lastStatusUpdated}
           warning={statusRefreshWarning}
@@ -883,6 +889,17 @@ function PhaseNotice({
     <section className={`rounded-lg border px-4 py-3 text-sm leading-6 ${tone}`}>
       <p className="font-semibold">Event status</p>
       <p>{message}</p>
+    </section>
+  );
+}
+
+function EventAnnouncementBanner({ announcement }: { announcement: string }) {
+  return (
+    <section className="rounded-lg border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm leading-6 text-cyan-950">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-800">
+        Organizer announcement
+      </p>
+      <p className="mt-1 font-medium">{announcement}</p>
     </section>
   );
 }

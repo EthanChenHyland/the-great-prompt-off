@@ -22,6 +22,7 @@ type ChallengeRow = {
   final_submission_limit: number;
   event_phase: EventPhase;
   leaderboard_visibility: LeaderboardVisibility;
+  event_announcement: string;
 };
 
 type ReportMetadataRow = {
@@ -65,6 +66,7 @@ function getFallbackChallengeData(reason: string) {
       finalSubmissionLimit: fallbackChallengeConfig.finalSubmissionLimit,
       eventPhase: "practice_open" satisfies EventPhase,
       leaderboardVisibility: "practice" satisfies LeaderboardVisibility,
+      eventAnnouncement: "",
     },
     reportCounts,
     sampleReports: typedManifest
@@ -102,7 +104,7 @@ export async function GET() {
     const { data: challenge, error: challengeError } = await supabase
       .from("challenges")
       .select(
-        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
+        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility, event_announcement",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -184,6 +186,7 @@ export async function GET() {
         finalSubmissionLimit: challenge.final_submission_limit,
         eventPhase: challenge.event_phase,
         leaderboardVisibility: challenge.leaderboard_visibility,
+        eventAnnouncement: challenge.event_announcement,
       },
       reportCounts,
       sampleReports: reports

@@ -306,6 +306,100 @@ export function AdminLeaderboardVisibilityControls({
   );
 }
 
+export function AdminEventAnnouncementControls({
+  currentAnnouncement,
+}: {
+  currentAnnouncement: string;
+}) {
+  const router = useRouter();
+  const [draft, setDraft] = useState(currentAnnouncement);
+  const [message, setMessage] = useState("");
+  const [isPending, setIsPending] = useState(false);
+  const remaining = 240 - draft.length;
+
+  async function saveAnnouncement(nextAnnouncement = draft) {
+    setIsPending(true);
+    setMessage("");
+
+    const response = await fetch("/api/admin/event-announcement", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ announcement: nextAnnouncement }),
+    });
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+      eventAnnouncement?: string;
+    } | null;
+
+    if (!response.ok) {
+      setMessage(body?.error || "Could not update announcement.");
+      setIsPending(false);
+      return;
+    }
+
+    setDraft(body?.eventAnnouncement || "");
+    setMessage(body?.eventAnnouncement ? "Announcement updated." : "Announcement cleared.");
+    setIsPending(false);
+    router.refresh();
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+        Event announcement
+      </p>
+      <h2 className="mt-2 text-xl font-semibold text-slate-950">
+        Participant banner
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Show a short live message at the top of the participant workspace.
+        Empty text clears the banner.
+      </p>
+      <textarea
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+        maxLength={240}
+        rows={3}
+        placeholder="Optional live announcement..."
+        className="mt-4 w-full resize-none rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+      />
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        <span>{Math.max(0, remaining)} characters remaining</span>
+        {currentAnnouncement ? (
+          <span className="rounded-md bg-slate-100 px-2 py-1">
+            Current: {currentAnnouncement}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => saveAnnouncement()}
+          disabled={isPending || draft.length > 240}
+          className="h-10 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isPending ? "Saving..." : "Update announcement"}
+        </button>
+        <button
+          type="button"
+          onClick={() => saveAnnouncement("")}
+          disabled={isPending || (!draft && !currentAnnouncement)}
+          className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          Clear
+        </button>
+      </div>
+      {message ? (
+        <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+          {message}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 export function AdminParticipantActions({
   displayName,
   email,
