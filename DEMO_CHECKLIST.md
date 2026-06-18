@@ -72,6 +72,7 @@ Before the event, Health Check should show:
 - Use the Event Announcement panel in `/admin` to set or clear a short live participant banner.
 - Use the Event Timer panel in `/admin` to set or clear a display-only participant countdown.
 - Participant status and leaderboard panels update automatically during the event.
+- Open `/display/leaderboard` on the projector if you want a big-screen leaderboard display.
 - `/admin` and `/admin/results` auto-refresh for monitoring; use manual refresh on pages with edit forms.
 
 ## Post-Event

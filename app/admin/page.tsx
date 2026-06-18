@@ -90,6 +90,21 @@ export default async function AdminPage() {
 
       <AdminNavigationCards />
 
+      <a
+        href="/display/leaderboard"
+        target="_blank"
+        rel="noreferrer"
+        className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-500 hover:shadow-md"
+      >
+        <h2 className="text-lg font-semibold text-slate-950">
+          Open projector leaderboard
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Opens the big-screen leaderboard display in a new tab. It follows the
+          current participant leaderboard visibility setting.
+        </p>
+      </a>
+
       <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <MetricCard
           label="Active participants"
