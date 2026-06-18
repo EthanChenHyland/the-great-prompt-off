@@ -200,6 +200,14 @@ export function ChallengeWorkspace({
     usingSupabaseSubmissions && submissionStatus
       ? submissionStatus.finalSubmissionUsed
       : Boolean(localParticipantHistory.finalSubmission);
+  const finalScore =
+    usingSupabaseSubmissions && submissionStatus
+      ? submissionStatus.finalScore
+      : localParticipantHistory.finalSubmission?.score ?? null;
+  const latestPublicScore =
+    usingSupabaseSubmissions && submissionStatus
+      ? submissionStatus.latestPublicScore
+      : localParticipantHistory.publicSubmissions.at(-1)?.score ?? null;
   const publicSubmissionLimit =
     (usingSupabaseSubmissions && submissionStatus
       ? submissionStatus.publicSubmissionLimit
@@ -805,7 +813,12 @@ export function ChallengeWorkspace({
           </div>
         </header>
 
-        <PhaseNotice eventPhase={eventPhase} message={phaseMessage} />
+        <PhaseNotice
+          eventPhase={eventPhase}
+          finalScore={finalScore}
+          finalSubmissionUsed={finalSubmissionUsed}
+          message={phaseMessage}
+        />
         {eventAnnouncement ? (
           <EventAnnouncementBanner announcement={eventAnnouncement} />
         ) : null}
@@ -859,16 +872,8 @@ export function ChallengeWorkspace({
           <aside className="grid gap-4">
             <SubmissionPanel
               finalSubmissionUsed={finalSubmissionUsed}
-              finalScore={
-                usingSupabaseSubmissions
-                  ? submissionStatus?.finalScore ?? null
-                  : localParticipantHistory.finalSubmission?.score ?? null
-              }
-              latestPublicScore={
-                usingSupabaseSubmissions
-                  ? submissionStatus?.latestPublicScore ?? null
-                  : localParticipantHistory.publicSubmissions.at(-1)?.score ?? null
-              }
+              finalScore={finalScore}
+              latestPublicScore={latestPublicScore}
               message={submissionMessage}
               promptDebug={lastSubmissionPromptDebug}
               feedback={lastSubmissionFeedback}
@@ -902,20 +907,50 @@ export function ChallengeWorkspace({
 
 function PhaseNotice({
   eventPhase,
+  finalScore,
+  finalSubmissionUsed,
   message,
 }: {
   eventPhase: EventPhase;
+  finalScore: number | null;
+  finalSubmissionUsed: boolean;
   message: string;
 }) {
   const tone =
     eventPhase === "practice_open" || eventPhase === "final_open"
       ? "border-teal-200 bg-teal-50 text-teal-950"
       : "border-amber-200 bg-amber-50 text-amber-950";
+  const detail =
+    eventPhase === "not_started"
+      ? "Keep this page open. It will update automatically when the organizer starts the event. Your prompt draft is saved locally in this browser."
+      : eventPhase === "practice_open"
+        ? "Use Test Attempts to refine your prompt. Final Submission is not open yet."
+        : eventPhase === "final_open"
+          ? "Test Attempts are closed. Your final can only be submitted once."
+          : "Thanks for participating in The Great Prompt-Off.";
 
   return (
     <section className={`rounded-lg border px-4 py-3 text-sm leading-6 ${tone}`}>
       <p className="font-semibold">Event status</p>
       <p>{message}</p>
+      <p>{detail}</p>
+      {eventPhase === "ended" ? (
+        <div className="mt-2 rounded-md border border-white/60 bg-white/50 p-3">
+          {finalSubmissionUsed ? (
+            <>
+              <p className="font-semibold">Final submitted.</p>
+              <p>Your final prompt has been recorded.</p>
+              {finalScore !== null ? (
+                <p className="mt-1 font-semibold">
+                  Final score: {Math.round(finalScore)}%
+                </p>
+              ) : null}
+            </>
+          ) : (
+            <p>No final submission is recorded for this participant.</p>
+          )}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -1361,6 +1396,19 @@ function SubmissionPanel({
         submission can only be used once and runs on {privateReportDescription}.
         Please wait for each submission to finish before trying again.
       </div>
+      {finalSubmissionUsed ? (
+        <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm leading-6 text-teal-950">
+          <p className="font-semibold">
+            Final submitted. Your final prompt has been recorded.
+          </p>
+          <p>Final submissions can only be made once.</p>
+          {finalScore !== null ? (
+            <p className="mt-1 font-semibold">
+              Final score: {Math.round(finalScore)}%
+            </p>
+          ) : null}
+        </div>
+      ) : null}
       <div className="mt-4 grid gap-3">
         <div className="rounded-md border border-slate-200 px-3 py-3">
           <p className="text-sm font-semibold text-slate-700">
