@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Scan extraction icon">
+  <rect width="64" height="64" rx="16" fill="#0f172a"/>
+  <rect x="13" y="13" width="38" height="38" rx="9" fill="none" stroke="#67e8f9" stroke-width="3.2"/>
+  <path d="M20 21h7M37 21h7M20 43h7M37 43h7" stroke="#e0f2fe" stroke-width="2.4" stroke-linecap="round" opacity="0.9"/>
+  <path d="M22 29h20M22 35h20" stroke="#67e8f9" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="18" cy="29" r="2.2" fill="#e0f2fe"/>
+  <circle cx="18" cy="35" r="2.2" fill="#e0f2fe"/>
+  <path d="M46 17v30" stroke="#22d3ee" stroke-width="2" stroke-linecap="round" opacity="0.55"/>
+</svg>

@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "The Great Prompt-Off",
   description: "Prompt engineering challenge platform MVP",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
