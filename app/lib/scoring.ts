@@ -99,40 +99,6 @@ const nestedReportKeys = new Set([
   "results",
 ]);
 
-const presentValues = new Set([
-  "yes",
-  "true",
-  "positive",
-  "detected",
-  "abnormal",
-  "torn",
-  "tear",
-  "ruptured",
-  "injured",
-]);
-
-const absentValues = new Set([
-  "no",
-  "false",
-  "negative",
-  "normal",
-  "intact",
-  "none",
-  "not present",
-  "absent",
-  "no tear",
-]);
-
-const uncertainValues = new Set([
-  "unclear",
-  "equivocal",
-  "possible",
-  "suspected",
-  "indeterminate",
-  "cannot exclude",
-  "limited",
-]);
-
 export function scoreModelOutput(
   modelOutput: ModelOutputObject | string,
   answerKey: AnswerKey,
@@ -341,24 +307,10 @@ function normalizeValue(value: unknown, field: FindingKey) {
     return normalized;
   }
 
-  const fieldSpecificValue = normalizeFieldSpecificValue(normalized, field);
-
-  if (fieldSpecificValue) {
-    return fieldSpecificValue;
-  }
-
-  if (presentValues.has(normalized)) {
-    return "present";
-  }
-
-  if (absentValues.has(normalized)) {
-    return "absent";
-  }
-
-  if (uncertainValues.has(normalized)) {
-    return "uncertain";
-  }
-
+  // Structural recovery and field-name aliases are allowed, but value scoring is
+  // intentionally strict: clinical phrases are invalid unless the model returns
+  // one of the exact controlled labels after trim/lowercase cleanup.
+  void field;
   return value;
 }
 
@@ -391,148 +343,6 @@ function unwrapNestedSingleReport(output: ModelOutputObject) {
     output: innerValue,
     used: true,
   };
-}
-
-function normalizeFieldSpecificValue(
-  value: string,
-  field: FindingKey,
-): FindingValue | null {
-  if (isLongNarrative(value)) {
-    return null;
-  }
-
-  switch (field) {
-    case "acl_tear":
-      if (hasAny(value, ["not intact", "torn", "ruptured", "disrupted"])) {
-        return "present";
-      }
-
-      if (hasAny(value, ["no tear", "intact", "normal"])) {
-        return "absent";
-      }
-
-      break;
-    case "mcl_injury":
-      if (
-        hasAny(value, [
-          "sprain",
-          "injury",
-          "edema",
-          "thickening",
-          "tear",
-          "torn",
-          "disruption",
-          "disrupted",
-        ])
-      ) {
-        return "present";
-      }
-
-      if (hasAny(value, ["no injury", "intact", "normal"])) {
-        return "absent";
-      }
-
-      break;
-    case "meniscus_tear":
-      if (hasAny(value, ["no meniscal tear", "no meniscus tear", "no tear"])) {
-        return "absent";
-      }
-
-      if (
-        hasAny(value, [
-          "root tear",
-          "radial",
-          "flap",
-          "complex",
-          "partial",
-          "full-thickness",
-          "full thickness",
-          "displaced",
-          "meniscal tear",
-          "meniscus tear",
-          "tear",
-          "torn",
-        ])
-      ) {
-        return "present";
-      }
-
-      break;
-    case "fracture":
-      if (hasAny(value, ["no bone fracture", "no fracture"])) {
-        return "absent";
-      }
-
-      if (
-        hasAny(value, [
-          "insufficiency fracture",
-          "avulsion",
-          "cortical break",
-          "fracture",
-        ])
-      ) {
-        return "present";
-      }
-
-      break;
-    case "osteoarthritis":
-      if (
-        hasAny(value, [
-          "no degenerative",
-          "no narrowing",
-          "no spurring",
-          "no osteoarthritis",
-        ])
-      ) {
-        return "absent";
-      }
-
-      if (
-        hasAny(value, [
-          "osteoarthritis",
-          "degenerative",
-          "cartilage loss",
-          "narrowing",
-          "chondrosis",
-          "osteophyte",
-          "spurring",
-        ])
-      ) {
-        return "present";
-      }
-
-      break;
-    case "effusion":
-      if (hasAny(value, ["no effusion"])) {
-        return "absent";
-      }
-
-      if (
-        hasAny(value, [
-          "effusion",
-          "present",
-          "trace",
-          "small",
-          "moderate",
-          "large",
-          "suprapatellar effusion",
-        ])
-      ) {
-        return "present";
-      }
-
-      break;
-  }
-
-  return null;
-}
-
-function hasAny(value: string, phrases: string[]) {
-  return phrases.some((phrase) => value.includes(phrase));
-}
-
-function isLongNarrative(value: string) {
-  return value.length > 160 || value.split(/\s+/).length > 24;
 }
 
 function parseJson(value: string):
