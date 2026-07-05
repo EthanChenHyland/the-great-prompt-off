@@ -11,6 +11,7 @@ const helpSections = [
     title: "Event-day workflow",
     items: [
       "Run the demo checklist before participants arrive.",
+      "Use DEMO_CHECKLIST.md as the rehearsal and live run-of-show checklist.",
       "Confirm the health check is green and export access codes.",
       "Reset workshop run data before the real event starts.",
       "Export results after the event for scoring and archive.",

@@ -1,83 +1,167 @@
-# Demo Checklist
+# Live Event Rehearsal And Run-Of-Show Checklist
 
-Short event-focused checklist. See `README.md` for setup details and `REPORT_IMPORT_GUIDE.md` for report data changes.
+Use this checklist before rehearsal and again before the real event. See `README.md` for full setup, `SUPABASE_MIGRATIONS_GUIDE.md` for database setup, and `REPORT_IMPORT_GUIDE.md` for report data changes.
 
-## Environment
+## 1. Pre-Event Setup
 
-- Confirm Vercel env vars are set:
-  - `USE_REAL_LLM=true`
-  - `OPENROUTER_API_KEY`
-  - `OPENROUTER_MODEL=google/gemini-2.5-flash`
-  - `OPENROUTER_CONCURRENCY=3`
-  - Supabase URL/anon/service-role vars
-  - `ADMIN_SECRET`
-- Redeploy Vercel after env var changes.
+- [ ] Pull the latest code locally.
+- [ ] Deploy the latest build to Vercel.
+- [ ] Confirm Vercel environment variables are set:
+  - [ ] `USE_REAL_LLM=true`
+  - [ ] `OPENROUTER_API_KEY`
+  - [ ] `OPENROUTER_MODEL=google/gemini-2.5-flash`
+  - [ ] `OPENROUTER_CONCURRENCY=3`
+  - [ ] Supabase URL, anon key, and service-role key variables
+  - [ ] `ADMIN_SECRET`
+  - [ ] `PARTICIPANT_SESSION_SECRET`
+- [ ] Redeploy Vercel after any environment variable change.
+- [ ] Run or confirm required Supabase SQL migrations:
+  - [ ] `supabase/admin-atomic-clears.sql`
+  - [ ] `supabase/event-controls.sql`
+  - [ ] `supabase/leaderboard-visibility.sql`
+  - [ ] `supabase/event-announcement.sql`
+  - [ ] `supabase/event-timer.sql`
+  - [ ] `supabase/participant-attempt-overrides.sql`
+- [ ] Run `npm run test`.
+- [ ] Run `npm run lint`.
+- [ ] Run `npm run build`.
+- [ ] Confirm `/admin` login works.
+- [ ] Confirm the active challenge exists in Supabase.
+- [ ] Confirm participant count is correct.
+- [ ] Confirm public/private report counts are correct.
+- [ ] Confirm answer-key count covers all reports.
+- [ ] Confirm participant access codes exist.
+- [ ] Confirm `/api/run-sample` returns `410 Gone`.
+- [ ] Open `/display/leaderboard` and confirm the projector page loads.
+- [ ] Confirm favicon/browser tab displays acceptably, allowing for browser favicon caching.
 
-## Supabase
-
-- Run required SQL/migrations for the target database.
-- Run `supabase/event-controls.sql`.
-- Run `supabase/leaderboard-visibility.sql`.
-- Run `supabase/event-announcement.sql`.
-- Run `supabase/event-timer.sql`.
-- Run `supabase/participant-attempt-overrides.sql`.
-- Run `supabase/admin-atomic-clears.sql`.
-- Run `npm run seed:supabase`.
-- Verify split counts:
+Useful verification SQL:
 
 ```sql
 select split, count(*) from reports group by split order by split;
+
+select count(*) as participants from participants;
+
+select count(*) as answer_keys from answer_keys;
+
+select id, slug, title, event_phase, leaderboard_visibility, is_active
+from challenges
+where is_active = true;
 ```
 
-Expected: `5 public / 45 private`.
+## 2. Clean Reset Before Rehearsal Or Event
 
-## Admin Readiness
+- [ ] Go to `/admin`.
+- [ ] Use the full reset action: Clear leaderboard & submissions.
+- [ ] Type `RESET` to confirm.
+- [ ] Confirm Test submissions are `0`.
+- [ ] Confirm Final submissions are `0`.
+- [ ] Confirm prompt runs and leaderboard/results are cleared.
+- [ ] Confirm `participant_attempt_overrides` are cleared.
+- [ ] Confirm participants remain.
+- [ ] Confirm access codes remain.
+- [ ] Confirm reports/cases remain.
+- [ ] Confirm answer keys remain.
+- [ ] Confirm the active challenge remains.
 
-Log in to `/admin`.
+## 3. Practice Round Flow
 
-Before the event, Health Check should show:
+- [ ] In `/admin`, set `event_phase` to `practice_open`.
+- [ ] Set `leaderboard_visibility` to `practice`.
+- [ ] Optionally set an event announcement.
+- [ ] Optionally start a practice timer.
+- [ ] Open `/display/leaderboard` on the projector.
+- [ ] Log in as a test participant from the home page.
+- [ ] Open `/challenge`.
+- [ ] Confirm public test reports are visible.
+- [ ] Confirm Test Attempts are enabled.
+- [ ] Confirm Final Submission is disabled.
+- [ ] Enter clinical extraction instructions.
+- [ ] Confirm output formatting instructions are visible and editable.
+- [ ] Submit one Test Attempt.
+- [ ] Confirm score feedback appears.
+- [ ] Confirm format diagnostics appear for public Test Attempts.
+- [ ] Confirm raw AI output is visible only in public Test Attempt details.
+- [ ] Confirm `/display/leaderboard` shows a Test Attempt score.
+- [ ] Confirm `/admin` progress monitor updates.
+- [ ] Confirm `/admin/results` updates.
 
-- Supabase connected: `Yes`
-- `USE_REAL_LLM`: `true`
-- OpenRouter model: `google/gemini-2.5-flash`
-- Report split: `5 public / 45 private`
-- Participants: `50`
-- Test submissions: `0`
-- Final submissions: `0`
-- Latest run: `-`
+## 4. Final Round Flow
 
-## Access Codes
+- [ ] In `/admin`, set `event_phase` to `final_open`.
+- [ ] Set leaderboard visibility for the intended reveal behavior:
+  - [ ] `hidden` if scores should stay hidden during final.
+  - [ ] `final` if final scores should show during final and ended.
+  - [ ] `ended` if scores should show only after the event ends.
+- [ ] Set a final-round announcement.
+- [ ] Optionally start a final timer.
+- [ ] As a participant, confirm public reports remain visible.
+- [ ] Confirm Test Attempts are disabled.
+- [ ] Confirm Final Submission is enabled.
+- [ ] Submit Final once.
+- [ ] Confirm the final submitted success state appears.
+- [ ] Confirm final score appears if available.
+- [ ] Try submitting Final again and confirm it is blocked.
+- [ ] Confirm private report text is not shown to the participant.
+- [ ] Confirm raw private/final model outputs are not shown to the participant.
+- [ ] Confirm answer keys are not shown to the participant.
+- [ ] Confirm `/admin` progress monitor shows final submitted.
 
-- Export access codes CSV from `/admin`.
-- Distribute only each participant's assigned access code.
+## 5. Reveal And End Flow
 
-## Smoke Test
+- [ ] In `/admin`, set `event_phase` to `ended`.
+- [ ] Set `leaderboard_visibility` to `ended` or the intended reveal setting.
+- [ ] Open `/display/leaderboard`.
+- [ ] Confirm the final leaderboard appears when visibility allows it.
+- [ ] Confirm participants see the event-ended state.
+- [ ] Confirm Test Attempts are disabled.
+- [ ] Confirm Final Submission is disabled.
+- [ ] Confirm submissions are closed from the participant UI.
+- [ ] Confirm server-side submission routes reject wrong-phase submissions.
 
-- Log in as one participant.
-- Run one Test Attempt.
-- Confirm public feedback is sanitized and numeric.
-- Run one Final Submission only if intentionally testing final evaluation.
-- Warning: a final smoke test uses about 45 OpenRouter calls.
-- Confirm real LLM failures do not count/store final submissions.
-- Check OpenRouter usage/cost.
+## 6. Admin Operations During Event
 
-## Before Participants Start
+- [ ] Use `/admin` for health, phase, announcement, timer, reset, and progress overview.
+- [ ] Use `/admin/participants` for participant management.
+- [ ] Use `/admin/results` for results and leaderboard monitoring.
+- [ ] Use `/admin/cases` only for intentional live case fixes.
+- [ ] Use `/display/leaderboard` for the projector.
+- [ ] Monitor active/inactive participants in the progress monitor.
+- [ ] Grant `+1` Test Attempt only as a live-event rescue.
+- [ ] Deactivate a participant only if needed.
+- [ ] Regenerate one access code only if a code is compromised or lost.
+- [ ] Clear one participant's run/submission data only when intentionally resetting that participant.
+- [ ] Export access codes CSV only from admin routes.
+- [ ] Export results CSV from `/admin` or `/admin/results`.
 
-- In `/admin`, reset workshop run data by typing `RESET`.
-- Confirm participants/access codes remain.
-- Confirm Test submissions and Final submissions are `0`.
-- Set the event phase to `practice_open` when the challenge begins.
-- Set the event phase to `final_open` for the final round.
-- Set the event phase to `ended` when submissions should close.
-- Set participant leaderboard visibility from `/admin` before or during the event.
-- Use the Event Announcement panel in `/admin` to set or clear a short live participant banner.
-- Use the Event Timer panel in `/admin` to set or clear a display-only participant countdown.
-- Participant status and leaderboard panels update automatically during the event.
-- Use `/admin/participants` to grant one extra Test Attempt only as a live-event rescue.
-- Open `/display/leaderboard` on the projector if you want a big-screen leaderboard display.
-- `/admin` and `/admin/results` auto-refresh for monitoring; use manual refresh on pages with edit forms.
+## 7. Failure Cases To Rehearse
 
-## Post-Event
+- [ ] Submit a prompt over `12,000` characters and confirm it is blocked before submission.
+- [ ] Confirm an over-limit Test Attempt does not consume an attempt.
+- [ ] Confirm an over-limit Final Submission does not lock final.
+- [ ] Submit a Test Attempt that returns invalid values such as `intact`, `yes`, or `trace`.
+- [ ] Confirm invalid values appear in public Test Attempt diagnostics.
+- [ ] Confirm invalid values do not expose answer keys.
+- [ ] Temporarily simulate or observe an OpenRouter/model failure.
+- [ ] Confirm model/provider failure shows a generic participant-safe error.
+- [ ] Confirm model/provider failure does not lock Final Submission.
+- [ ] Confirm participants cannot submit Test Attempts during `not_started`, `final_open`, or `ended`.
+- [ ] Confirm participants cannot submit Final during `not_started`, `practice_open`, or `ended`.
+- [ ] Set leaderboard visibility to `hidden` and confirm participants/projector show the organizer-hidden message.
+- [ ] Confirm `/api/run-sample`, `/api/submit-public`, and `/api/submit-final` remain disabled.
 
-- Export results CSV from `/admin`.
-- Export access codes CSV if needed for records.
+## 8. Post-Event
+
+- [ ] Export results CSV.
+- [ ] Save results CSV in the event archive.
+- [ ] Export access codes CSV only if needed for records.
+- [ ] Record final event settings:
+  - [ ] evaluation model
+  - [ ] OpenRouter concurrency
+  - [ ] report counts
+  - [ ] event phase at close
+  - [ ] leaderboard visibility at reveal
+- [ ] Record any participant overrides or manual interventions.
+- [ ] Optionally tag the Git commit used for the event.
+- [ ] Do not reset workshop data until exports are saved and verified.
+- [ ] After exports are safely archived, reset run data only if preparing for a new event.
