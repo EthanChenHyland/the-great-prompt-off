@@ -149,7 +149,15 @@ type ParticipantValidationResponse = {
   message: string;
 };
 
-const initialPrompt = "";
+const initialClinicalInstructions = "";
+const defaultFormattingInstructions =
+  "Return only valid JSON. Use exactly these field names: acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion. For each field, use exactly one value: present, absent, uncertain.";
+
+type PromptDraftV2 = {
+  clinicalInstructions: string;
+  formattingInstructions: string;
+};
+
 export function ChallengeWorkspace({
   initialParticipantId,
   reports,
@@ -162,7 +170,13 @@ export function ChallengeWorkspace({
   const savedParticipantToken = useSavedParticipantToken();
   const submissionStore = useSubmissionStore();
   const [activeReportId, setActiveReportId] = useState(reports[0]?.id ?? "");
-  const [prompt, setPrompt] = useState(initialPrompt);
+  const [clinicalInstructions, setClinicalInstructions] = useState(
+    initialClinicalInstructions,
+  );
+  const [formattingInstructions, setFormattingInstructions] = useState(
+    defaultFormattingInstructions,
+  );
+  const [draftReadyKey, setDraftReadyKey] = useState("");
   const [lastSubmissionPromptDebug, setLastSubmissionPromptDebug] =
     useState<SubmissionPromptDebug | null>(null);
   const [lastSubmissionFeedback, setLastSubmissionFeedback] =
@@ -225,10 +239,17 @@ export function ChallengeWorkspace({
       ? `${privateReportCount} hidden report${privateReportCount === 1 ? "" : "s"}`
       : "the hidden final reports";
   const challengeId = challengeDataStatus?.challenge?.id ?? "pending-challenge";
-  const draftKey = activeParticipantId
+  const oldDraftKey = activeParticipantId
     ? `great-prompt-off-draft:${challengeId}:${activeParticipantId}`
     : "";
+  const draftKey = activeParticipantId
+    ? `great-prompt-off-draft-v2:${challengeId}:${activeParticipantId}`
+    : "";
   const loadedDraftKeyRef = useRef("");
+  const combinedPrompt = useMemo(
+    () => buildCombinedPrompt(clinicalInstructions, formattingInstructions),
+    [clinicalInstructions, formattingInstructions],
+  );
   const eventPhase = challengeDataStatus?.challenge?.eventPhase ?? "practice_open";
   const leaderboardVisibility =
     challengeDataStatus?.challenge?.leaderboardVisibility ?? "practice";
@@ -441,15 +462,42 @@ export function ChallengeWorkspace({
     let timer: number | null = null;
 
     try {
-      const savedDraft = window.localStorage.getItem(draftKey);
+      const savedV2Draft = window.localStorage.getItem(draftKey);
+      const parsedV2Draft = parsePromptDraftV2(savedV2Draft);
 
-      if (savedDraft) {
+      if (parsedV2Draft) {
         timer = window.setTimeout(() => {
-          setPrompt((current) => current || savedDraft);
+          setClinicalInstructions(
+            (current) => current || parsedV2Draft.clinicalInstructions,
+          );
+          setFormattingInstructions((current) =>
+            current === defaultFormattingInstructions
+              ? parsedV2Draft.formattingInstructions || defaultFormattingInstructions
+              : current,
+          );
+          setDraftReadyKey(draftKey);
         }, 0);
+      } else {
+        const savedOldDraft = oldDraftKey
+          ? window.localStorage.getItem(oldDraftKey)
+          : null;
+
+        if (savedOldDraft) {
+          timer = window.setTimeout(() => {
+            setClinicalInstructions((current) => current || savedOldDraft);
+            setDraftReadyKey(draftKey);
+          }, 0);
+        } else {
+          timer = window.setTimeout(() => {
+            setDraftReadyKey(draftKey);
+          }, 0);
+        }
       }
     } catch {
       // Draft saving is best-effort; challenge work should continue without it.
+      timer = window.setTimeout(() => {
+        setDraftReadyKey(draftKey);
+      }, 0);
     }
 
     return () => {
@@ -457,19 +505,23 @@ export function ChallengeWorkspace({
         window.clearTimeout(timer);
       }
     };
-  }, [draftKey]);
+  }, [draftKey, oldDraftKey]);
 
   useEffect(() => {
-    if (!draftKey) {
+    if (!draftKey || draftReadyKey !== draftKey) {
       return;
     }
 
     try {
-      window.localStorage.setItem(draftKey, prompt);
+      const draft: PromptDraftV2 = {
+        clinicalInstructions,
+        formattingInstructions,
+      };
+      window.localStorage.setItem(draftKey, JSON.stringify(draft));
     } catch {
       // Ignore storage quota/privacy mode failures.
     }
-  }, [draftKey, prompt]);
+  }, [clinicalInstructions, draftKey, draftReadyKey, formattingInstructions]);
 
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const currentRows = useMemo(() => {
@@ -542,14 +594,14 @@ export function ChallengeWorkspace({
     setLastSubmissionFeedback(null);
 
     try {
-      const promptDebug = await createPromptDebug(prompt);
+      const promptDebug = await createPromptDebug(combinedPrompt);
       const score = await postSubmission(
         kind === "public"
           ? "/api/submissions/public"
           : "/api/submissions/final",
         activeParticipantId,
         activeParticipantToken,
-        prompt,
+        combinedPrompt,
       );
 
       if (score.source === "supabase") {
@@ -561,7 +613,7 @@ export function ChallengeWorkspace({
           participantId: activeParticipantId,
           kind,
           createdAt: new Date().toISOString(),
-          promptSnapshot: prompt,
+          promptSnapshot: combinedPrompt,
           score: score.score,
           correctFields: score.correctFields ?? 0,
           totalFields: score.totalFields ?? 0,
@@ -845,9 +897,11 @@ export function ChallengeWorkspace({
           <section className="grid min-h-0 min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <OutputFormatGuide />
             <PromptEditor
-              prompt={prompt}
+              clinicalInstructions={clinicalInstructions}
+              formattingInstructions={formattingInstructions}
               remainingPublicSubmissions={remainingPublicSubmissions}
-              setPrompt={setPrompt}
+              setClinicalInstructions={setClinicalInstructions}
+              setFormattingInstructions={setFormattingInstructions}
               onSubmitFinal={submitFinal}
               onSubmitPublic={submitPublic}
               finalSubmissionUsed={finalSubmissionUsed}
@@ -1130,31 +1184,35 @@ function DataSourceStatus({
 function PromptEditor({
   canSubmitFinal,
   canSubmitPublic,
+  clinicalInstructions,
   finalSubmissionUsed,
+  formattingInstructions,
   onSubmitFinal,
   onSubmitPublic,
   participantReady,
   pendingAction,
   privateReportDescription,
-  prompt,
   publicReportDescription,
   publicSubmissionLimit,
   remainingPublicSubmissions,
-  setPrompt,
+  setClinicalInstructions,
+  setFormattingInstructions,
 }: {
   canSubmitFinal: boolean;
   canSubmitPublic: boolean;
+  clinicalInstructions: string;
   finalSubmissionUsed: boolean;
+  formattingInstructions: string;
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
   participantReady: boolean;
   pendingAction: "public" | "final" | null;
   privateReportDescription: string;
-  prompt: string;
   publicReportDescription: string;
   publicSubmissionLimit: number;
   remainingPublicSubmissions: number;
-  setPrompt: (value: string) => void;
+  setClinicalInstructions: (value: string) => void;
+  setFormattingInstructions: (value: string) => void;
 }) {
   return (
     <section className="h-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -1164,11 +1222,11 @@ function PromptEditor({
             Prompt editor
           </p>
           <h2 className="mt-2 text-xl font-semibold text-slate-950">
-            Extraction prompt
+            Build your prompt
           </h2>
         </div>
         <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-          Workspace prompt
+          Combined on submit
         </span>
       </div>
       <div className="mt-4 grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
@@ -1186,13 +1244,43 @@ function PromptEditor({
           used once and runs on {privateReportDescription}.
         </p>
       </div>
-      <textarea
-        value={prompt}
-        onChange={(event) => setPrompt(event.target.value)}
-        placeholder="Write your extraction prompt here..."
-        spellCheck={false}
-        className="mt-4 h-[470px] w-full resize-none rounded-md border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-50 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
-      />
+      <div className="mt-4 grid gap-4">
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-slate-800">
+            Clinical extraction instructions
+          </span>
+          <span className="text-sm leading-6 text-slate-500">
+            Describe how the model should identify the six findings from the
+            reports.
+          </span>
+          <textarea
+            value={clinicalInstructions}
+            onChange={(event) => setClinicalInstructions(event.target.value)}
+            placeholder="Write your clinical extraction strategy here..."
+            spellCheck={false}
+            className="h-[250px] w-full resize-none rounded-md border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-50 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+          />
+        </label>
+        <label className="grid gap-2">
+          <span className="text-sm font-semibold text-slate-800">
+            Output formatting instructions
+          </span>
+          <span className="text-sm leading-6 text-slate-500">
+            Tell the model exactly how to format the answer so the scorer can
+            read it. Accepted values:{" "}
+            <span className="font-mono text-slate-700">
+              present, absent, uncertain
+            </span>
+            .
+          </span>
+          <textarea
+            value={formattingInstructions}
+            onChange={(event) => setFormattingInstructions(event.target.value)}
+            spellCheck={false}
+            className="h-[190px] w-full resize-none rounded-md border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-50 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+          />
+        </label>
+      </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
@@ -1718,6 +1806,42 @@ function Leaderboard({
       )}
     </section>
   );
+}
+
+function buildCombinedPrompt(
+  clinicalInstructions: string,
+  formattingInstructions: string,
+) {
+  return [
+    `Clinical extraction instructions:\n${clinicalInstructions.trim()}`,
+    `Output formatting instructions:\n${formattingInstructions.trim()}`,
+  ]
+    .filter((section) => section.trim().length > 0)
+    .join("\n\n");
+}
+
+function parsePromptDraftV2(value: string | null): PromptDraftV2 | null {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as Partial<PromptDraftV2>;
+
+    if (
+      typeof parsed.clinicalInstructions !== "string" ||
+      typeof parsed.formattingInstructions !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      clinicalInstructions: parsed.clinicalInstructions,
+      formattingInstructions: parsed.formattingInstructions,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function previewPrompt(prompt: string) {
