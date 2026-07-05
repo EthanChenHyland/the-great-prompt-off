@@ -597,8 +597,11 @@ async function evaluateWithRealLlm(
   kind: SubmissionKind,
 ): Promise<EvaluationResult> {
   if (!hasOpenRouterApiKey()) {
+    console.error(
+      `[submission-workflow] OPENROUTER_API_KEY missing for ${submissionLabel(kind)}.`,
+    );
     throw new RealLlmEvaluationError(
-      `OPENROUTER_API_KEY is required when USE_REAL_LLM=true. ${submissionLabel(kind)} was not counted.`,
+      "The evaluation model could not complete this request. Please try again.",
     );
   }
 
@@ -644,8 +647,13 @@ async function evaluateWithRealLlm(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
+    console.error("[submission-workflow] Real LLM evaluation failed", {
+      kind,
+      message,
+    });
+
     throw new RealLlmEvaluationError(
-      `Real ${submissionLabel(kind).toLowerCase()} evaluation failed before completion: ${message}. ${submissionLabel(kind)} was not counted.`,
+      "The evaluation model could not complete this request. Please try again.",
     );
   }
 }

@@ -9,6 +9,7 @@ import {
   findingLabels,
 } from "../lib/challenge-constants";
 import { fallbackChallengeConfig } from "../lib/challenge-config";
+import { MAX_PROMPT_CHARS, promptTooLongMessage } from "../lib/prompt-limits";
 import { normalizeParticipantCode } from "../lib/participant-codes";
 import {
   saveParticipantId,
@@ -250,6 +251,8 @@ export function ChallengeWorkspace({
     () => buildCombinedPrompt(clinicalInstructions, formattingInstructions),
     [clinicalInstructions, formattingInstructions],
   );
+  const combinedPromptLength = combinedPrompt.length;
+  const promptOverLimit = combinedPromptLength > MAX_PROMPT_CHARS;
   const eventPhase = challengeDataStatus?.challenge?.eventPhase ?? "practice_open";
   const leaderboardVisibility =
     challengeDataStatus?.challenge?.leaderboardVisibility ?? "practice";
@@ -547,6 +550,11 @@ export function ChallengeWorkspace({
   async function submitChallengePrompt(kind: SubmissionKind) {
     if (!activeParticipantId || !activeParticipantToken) {
       setSubmissionMessage("Enter your participant access code before submitting.");
+      return;
+    }
+
+    if (promptOverLimit) {
+      setSubmissionMessage(promptTooLongMessage);
       return;
     }
 
@@ -907,6 +915,8 @@ export function ChallengeWorkspace({
               finalSubmissionUsed={finalSubmissionUsed}
               participantReady={Boolean(activeParticipantId)}
               pendingAction={pendingAction}
+              promptLength={combinedPromptLength}
+              promptOverLimit={promptOverLimit}
               canSubmitFinal={canSubmitFinal}
               canSubmitPublic={canSubmitPublic}
               privateReportDescription={privateReportDescription}
@@ -936,6 +946,8 @@ export function ChallengeWorkspace({
               onSubmitPublic={submitPublic}
               pendingAction={pendingAction}
               participantReady={Boolean(activeParticipantId)}
+              promptLength={combinedPromptLength}
+              promptOverLimit={promptOverLimit}
               canSubmitFinal={canSubmitFinal}
               canSubmitPublic={canSubmitPublic}
               privateReportDescription={privateReportDescription}
@@ -1191,6 +1203,8 @@ function PromptEditor({
   onSubmitPublic,
   participantReady,
   pendingAction,
+  promptLength,
+  promptOverLimit,
   privateReportDescription,
   publicReportDescription,
   publicSubmissionLimit,
@@ -1207,6 +1221,8 @@ function PromptEditor({
   onSubmitPublic: () => void;
   participantReady: boolean;
   pendingAction: "public" | "final" | null;
+  promptLength: number;
+  promptOverLimit: boolean;
   privateReportDescription: string;
   publicReportDescription: string;
   publicSubmissionLimit: number;
@@ -1281,6 +1297,15 @@ function PromptEditor({
           />
         </label>
       </div>
+      <div
+        className={`mt-3 text-xs ${
+          promptOverLimit ? "text-red-700" : "text-slate-500"
+        }`}
+      >
+        Combined prompt length: {promptLength.toLocaleString()} /{" "}
+        {MAX_PROMPT_CHARS.toLocaleString()} characters
+        {promptOverLimit ? `. ${promptTooLongMessage}` : ""}
+      </div>
       <div className="mt-4 flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
@@ -1289,6 +1314,7 @@ function PromptEditor({
             !participantReady ||
             !canSubmitPublic ||
             remainingPublicSubmissions === 0 ||
+            promptOverLimit ||
             pendingAction !== null
           }
           className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
@@ -1302,6 +1328,7 @@ function PromptEditor({
             !participantReady ||
             !canSubmitFinal ||
             finalSubmissionUsed ||
+            promptOverLimit ||
             pendingAction !== null
           }
           className="h-11 rounded-md border border-slate-300 px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
@@ -1446,6 +1473,8 @@ function SubmissionPanel({
   onSubmitPublic,
   pendingAction,
   participantReady,
+  promptLength,
+  promptOverLimit,
   privateReportDescription,
   promptDebug,
   feedback,
@@ -1464,6 +1493,8 @@ function SubmissionPanel({
   onSubmitPublic: () => void;
   pendingAction: "public" | "final" | null;
   participantReady: boolean;
+  promptLength: number;
+  promptOverLimit: boolean;
   privateReportDescription: string;
   promptDebug: SubmissionPromptDebug | null;
   feedback: SafeSubmissionFeedback | null;
@@ -1485,6 +1516,15 @@ function SubmissionPanel({
         submission can only be used once and runs on {privateReportDescription}.
         Please wait for each submission to finish before trying again.
       </div>
+      <p
+        className={`mt-3 text-xs ${
+          promptOverLimit ? "text-red-700" : "text-slate-500"
+        }`}
+      >
+        Combined prompt length: {promptLength.toLocaleString()} /{" "}
+        {MAX_PROMPT_CHARS.toLocaleString()} characters
+        {promptOverLimit ? `. ${promptTooLongMessage}` : ""}
+      </p>
       {finalSubmissionUsed ? (
         <div className="mt-4 rounded-md border border-teal-200 bg-teal-50 p-3 text-sm leading-6 text-teal-950">
           <p className="font-semibold">
@@ -1521,6 +1561,7 @@ function SubmissionPanel({
               !participantReady ||
               !canSubmitPublic ||
               remainingPublicSubmissions === 0 ||
+              promptOverLimit ||
               pendingAction !== null
             }
             className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
@@ -1547,6 +1588,7 @@ function SubmissionPanel({
               !participantReady ||
               !canSubmitFinal ||
               finalSubmissionUsed ||
+              promptOverLimit ||
               pendingAction !== null
             }
             className="mt-3 h-10 w-full rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"

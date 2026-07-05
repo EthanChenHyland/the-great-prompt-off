@@ -10,6 +10,7 @@ import {
 } from "@/app/lib/supabase/submission-workflow";
 import { verifyParticipantSessionToken } from "@/app/lib/supabase/participant-session-token";
 import type { SubmitScoreResponse } from "@/app/lib/supabase/submission-workflow";
+import { MAX_PROMPT_CHARS, promptTooLongMessage } from "@/app/lib/prompt-limits";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
@@ -28,6 +29,10 @@ export async function POST(request: Request) {
       { error: "Participant session is invalid. Return home and enter your access code." },
       { status: 401 },
     );
+  }
+
+  if (body.prompt.length > MAX_PROMPT_CHARS) {
+    return Response.json({ error: promptTooLongMessage }, { status: 413 });
   }
 
   try {
