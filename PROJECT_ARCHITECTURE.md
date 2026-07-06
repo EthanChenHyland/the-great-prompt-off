@@ -1,12 +1,14 @@
 # Project Architecture
 
-This document explains how The Great Prompt-Off is organized: where the data lives, how prompts move through the system, and which files act like the model, view, and controller layers. It is meant for the project maintainer, not as participant-facing copy.
+This is the main "how the system works" document for The Great Prompt-Off. It explains the data, pages, APIs, and safety boundaries without trying to be the live event checklist.
 
-## 1. High-Level Purpose
+For rehearsal and event steps, use `DEMO_CHECKLIST.md`.
 
-The Great Prompt-Off is a prompt engineering challenge platform.
+## What The App Is
 
-Participants write prompts that make an AI model extract six structured findings from synthetic, non-PHI knee MRI reports:
+The Great Prompt-Off is a live prompt-engineering challenge.
+
+Participants write prompts that ask an evaluation model to read synthetic, non-PHI knee MRI reports and return six structured findings:
 
 - `acl_tear`
 - `mcl_injury`
@@ -15,338 +17,344 @@ Participants write prompts that make an AI model extract six structured findings
 - `osteoarthritis`
 - `effusion`
 
-The expected output values are strict controlled labels:
+The only accepted output values are:
 
 - `present`
 - `absent`
 - `uncertain`
 
-The event has two counted workflows:
+The app has two participant workflows:
 
-- Public Test Attempts: participants evaluate prompts on public reports and receive sanitized feedback.
-- Final Submission: participants submit once against hidden/private reports and receive limited final feedback.
+- **Test Attempts**: counted practice submissions on public reports.
+- **Final Submission**: one locked submission on hidden/private reports.
 
-## 2. Current Technology Stack
+## What Participants Do
 
-- Next.js app: participant workspace, admin dashboard, API routes, and projector display.
-- Vercel deployment: intended production host for the Next.js app.
-- Supabase/Postgres: persistent database for challenges, reports, participants, prompt runs, per-report outputs, submissions, and event settings.
-- OpenRouter: server-side model evaluation provider when `USE_REAL_LLM=true`.
-- Local/mock fallback: development fallback for challenge metadata and submissions when explicitly allowed. Production/event mode should rely on Supabase.
-- Git/GitHub: source control and deployment workflow.
+Participants:
 
-## 3. Model / View / Controller Framing
+- enter a unique access code on the home page
+- see a friendly participant label such as `P001`
+- write two prompt sections:
+  - clinical extraction instructions
+  - output formatting instructions
+- use Test Attempts while practice is open
+- submit one Final Submission when final is open
+- see sanitized feedback
 
-Using the doctor meeting framing:
+Participants do not manage accounts, passwords, databases, or report data.
 
-### Model
+## What Organizers/Admins Do
 
-The model is the data structure: database tables, local mock data, and TypeScript types that define what the app stores.
+Organizers use `/admin` with `ADMIN_SECRET`.
 
-Important model files:
+Admins can:
 
-- `supabase/schema.sql`
-- `supabase/*.sql` migration files
-- `app/lib/types.ts`
-- `app/lib/challenge-data.ts`
-- `app/lib/supabase/*`
-- `data/mock-answer-keys.json`
-- `data/mock-report-manifest.json`
-- `public/mock-reports/`
+- check readiness and health
+- set event phase
+- set leaderboard visibility
+- set live announcement text
+- set a display-only timer
+- monitor participant progress
+- export access codes and results
+- grant one extra Test Attempt
+- deactivate/reactivate participants
+- regenerate one participant access code
+- clear one participant's run data
+- reset all run/submission/leaderboard data
+- manage reports and answer keys in the admin-only Case Manager
 
-### View
+The main admin pages are:
 
-The view is what participants, admins, and organizers see.
+- `/admin`
+- `/admin/participants`
+- `/admin/results`
+- `/admin/cases`
+- `/admin/help`
+- `/display/leaderboard`
 
-Important view files:
+## Where Data Lives
 
-- Participant home: `app/components/LandingPage.tsx`
-- Participant workspace: `app/components/ChallengeWorkspace.tsx`
-- Admin pages: `app/admin/*`
-- Admin components: `app/components/Admin*.tsx`
-- Projector leaderboard: `app/display/leaderboard/page.tsx` and `app/components/LeaderboardDisplay.tsx`
-
-### Controller
-
-The controller is the logic that moves data between the view, database, model provider, and scoring engine.
-
-Important controller files:
-
-- `app/api/submissions/public/route.ts`
-- `app/api/submissions/final/route.ts`
-- `app/api/submissions/status/route.ts`
-- `app/api/leaderboard/route.ts`
-- `app/api/challenge-data/route.ts`
-- `app/api/admin/*`
-- `app/lib/supabase/submission-workflow.ts`
-- `app/lib/openrouter.ts`
-- `app/lib/scoring.ts`
-
-## 4. Data Model
-
-### `participants`
-
-Stores workshop identities.
-
-Important fields include:
-
-- friendly participant label, such as `P001`
-- access code used for participant login
-- display name and optional email for organizer use
-- active/inactive status
-
-Participants log in with access codes, but participant-facing screens show friendly participant labels.
+Supabase/Postgres is the main live database.
 
 ### `challenges`
 
-Stores the active challenge configuration.
+Stores the active challenge configuration:
 
-Important fields include:
-
-- title and slug
-- locked model
-- public and final submission limits
+- title/slug
+- locked evaluation model
+- Test Attempt limit
+- Final Submission limit
 - event phase
 - leaderboard visibility
-- announcement text
-- timer label and end time
+- live announcement
+- timer label/end time
+
+### `participants`
+
+Stores participant identities:
+
+- friendly participant code, such as `P001`
+- private access code
+- display name/email metadata
+- active/inactive status
+
+Participants type the access code, but the UI shows the friendly label.
 
 ### `reports`
 
-Stores report text and split information.
+Stores synthetic report text and split:
 
-Important split values:
+- `public`: visible public test reports
+- `private`: hidden final reports
 
-- `public`: reports visible to participants for Test Attempts.
-- `private`: hidden reports used for Final Submission.
-- `sample`: legacy/older split value; participant workflow currently focuses on public/private.
+Public report text can be shown to participants. Private report text should stay server-side/admin-only.
 
 ### `answer_keys`
 
-Stores the hidden expected labels for each report.
+Stores hidden expected labels for each report.
 
 Participants should never see answer key contents.
 
 ### `prompt_runs`
 
-Stores one evaluation run for a participant prompt.
-
-It records:
+Stores one model evaluation run:
 
 - participant
 - challenge
-- run type
 - prompt text
-- model name/mode
+- run type
+- model/mode
 - aggregate score fields
 - timestamps
 
 ### `prompt_run_items`
 
-Stores per-report evaluation details for a prompt run.
-
-It can include:
+Stores per-report output and score details:
 
 - report id
-- model output
-- parsed prediction
-- per-report score
-- validation details
+- raw model output
+- parsed output
+- valid JSON / missing / invalid diagnostics
+- per-report score fields
 
-Public/Test Attempt feedback can expose safe diagnostics. Final/private raw outputs and private per-report details should remain hidden from participants.
+Public Test Attempt details may be shown in sanitized form. Private/final raw outputs should not be shown to participants.
 
 ### `submissions`
 
-Stores counted Test Attempts and Final Submissions.
+Stores counted submissions:
 
-Each submission points to a `prompt_runs` row. Public submissions track Test Attempts. Final submissions are one-time and power final leaderboards during final/ended states.
+- public Test Attempts
+- Final Submissions
+
+Each submission points back to a `prompt_runs` row.
 
 ### `participant_attempt_overrides`
 
-Stores narrow admin rescue overrides for extra public Test Attempts.
+Stores admin-granted extra Test Attempts. These are event-run data and are cleared by reset tools.
 
-This is event-run data and is cleared by the workshop reset RPCs. It does not affect Final Submission.
+## Where Prompts And Outputs Are Stored
 
-## 5. Data Flow: Public Test Attempt
+Participants write prompts in `/challenge`.
 
-1. Participant enters a unique access code on the home page.
-2. Server validates the access code against Supabase when available.
-3. Participant reaches `/challenge`.
-4. The workspace loads challenge metadata, public report text, participant submission status, event phase, leaderboard visibility, announcement, and timer.
-5. Participant sees public reports when the event phase allows it.
-6. Participant writes two visible prompt sections:
-   - clinical extraction instructions
-   - output formatting instructions
-7. The frontend combines those sections into one prompt string:
+The frontend combines the two visible sections into one prompt:
 
-   ```text
-   Clinical extraction instructions:
-   {clinicalInstructions}
+```text
+Clinical extraction instructions:
+{clinicalInstructions}
 
-   Output formatting instructions:
-   {formattingInstructions}
-   ```
+Output formatting instructions:
+{formattingInstructions}
+```
 
-8. The participant clicks `Use test attempt`.
-9. The frontend posts to `POST /api/submissions/public` with the existing `{ participantCode, participantToken, prompt }` shape.
-10. The API validates participant session and event phase.
-11. Server-side workflow loads public reports and answer keys.
-12. If real LLM mode is enabled, the server sends the participant-visible prompt plus each report text to OpenRouter.
-13. Model output is scored by `app/lib/scoring.ts`.
-14. The system saves:
-    - `prompt_runs`
-    - `prompt_run_items`
-    - `submissions`
-15. Participant sees sanitized public feedback:
-    - overall score
-    - fields correct / total
-    - valid JSON status
-    - missing/invalid/extra field diagnostics
-    - public per-report numeric scores
-    - public raw model output details for Test Attempts only
-16. During `practice_open`, `/api/leaderboard` ranks participants by best public Test Attempt score, one row per participant.
+That combined prompt is sent to the submission API and stored in `prompt_runs.prompt_text`.
 
-## 6. Data Flow: Final Submission
+Model outputs are stored in `prompt_run_items.raw_model_output`.
+
+Scores are stored in both:
+
+- `prompt_runs` for aggregate run metrics
+- `submissions` for counted leaderboard/result entries
+
+## Public Test Attempt Flow
+
+1. Participant logs in with an access code.
+2. Workspace loads public reports, event settings, participant status, and leaderboard status.
+3. Participant writes/edit prompts.
+4. Participant clicks `Use test attempt`.
+5. Frontend posts to `POST /api/submissions/public`.
+6. Server checks participant session, event phase, prompt length, and remaining attempts.
+7. Server loads public reports and hidden answer keys.
+8. If real LLM mode is on, the server sends the participant prompt plus one report at a time to OpenRouter.
+9. The model output is scored by `app/lib/scoring.ts`.
+10. The run/items/submission are saved in Supabase.
+11. Participant sees safe Test Attempt feedback.
+
+Test Attempt feedback may show:
+
+- score
+- fields correct / total
+- valid JSON count
+- missing/invalid/extra field diagnostics
+- public per-report numeric scores
+- raw model output for public reports
+
+It should not show answer key labels.
+
+## Final Submission Flow
 
 1. Event phase must be `final_open`.
-2. Participant submits from the same workspace.
-3. The frontend posts the combined prompt to `POST /api/submissions/final`.
-4. Server validates participant session and confirms final has not already been used.
-5. Server loads private reports and answer keys.
-6. If real LLM mode is enabled, OpenRouter evaluates the prompt against private reports.
-7. Scoring uses the same scoring engine.
-8. The system stores:
-   - `prompt_runs`
-   - `prompt_run_items`
-   - `submissions`
-9. Participant sees sanitized final feedback only:
-   - aggregate final score
-   - fields correct / total fields
-   - format counts such as valid JSON / missing / invalid values
-   - no private per-report breakdown
-   - no private report text
-   - no raw final model outputs
-   - no answer key labels
-10. During `final_open` or `ended`, `/api/leaderboard` shows Final Submission scores only, one row per final-submitting participant.
+2. Participant clicks `Submit final`.
+3. Frontend posts to `POST /api/submissions/final`.
+4. Server checks participant session, event phase, prompt length, and whether final was already used.
+5. Server loads private reports and hidden answer keys.
+6. OpenRouter evaluates the prompt against private reports when real LLM mode is on.
+7. Scoring uses the same strict scorer.
+8. The run/items/submission are saved in Supabase only after evaluation completes.
+9. Participant sees sanitized aggregate final feedback.
 
-## 7. Admin / Organizer Controls
+Final feedback should not show:
 
-Admin pages require admin session protection. Service-role Supabase access and secrets remain server-only.
+- private report text
+- private per-report breakdown
+- raw final model outputs
+- answer key labels
 
-Organizer tools include:
+## Leaderboard Behavior
 
-- Event phases:
-  - `not_started`
-  - `practice_open`
-  - `final_open`
-  - `ended`
-- Leaderboard visibility:
-  - `hidden`
-  - `practice`
-  - `final`
-  - `ended`
-  - `always`
-- Live announcement banner.
-- Display-only event timer.
-- Participant progress monitor.
-- Participant management:
-  - edit display name/email
-  - regenerate one access code
-  - deactivate/reactivate
-  - clear one participant's run/submission data
-  - grant `+1` public Test Attempt
-- Reset tools:
-  - clear leaderboard/submissions/run data
-  - clear prompt run items, submissions, prompt runs, and attempt overrides
-  - preserve participants, access codes, reports, answer keys, and challenges
-- Results exports.
-- Access code exports.
-- Admin-only Case Manager:
-  - create/edit/view/delete report cases
-  - view answer keys
-  - block unsafe delete when run history exists
-- Projector leaderboard:
-  - `/display/leaderboard`
-  - public display page using safe leaderboard data and visibility rules
+Leaderboard data comes from `GET /api/leaderboard`.
 
-## 8. Scoring Behavior
+It respects the active challenge's event phase and leaderboard visibility setting.
 
-Scoring is implemented in `app/lib/scoring.ts`.
+During `practice_open`:
 
-Required fields:
+- leaderboard rows use each participant's best public Test Attempt score
+- one row per participant
+- not every attempt
 
-- `acl_tear`
-- `mcl_injury`
-- `meniscus_tear`
-- `fracture`
-- `osteoarthritis`
-- `effusion`
+During `final_open` or `ended`:
 
-Allowed values:
+- leaderboard rows use Final Submission scores only
+- one row per participant with a final submission
 
-- `present`
-- `absent`
-- `uncertain`
+If the organizer hides the leaderboard, participants and the projector page see a hidden message instead of scores.
 
-Current scoring intentionally uses strict controlled labels. Clinical phrases are not accepted as values. For example, these should be invalid:
+## Event Phases
 
-- `intact`
-- `normal`
-- `no tear`
-- `partial tear`
-- `sprain`
-- `trace`
-- `yes`
-- `no`
-- `positive`
-- `negative`
+Event phase is stored on the active `challenges` row.
 
-The scorer still performs structural recovery:
+- `not_started`: participants can log in, but reports and submissions are gated.
+- `practice_open`: public reports and Test Attempts are open; Final Submission is closed.
+- `final_open`: Final Submission is open; Test Attempts are closed.
+- `ended`: all submissions are closed.
 
-- JSON inside markdown code fences.
-- JSON object embedded in surrounding prose.
-- Single-object arrays.
-- Nested single-report objects.
-- Field-name aliases.
-- Ignored extra field diagnostics.
+The UI responds to phase changes, and submission APIs enforce phase rules server-side.
 
-This means the scorer helps with recoverable structure, but it does not translate clinical phrases into labels. The participant prompt must make the model output the controlled values.
+## Leaderboard Visibility
 
-## 9. Privacy and Safety Boundaries
+Leaderboard visibility is stored on the active `challenges` row.
 
-- Reports are synthetic and non-PHI.
-- Participants must not see answer keys.
-- Participants must not see private report text.
-- Participants must not see raw Final Submission model outputs.
-- Participants must not see access code lists.
-- API keys, service role keys, and admin secrets must stay server-side.
-- Admin pages can show operational diagnostics, but participant pages should stay polished and safe.
-- Public Test Attempt feedback may show safe diagnostics and public model outputs to help participants improve prompts.
-- Final feedback must stay aggregate/sanitized.
-- Legacy routes such as `POST /api/submit-public` and `POST /api/submit-final` are disabled. `POST /api/run-sample` exists as legacy/sample infrastructure and should not be part of the main participant workflow.
+- `hidden`: never visible to participants
+- `practice`: visible during `practice_open`
+- `final`: visible during `final_open` and `ended`
+- `ended`: visible only during `ended`
+- `always`: visible in all phases
 
-## 10. Known Limitations / Future Directions
+Admin result pages remain visible to admins regardless of participant leaderboard visibility.
 
-Meeting-driven future directions:
+## Participant Access Codes
 
-- More generalizable data model for finding definitions.
-- Configurable challenges/tasks beyond knee MRI.
-- Better formal unit tests and regression tests.
-- Security and edge-case audit before wider deployment.
-- Optional admin model selection with fairness locking.
-- Possible formatting-helper or system-instruction mode that separates clinical reasoning from output formatting.
-- Async queue/background job model if final evaluations grow large.
-- Mobile view improvements as a future view-only change.
-- Clearer data import and validation flow for larger report sets.
-- Stronger database transaction model for full submission persistence if scale increases.
+Participants do not log in with predictable `P001` labels.
 
-## 11. Operational Checklist Pointers
+Each participant has:
 
-Use these documents for running and maintaining the app:
+- `participant_code`: friendly label such as `P001`
+- `access_code`: private organizer-distributed code
 
-- `README.md`: project overview, setup, and deployment notes.
-- `DEMO_CHECKLIST.md`: event-day checklist.
-- `SUPABASE_MIGRATIONS_GUIDE.md`: beginner-friendly SQL and migration guide.
-- `supabase/README.md`: Supabase schema and seeding notes.
-- `REPORT_IMPORT_GUIDE.md`: adding/importing synthetic reports.
+Access-code validation happens server-side against Supabase. The participant workspace displays the friendly label, not the full access code.
 
+## Supabase Role In The App
+
+Supabase stores live challenge data and event results.
+
+Server-side code uses the service-role key only on the server. Client-side code should not import the service-role client or receive private database records.
+
+For SQL and migration setup, read `SUPABASE_MIGRATIONS_GUIDE.md`.
+
+## OpenRouter Role In The App
+
+OpenRouter is used server-side for real model evaluation when `USE_REAL_LLM=true`.
+
+The server sends:
+
+- the participant's visible prompt
+- one synthetic report text
+
+The server does not send:
+
+- API keys
+- admin secrets
+- Supabase service-role keys
+- answer key labels as part of the model prompt
+
+The app does not add hidden extraction rescue prompts and does not force JSON response format. Participants are responsible for prompting the model to produce the required structured output.
+
+## What Is Public vs Private
+
+Participant-visible:
+
+- public report text
+- their friendly participant label
+- their own remaining attempts/status
+- Test Attempt score feedback
+- public Test Attempt model output details
+- leaderboard rows when visible
+- aggregate final status/score
+
+Participant-hidden:
+
+- answer keys
+- private report text
+- raw final model outputs
+- private per-report final details
+- access code lists
+- admin controls
+- secrets/env vars
+
+Admin-visible:
+
+- participant roster and access codes
+- reports and answer keys
+- progress/results
+- case manager report text
+- operational health settings
+
+## Important Files And Docs
+
+System overview:
+
+- `PROJECT_ARCHITECTURE.md`
+
+Live event steps:
+
+- `DEMO_CHECKLIST.md`
+
+Database and SQL:
+
+- `SUPABASE_MIGRATIONS_GUIDE.md`
+- `supabase/README.md`
+- `supabase/schema.sql`
+- `supabase/*.sql`
+
+Report import:
+
+- `REPORT_IMPORT_GUIDE.md`
+
+Main code paths:
+
+- participant workspace: `app/components/ChallengeWorkspace.tsx`
+- public submission route: `app/api/submissions/public/route.ts`
+- final submission route: `app/api/submissions/final/route.ts`
+- shared submission workflow: `app/lib/supabase/submission-workflow.ts`
+- OpenRouter helper: `app/lib/openrouter.ts`
+- scoring: `app/lib/scoring.ts`
+- scoring tests: `app/lib/scoring.test.ts`

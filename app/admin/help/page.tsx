@@ -10,9 +10,8 @@ const helpSections = [
   {
     title: "Event-day workflow",
     items: [
-      "Run the demo checklist before participants arrive.",
-      "Use DEMO_CHECKLIST.md as the rehearsal and live run-of-show checklist.",
-      "Confirm the health check is green and export access codes.",
+      "Use DEMO_CHECKLIST.md for rehearsal and live event steps.",
+      "Confirm the Health Check is ready before participants arrive.",
       "Reset workshop run data before the real event starts.",
       "Export results after the event for scoring and archive.",
     ],
@@ -88,7 +87,7 @@ const helpSections = [
     title: "Troubleshooting",
     items: [
       "Vercel environment variable changes require a redeploy.",
-      "If health check counts look wrong, verify the Supabase seed and report split SQL.",
+      "If Health Check counts look wrong, verify the Supabase seed and report split SQL.",
       "If reset fails, verify supabase/admin-atomic-clears.sql was run in the correct project.",
       "If real LLM runs fail, check OpenRouter key, model, quota, and concurrency.",
     ],
@@ -125,22 +124,33 @@ export default async function AdminHelpPage() {
         </h2>
         <div className="mt-3 grid gap-3 text-sm leading-6 text-slate-600 md:grid-cols-3">
           <p>
-            <span className="font-semibold text-slate-800">README.md</span>{" "}
-            covers full setup, deployment, security, and project overview.
-          </p>
-          <p>
             <span className="font-semibold text-slate-800">
-              REPORT_IMPORT_GUIDE.md
+              PROJECT_ARCHITECTURE.md
             </span>{" "}
-            explains adding and importing synthetic reports.
+            explains how reports, prompts, model outputs, scores, submissions,
+            and admin controls fit together.
           </p>
           <p>
             <span className="font-semibold text-slate-800">
               DEMO_CHECKLIST.md
             </span>{" "}
-            is the event-day readiness checklist.
+            is the rehearsal and live run-of-show checklist.
+          </p>
+          <p>
+            <span className="font-semibold text-slate-800">
+              SUPABASE_MIGRATIONS_GUIDE.md
+            </span>{" "}
+            explains database SQL migrations and verification queries.
           </p>
         </div>
+        <p className="mt-3 text-sm leading-6 text-slate-600">
+          Use <span className="font-semibold text-slate-800">README.md</span>{" "}
+          as the short setup index and{" "}
+          <span className="font-semibold text-slate-800">
+            REPORT_IMPORT_GUIDE.md
+          </span>{" "}
+          for report import details.
+        </p>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">

@@ -1,10 +1,10 @@
-# Supabase Schema Draft
+# Supabase Notes
 
-This folder is a draft for the future database-backed version. The current app still uses local mock data and localStorage.
+This folder contains the database schema, migrations, and seed workflow for the Supabase-backed version of The Great Prompt-Off. For the overall system explanation, read `PROJECT_ARCHITECTURE.md`. For live event steps, read `DEMO_CHECKLIST.md`.
 
 ## Client setup
 
-The app now has Supabase client helpers available for future work, but they are not wired into the current UI, API routes, scoring, or submission flow.
+The app has two Supabase client helpers:
 
 - `app/lib/supabase/browser.ts` creates a browser-safe client with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 - `app/lib/supabase/admin.ts` creates a server-only admin client with `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.

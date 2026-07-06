@@ -903,7 +903,6 @@ export function ChallengeWorkspace({
           />
 
           <section className="grid min-h-0 min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <OutputFormatGuide />
             <PromptEditor
               clinicalInstructions={clinicalInstructions}
               formattingInstructions={formattingInstructions}
@@ -1295,6 +1294,29 @@ function PromptEditor({
             spellCheck={false}
             className="h-[190px] w-full resize-none rounded-md border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-50 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
           />
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+            <p className="font-semibold text-slate-800">
+              Output format reminder
+            </p>
+            <p className="mt-1">
+              Required fields:{" "}
+              <span className="font-mono text-slate-800">
+                acl_tear, mcl_injury, meniscus_tear, fracture,
+                osteoarthritis, effusion
+              </span>
+            </p>
+            <p className="mt-1">
+              Allowed values:{" "}
+              <span className="font-mono text-slate-800">
+                present, absent, uncertain
+              </span>
+            </p>
+            <p className="mt-1">
+              Clinical phrases like &quot;intact,&quot; &quot;partial
+              tear,&quot; &quot;trace,&quot; &quot;yes,&quot; or &quot;no&quot;
+              are not accepted values.
+            </p>
+          </div>
         </label>
       </div>
       <div
@@ -1335,76 +1357,6 @@ function PromptEditor({
         >
           {pendingAction === "final" ? "Submitting final..." : "Submit final"}
         </button>
-      </div>
-    </section>
-  );
-}
-
-function OutputFormatGuide() {
-  return (
-    <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950 shadow-sm lg:col-span-2">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-800">
-        Important output format
-      </p>
-      <div className="mt-2 grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="grid gap-3">
-          <p>
-            Your prompt will be tested by the evaluation model on synthetic
-            knee MRI reports. Your score is based on how well the model&apos;s
-            structured output matches the hidden answer key.
-          </p>
-          <p>
-            The model should answer using a small machine-readable form. You do
-            not need to know programming: just tell the model to keep the field
-            names exactly the same and choose one of the allowed answer words
-            for each field.
-          </p>
-          <p>
-            <span className="font-semibold">A useful starter sentence:</span>{" "}
-            <span className="font-mono font-normal">
-              Return one JSON object using exactly the six fields shown below.
-              For each field, use only present, absent, or uncertain.
-            </span>
-          </p>
-          <p>
-            Allowed answer choices:
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {["present", "absent", "uncertain"].map((value) => (
-              <span
-                key={value}
-                className="rounded-md border border-amber-200 bg-white/70 px-2 py-1 font-mono text-xs text-slate-900"
-              >
-                {value}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="grid gap-3">
-          <div className="grid gap-2 rounded-md border border-amber-200 bg-white/70 p-3">
-            <p className="font-semibold text-slate-900">Exact field names</p>
-            <div className="grid grid-cols-2 gap-1 font-mono text-xs text-slate-800">
-              {findingKeys.map((key) => (
-                <span key={key}>{key}</span>
-              ))}
-            </div>
-          </div>
-          <p className="font-semibold text-slate-900">Example output</p>
-          <pre className="overflow-auto rounded-md border border-amber-200 bg-white p-3 font-mono text-xs leading-5 text-slate-800">
-{`{
-  "acl_tear": "absent",
-  "mcl_injury": "absent",
-  "meniscus_tear": "absent",
-  "fracture": "absent",
-  "osteoarthritis": "absent",
-  "effusion": "absent"
-}`}
-          </pre>
-          <p className="text-sm leading-6 text-amber-950">
-            Tip: The exact field names matter. Use the field names shown above
-            rather than making up your own labels.
-          </p>
-        </div>
       </div>
     </section>
   );
