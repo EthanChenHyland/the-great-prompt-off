@@ -76,6 +76,8 @@ The main admin pages are:
 
 Supabase/Postgres is the main live database.
 
+After seeding, Supabase is the live source of truth for reports and answer keys. Local report text files live in `seed-data/mock-reports/` only as seed/dev data. They should not be placed under `public/`, because public files are browser-accessible.
+
 ### `challenges`
 
 Stores the active challenge configuration:

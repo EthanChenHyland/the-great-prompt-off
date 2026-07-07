@@ -4,7 +4,7 @@ This project imports reports from local files and seeds them into Supabase. A li
 
 ## Repo Paths
 
-- Report text files: `public/mock-reports/`
+- Report text files: `seed-data/mock-reports/`
 - Report manifest: `data/mock-report-manifest.json`
 - Answer keys: `data/mock-answer-keys.json`
 - Seed script: `scripts/seed-supabase.ts`
@@ -17,10 +17,10 @@ This project imports reports from local files and seeds them into Supabase. A li
 Current reports use:
 
 ```txt
-public/mock-reports/synthetic_report_001.txt
-public/mock-reports/synthetic_report_002.txt
+seed-data/mock-reports/synthetic_report_001.txt
+seed-data/mock-reports/synthetic_report_002.txt
 ...
-public/mock-reports/synthetic_report_050.txt
+seed-data/mock-reports/synthetic_report_050.txt
 ```
 
 Manifest IDs use:
@@ -74,7 +74,7 @@ Live editing notes:
 
 ## Adding Reports
 
-1. Add each synthetic report text file to `public/mock-reports/`.
+1. Add each synthetic report text file to `seed-data/mock-reports/`.
 2. Add each report to `data/mock-report-manifest.json`.
 3. Add a matching answer-key entry to `data/mock-answer-keys.json`.
 4. Run:
@@ -83,7 +83,7 @@ Live editing notes:
 npm run seed:supabase
 ```
 
-The seed script reads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and `public/mock-reports/`, then upserts reports and answer keys into Supabase.
+The seed script reads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and `seed-data/mock-reports/`, then upserts reports and answer keys into Supabase.
 
 ## Manifest Entry Shape
 
@@ -181,6 +181,7 @@ Current expected counts after seeding:
 
 - Use synthetic, non-PHI report text only.
 - Do not commit or seed protected health information.
+- Do not put report text files under `public/`; anything under `public/` can be served directly by browser URL.
 - Do not expose `data/mock-answer-keys.json` or Supabase answer-key contents to participants.
 - Do not expose private report text to participants.
 - More private reports means more OpenRouter calls and more latency/cost for Final Submission.

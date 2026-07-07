@@ -26,7 +26,9 @@ Required environment variables:
 - `ADMIN_SECRET` protects `/admin` and admin-only API routes. Use a strong value locally and in Vercel; do not commit a real secret.
 - `PARTICIPANT_SESSION_SECRET` is optional but recommended. It signs the lightweight participant session token returned after access-code validation. If omitted, the server falls back to `SUPABASE_SERVICE_ROLE_KEY`.
 
-The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and report text files from `public/mock-reports/`. It upserts one active challenge, all reports, all answer keys, and mock participants `P001` through `P050`, so it is safe to run more than once.
+The seed script loads `data/mock-report-manifest.json`, `data/mock-answer-keys.json`, and report text files from `seed-data/mock-reports/`. It upserts one active challenge, all reports, all answer keys, and mock participants `P001` through `P050`, so it is safe to run more than once.
+
+Local report text files are seed/dev assets only. They should not live under `public/`, because files under `public/` are directly browser-accessible.
 
 Seeded participants have two identifiers:
 

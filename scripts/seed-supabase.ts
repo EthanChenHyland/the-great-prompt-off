@@ -128,7 +128,7 @@ function assertFindingValues(report: AnswerKeyReport) {
 }
 
 async function readReportText(filename: string) {
-  const reportPath = path.join(process.cwd(), "public", "mock-reports", filename);
+  const reportPath = path.join(process.cwd(), "seed-data", "mock-reports", filename);
   const reportText = await readFile(reportPath, "utf8");
 
   if (!reportText.trim()) {

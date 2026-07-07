@@ -59,7 +59,22 @@ export function getLeaderboardRows(participantId?: string) {
 }
 
 export async function getSampleReports(): Promise<SampleReport[]> {
-  return getSupabasePublicReports().catch(() => getLocalPublicReports());
+  try {
+    return await getSupabasePublicReports();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    if (process.env.ALLOW_LOCAL_FALLBACK !== "true") {
+      console.error(
+        "[challenge-data] Supabase public reports unavailable and local fallback is disabled",
+        message,
+      );
+
+      return [];
+    }
+
+    return getLocalPublicReports();
+  }
 }
 
 export async function getPublicChallengeReports(): Promise<PublicChallengeReport[]> {
@@ -86,7 +101,7 @@ async function getLocalPublicReports(): Promise<SampleReport[]> {
 
       const reportPath = path.join(
         process.cwd(),
-        "public",
+        "seed-data",
         "mock-reports",
         item.filename,
       );

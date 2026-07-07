@@ -91,6 +91,8 @@ Before a live event, verify:
 - reset RPC functions exist
 - run/submission counts are zero after reset
 
+Local report `.txt` files live in `seed-data/mock-reports/` for seeding and development fallback only. Do not put private/final report text under `public/`.
+
 Use `DEMO_CHECKLIST.md` for the full rehearsal sequence.
 
 ## Deployment
