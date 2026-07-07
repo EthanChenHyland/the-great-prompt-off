@@ -154,6 +154,7 @@ where is_active = true;
 
 - [ ] Export results CSV.
 - [ ] Save results CSV in the event archive.
+- [ ] Review `/admin/analytics` for workshop performance trends.
 - [ ] Export access codes CSV only if needed for records.
 - [ ] Record final event settings:
   - [ ] evaluation model

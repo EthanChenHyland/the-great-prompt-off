@@ -55,6 +55,7 @@ Admins can:
 - set live announcement text
 - set a display-only timer
 - monitor participant progress
+- review read-only workshop analytics
 - export access codes and results
 - grant one extra Test Attempt
 - deactivate/reactivate participants
@@ -68,6 +69,7 @@ The main admin pages are:
 - `/admin`
 - `/admin/participants`
 - `/admin/results`
+- `/admin/analytics`
 - `/admin/cases`
 - `/admin/help`
 - `/display/leaderboard`

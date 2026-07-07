@@ -63,6 +63,11 @@ export function AdminNavigationCards() {
       text: "Review leaderboard scores, final submissions, and result exports.",
     },
     {
+      href: "/admin/analytics",
+      label: "Analytics",
+      text: "Explore read-only workshop trends, score distributions, and format diagnostics.",
+    },
+    {
       href: "/admin/cases",
       label: "Cases",
       text: "Create, view, edit, and safely delete reports and answer keys.",
@@ -75,7 +80,7 @@ export function AdminNavigationCards() {
   ];
 
   return (
-    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
       {items.map((item) => (
         <Link
           key={item.href}
@@ -95,6 +100,7 @@ export function AdminSectionNav({ currentHref }: { currentHref: string }) {
     { href: "/admin", label: "Dashboard" },
     { href: "/admin/participants", label: "Participants" },
     { href: "/admin/results", label: "Results" },
+    { href: "/admin/analytics", label: "Analytics" },
     { href: "/admin/cases", label: "Cases" },
     { href: "/admin/help", label: "Help" },
   ];
