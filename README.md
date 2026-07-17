@@ -176,6 +176,22 @@ npm run lint
 npm run build
 ```
 
+## Supabase Keep-Alive Health Check
+
+The app includes a lightweight read-only endpoint at
+`/api/health/supabase`. It performs a tiny active-challenge metadata read from
+Supabase and returns only safe status JSON. It does not read reports, answer
+keys, prompts, raw model outputs, access codes, secrets, or environment values.
+It does not write to the database and does not call OpenRouter.
+
+`vercel.json` schedules this endpoint once per day as a low-frequency
+development convenience. This is not a replacement for the real pre-event
+Supabase readiness checks in `DEMO_CHECKLIST.md`.
+
+Optional protection: set `KEEPALIVE_SECRET` and send it as
+`x-keepalive-secret: <secret>`. The endpoint also accepts
+`Authorization: Bearer <secret>` for schedulers that use bearer tokens.
+
 ## More Documentation
 
 - `PROJECT_ARCHITECTURE.md`: how the whole system works and where data lives.

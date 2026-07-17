@@ -32,6 +32,8 @@ Use this checklist before rehearsal and again before the real event. See `README
 - [ ] Confirm answer-key count covers all reports.
 - [ ] Confirm participant access codes exist.
 - [ ] Confirm `/api/run-sample` returns `410 Gone`.
+- [ ] Confirm `/api/health/supabase` returns small safe JSON if using the
+      keep-alive health check.
 - [ ] Open `/display/leaderboard` and confirm the projector page loads.
 - [ ] Confirm favicon/browser tab displays acceptably, allowing for browser favicon caching.
 
