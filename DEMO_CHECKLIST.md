@@ -35,9 +35,11 @@ Use this checklist before rehearsal and again before the real event. See `README
 - [ ] Confirm participant access codes exist.
 - [ ] Confirm Admin Health Check shows the resolved model, environment fallback, and any challenge override.
 - [ ] In the Evaluation model panel, choose a model override or confirm that environment fallback is selected.
-- [ ] Confirm the selector offers only the four approved models and no custom model field.
+- [ ] Confirm the selector offers only the eight approved models and no custom model field.
+- [ ] If changing models, rerun calibration before the live event.
 - [ ] Run the `/admin/analytics` baseline calibration on public reports.
 - [ ] Record blank/nonsense/generic/basic-clinical baseline scores before the event.
+- [ ] Confirm blank and nonsense baselines are meaningfully lower than a usable clinical strategy.
 - [ ] If weak baselines are too high, switch `OPENROUTER_MODEL` or revise the dataset before the live event.
 - [ ] Confirm calibration and new submissions use the same resolved model.
 - [ ] Confirm `not_reported` is used for insufficient evidence, `absent` only for explicit negation, and `uncertain` only for ambiguity.

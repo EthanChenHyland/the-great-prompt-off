@@ -16,6 +16,7 @@ describe("approved evaluation models", () => {
   it("rejects arbitrary model IDs", () => {
     expect(isApprovedEvaluationModel("provider/arbitrary-model")).toBe(false);
     expect(isApprovedEvaluationModel("google/gemini-2.5-flash ")).toBe(false);
+    expect(isApprovedEvaluationModel("google/gemma-3-4b-it")).toBe(false);
   });
 
   it("uses an approved challenge override before the fallback", () => {

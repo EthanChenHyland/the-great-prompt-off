@@ -161,16 +161,27 @@ explicit negative evidence, and `uncertain` is reserved for ambiguous evidence.
 The hidden server instruction enforces this contract without solving the
 clinical task.
 
-The admin selector intentionally limits challenge overrides to these approved
-models:
+Admin calibration includes blank and nonsense baselines. With the current
+evaluation contract, these should score low because a usable participant
+strategy is required. If they remain high, use a weaker approved model or a
+harder report set.
 
+The admin selector intentionally limits challenge overrides to these approved
+models, ordered from lighter/weaker calibration options to stronger baselines:
+
+- `meta-llama/llama-3.2-1b-instruct` (Very lightweight)
+- `meta-llama/llama-3.2-3b-instruct` (Lightweight)
+- `qwen/qwen3-4b` (Lightweight / reasoning-focused)
+- `microsoft/phi-4-mini-instruct` (Lightweight / reasoning-focused)
+- `qwen/qwen-2.5-7b-instruct` (Lightweight-medium)
 - `google/gemini-2.5-flash-lite` (Lightweight)
 - `mistralai/mistral-small-3.2-24b-instruct` (Medium-low)
-- `google/gemma-3-4b-it` (Experimental)
 - `google/gemini-2.5-flash` (Strong)
 
 Custom model IDs cannot be saved through the admin UI. Availability and pricing
 depend on the OpenRouter account, so run calibration after changing models.
+Gemma was removed from the approved list because it was unreliable in this
+setup. Future 12-finding reports may require retuning this list.
 
 Regression tests in `app/lib/scoring.test.ts` help prevent accidental return to overly lenient scoring.
 

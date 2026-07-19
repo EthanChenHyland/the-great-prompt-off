@@ -146,8 +146,9 @@ export function AdminCalibrationPanel() {
             should show a meaningful gap above these baselines.
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Model choice is a difficulty setting. If blank or nonsense baselines
-            remain high, use a weaker model or harder reports.
+            Blank and nonsense prompts should be low because the evaluation
+            contract requires a usable participant strategy. If they remain
+            high, use a weaker model or harder reports.
           </p>
         </div>
       ) : null}

@@ -209,7 +209,9 @@ Why it exists:
 This lets an admin choose the evaluation model for one active challenge without
 changing environment variables or exposing provider credentials. A null value
 falls back to `OPENROUTER_MODEL`. The admin API limits saved overrides to the
-approved IDs in `app/lib/model-options.ts`; custom IDs are not accepted.
+approved IDs in `app/lib/model-options.ts`; custom IDs are not accepted. The
+approved list is intentionally weighted toward lightweight calibration options
+and may need retuning when the planned 12-finding reports arrive.
 
 Required before production:
 

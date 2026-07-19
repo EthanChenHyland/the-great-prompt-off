@@ -309,8 +309,13 @@ model is shown in Admin Health Check and calibration results. Previous runs keep
 the model recorded at the time they ran and are not changed retroactively.
 Challenge overrides are limited to the approved model list in
 `app/lib/model-options.ts`; custom model IDs are not accepted by the admin API.
+The list includes lightweight Llama, Qwen, and Phi options for difficulty
+calibration. Gemma was removed because it was unreliable in this setup.
 Calibration uses public reports only and does not create participant
 submissions, consume attempts, or affect the leaderboard.
+Blank and nonsense calibration prompts should score low because the model must
+have a usable participant strategy; if they do not, use a weaker approved model
+or a harder report set.
 
 The hidden instruction treats `not_reported` as the no-assumption state: use it
 when the report is silent or insufficient, use `absent` only for explicit

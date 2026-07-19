@@ -1,16 +1,15 @@
 import "server-only";
 
 import { resolveChallengeEvaluationModel } from "./model-options";
+import {
+  buildOpenRouterMessages,
+  type OpenRouterMessage,
+} from "./openrouter-contract";
 
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const defaultModel = "google/gemini-2.0-flash-001";
 const defaultConcurrency = 3;
 const requestTimeoutMs = 30000;
-
-type OpenRouterMessage = {
-  role: "system" | "user" | "assistant";
-  content: string;
-};
 
 type OpenRouterResponse = {
   choices?: Array<{
@@ -64,21 +63,10 @@ export async function extractReportWithOpenRouter({
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
 
-  const messages: OpenRouterMessage[] = [
-    {
-      role: "system",
-      content:
-        "You are extracting structured findings from a medical report.\n\nReturn only valid JSON.\n\nUse exactly these field names:\nacl_tear\nmcl_injury\nmeniscus_tear\nfracture\nosteoarthritis\neffusion\n\nFor each field, use exactly one value:\npresent\nabsent\nuncertain\nnot_reported\n\nDo not infer findings that are not supported by the report. Use not_reported when the report does not contain enough information to determine a finding. Use absent only when the report explicitly rules out the finding. Use uncertain only when the report contains ambiguous or indeterminate evidence. Do not guess from a finding being unmentioned.\n\nThese instructions define formatting and output requirements only. Determine clinical values from the report and the participant's clinical extraction strategy.",
-    },
-    {
-      role: "user",
-      content: prompt || "(No participant clinical extraction instructions provided.)",
-    },
-    {
-      role: "user",
-      content: ["Input synthetic knee MRI report:", reportText].join("\n"),
-    },
-  ];
+  const messages: OpenRouterMessage[] = buildOpenRouterMessages({
+    prompt,
+    reportText,
+  });
 
   let response: Response;
 
