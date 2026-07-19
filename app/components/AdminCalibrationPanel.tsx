@@ -80,8 +80,9 @@ export function AdminCalibrationPanel() {
       </div>
 
       <p className="mt-3 text-xs leading-5 text-slate-500">
-        This makes four model calls per public report. It does not create
-        submissions, consume attempts, or use private reports.
+        {result
+          ? `This runs 4 baseline prompts across ${result.reportCount} public reports, for up to ${result.reportCount * 4} model calls.`
+          : "This runs 4 baseline prompts across the public reports, for up to 4 model calls per public report."} It does not create submissions, consume attempts, or use private reports.
       </p>
 
       {error ? (

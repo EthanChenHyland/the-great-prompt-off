@@ -309,8 +309,12 @@ model is shown in Admin Health Check and calibration results. Previous runs keep
 the model recorded at the time they ran and are not changed retroactively.
 Challenge overrides are limited to the approved model list in
 `app/lib/model-options.ts`; custom model IDs are not accepted by the admin API.
-The list includes lightweight Llama, Qwen, and Phi options for difficulty
-calibration. Gemma was removed because it was unreliable in this setup.
+The current five-model list is based on live calibration: Gemini 2.5 Flash is
+recommended, Qwen2.5 7B and Mistral are alternatives, Gemini Flash Lite is not
+currently recommended, and Llama 3.2 1B is experimental/very weak. Gemma was
+removed because it was unreliable in this setup. Llama 3.2 3B, Qwen3 4B, and
+Phi-4 Mini were removed because they were not detected or working in the tested
+OpenRouter setup.
 Calibration uses public reports only and does not create participant
 submissions, consume attempts, or affect the leaderboard.
 Blank and nonsense calibration prompts should score low because the model must

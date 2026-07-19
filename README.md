@@ -166,17 +166,14 @@ evaluation contract, these should score low because a usable participant
 strategy is required. If they remain high, use a weaker approved model or a
 harder report set.
 
-The admin selector intentionally limits challenge overrides to these approved
-models, ordered from lighter/weaker calibration options to stronger baselines:
+The admin selector intentionally limits challenge overrides to these five
+approved models, ordered by current calibration usefulness:
 
-- `meta-llama/llama-3.2-1b-instruct` (Very lightweight)
-- `meta-llama/llama-3.2-3b-instruct` (Lightweight)
-- `qwen/qwen3-4b` (Lightweight / reasoning-focused)
-- `microsoft/phi-4-mini-instruct` (Lightweight / reasoning-focused)
-- `qwen/qwen-2.5-7b-instruct` (Lightweight-medium)
-- `google/gemini-2.5-flash-lite` (Lightweight)
-- `mistralai/mistral-small-3.2-24b-instruct` (Medium-low)
-- `google/gemini-2.5-flash` (Strong)
+- `google/gemini-2.5-flash` (Recommended)
+- `qwen/qwen-2.5-7b-instruct` (Alternative)
+- `mistralai/mistral-small-3.2-24b-instruct` (Alternative)
+- `google/gemini-2.5-flash-lite` (Not recommended currently)
+- `meta-llama/llama-3.2-1b-instruct` (Experimental / very weak)
 
 Custom model IDs cannot be saved through the admin UI. Availability and pricing
 depend on the OpenRouter account, so run calibration after changing models.

@@ -166,8 +166,8 @@ uses the `OPENROUTER_MODEL` environment fallback. Run
 does not set this column, so an organizer override survives later seed runs.
 The admin API accepts only the approved IDs in `app/lib/model-options.ts`; it
 does not accept arbitrary custom model IDs. The approved list includes
-lightweight Llama, Qwen, and Phi options for calibration; Gemma was removed
-because it was unreliable in this setup. An unsupported legacy value is
+five live-tested options for calibration; Gemini 2.5 Flash is currently
+recommended and Gemma was removed because it was unreliable in this setup. An unsupported legacy value is
 ignored for new calls and should be replaced or cleared from `/admin`.
 
 ## Replacing localStorage later
