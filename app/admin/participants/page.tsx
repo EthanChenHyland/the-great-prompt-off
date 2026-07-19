@@ -1,11 +1,13 @@
 import { AdminLoginForm } from "../../components/AdminLoginForm";
 import { AdminAutoRefresh } from "../../components/AdminAutoRefresh";
 import { AdminParticipantActions } from "../../components/AdminActions";
+import { AdminProgressMonitor } from "../../components/AdminProgressMonitor";
 import {
   AdminHeader,
   AdminPageFrame,
   AdminSectionNav,
   AdminTable,
+  MetricCard,
   score,
 } from "../../components/AdminLayout";
 import { hasAdminSession } from "../../lib/supabase/admin-auth";
@@ -44,6 +46,54 @@ export default async function AdminParticipantsPage() {
         <AdminSectionNav currentHref="/admin/participants" />
         <AdminAutoRefresh />
       </div>
+
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+          Live participant monitoring
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+          Progress at a glance
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Track activity, attempts, and final submissions while the workshop is running.
+        </p>
+      </section>
+
+      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <MetricCard label="Active participants" value={data.progressSummary.activeParticipants} />
+        <MetricCard label="With test attempt" value={data.progressSummary.participantsWithTestAttempt} />
+        <MetricCard label="Final submitted" value={data.progressSummary.participantsWithFinalSubmitted} />
+        <MetricCard label="No activity" value={data.progressSummary.participantsWithNoActivity} />
+        <MetricCard
+          label="Average final"
+          value={score(data.progressSummary.averageFinalScore) || "-"}
+        />
+        <MetricCard
+          label="Best final"
+          value={score(data.progressSummary.bestFinalScore) || "-"}
+        />
+      </section>
+
+      {data.progressSummary.participantsWithTestAttempt === 0 &&
+      data.progressSummary.participantsWithFinalSubmitted === 0 ? (
+        <p className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 shadow-sm">
+          No participant run activity yet. This monitor will update as participants submit Test Attempts and Final Submissions.
+        </p>
+      ) : null}
+
+      <AdminProgressMonitor participants={data.participants} />
+
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+          Participant operations
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+          Manage participant accounts
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Edit organizer-facing identity details, access status, and participant-specific data.
+        </p>
+      </section>
 
       <AdminTable
         title="Participant management"

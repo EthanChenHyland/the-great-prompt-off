@@ -97,7 +97,7 @@ export function AdminNavigationCards() {
 
 export function AdminSectionNav({ currentHref }: { currentHref: string }) {
   const items = [
-    { href: "/admin", label: "Dashboard" },
+    { href: "/admin", label: "Overview" },
     { href: "/admin/participants", label: "Participants" },
     { href: "/admin/results", label: "Results" },
     { href: "/admin/analytics", label: "Analytics" },

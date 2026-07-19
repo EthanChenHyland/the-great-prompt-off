@@ -17,9 +17,7 @@ import {
   formatDate,
   HealthItem,
   MetricCard,
-  score,
 } from "../components/AdminLayout";
-import { AdminProgressMonitor } from "../components/AdminProgressMonitor";
 import { hasAdminSession } from "../lib/supabase/admin-auth";
 import { getAdminDashboardData } from "../lib/supabase/admin-dashboard";
 
@@ -89,60 +87,17 @@ export default async function AdminPage() {
         />
       </section>
 
-      <AdminNavigationCards />
-
-      <a
-        href="/display/leaderboard"
-        target="_blank"
-        rel="noreferrer"
-        className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-500 hover:shadow-md"
-      >
-        <h2 className="text-lg font-semibold text-slate-950">
-          Open projector leaderboard
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+          Live event control
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+          Run the workshop
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Opens the big-screen leaderboard display in a new tab. It follows the
-          current participant leaderboard visibility setting.
+          Live controls for phases, participant messaging, visibility, and readiness.
         </p>
-      </a>
-
-      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <MetricCard
-          label="Active participants"
-          value={data.progressSummary.activeParticipants}
-        />
-        <MetricCard
-          label="With test attempt"
-          value={data.progressSummary.participantsWithTestAttempt}
-        />
-        <MetricCard
-          label="Final submitted"
-          value={data.progressSummary.participantsWithFinalSubmitted}
-        />
-        <MetricCard
-          label="No activity"
-          value={data.progressSummary.participantsWithNoActivity}
-        />
-        <MetricCard
-          label="Average final"
-          value={score(data.progressSummary.averageFinalScore) || "-"}
-        />
-        <MetricCard
-          label="Best final"
-          value={score(data.progressSummary.bestFinalScore) || "-"}
-        />
       </section>
-
-      <div className="grid gap-3">
-        {data.progressSummary.participantsWithTestAttempt === 0 &&
-        data.progressSummary.participantsWithFinalSubmitted === 0 ? (
-          <p className="rounded-md border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600 shadow-sm">
-            No participant run activity yet. This monitor will update as
-            participants submit Test Attempts and Final Submissions.
-          </p>
-        ) : null}
-        <AdminProgressMonitor participants={data.participants} />
-      </div>
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
         <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -201,12 +156,10 @@ export default async function AdminPage() {
           </div>
         </div>
         <div className="grid gap-5">
-          <AdminEvaluationModelControls
-            currentModel={data.health.challengeEvaluationModel}
-            resolvedModel={data.health.openRouterModel}
-            fallbackModel={data.health.openRouterEnvironmentModel}
-          />
           <AdminEventControls currentPhase={data.overview.eventPhase} />
+          <AdminLeaderboardVisibilityControls
+            currentVisibility={data.overview.leaderboardVisibility}
+          />
           <AdminEventAnnouncementControls
             currentAnnouncement={data.overview.eventAnnouncement}
           />
@@ -214,12 +167,103 @@ export default async function AdminPage() {
             currentEndsAt={data.overview.eventTimerEndsAt}
             currentLabel={data.overview.eventTimerLabel}
           />
-          <AdminLeaderboardVisibilityControls
-            currentVisibility={data.overview.leaderboardVisibility}
-          />
-          <AdminResetPanel />
+          <a
+            href="/display/leaderboard"
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm hover:border-teal-500 hover:shadow-md"
+          >
+            <h2 className="text-lg font-semibold text-slate-950">
+              Open projector leaderboard
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Open the big-screen display in a new tab. It follows the current
+              participant leaderboard visibility setting.
+            </p>
+          </a>
         </div>
       </section>
+
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+          Difficulty & calibration
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+          Set the evaluation difficulty
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Model choice changes how much participant prompt strategy matters. Run calibration after changing models.
+        </p>
+      </section>
+
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <AdminEvaluationModelControls
+          currentModel={data.health.challengeEvaluationModel}
+          resolvedModel={data.health.openRouterModel}
+          fallbackModel={data.health.openRouterEnvironmentModel}
+        />
+        <a
+          href="/admin/analytics"
+          className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm hover:border-teal-500 hover:shadow-md"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Baseline calibration
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">
+            Compare model difficulty
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Run four fixed baseline prompts against public reports without
+            creating submissions or consuming participant attempts.
+          </p>
+          <span className="mt-4 inline-flex text-sm font-semibold text-teal-700">
+            Open Analytics
+          </span>
+        </a>
+      </section>
+
+      <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+          Recommended run order
+        </p>
+        <h2 className="mt-2 text-xl font-semibold text-slate-950">
+          Live workflow
+        </h2>
+        <ol className="mt-3 grid gap-2 text-sm leading-6 text-slate-600 md:grid-cols-2 xl:grid-cols-4">
+          <li><span className="font-semibold text-slate-900">1.</span> Check health and model.</li>
+          <li><span className="font-semibold text-slate-900">2.</span> Open practice and monitor participants.</li>
+          <li><span className="font-semibold text-slate-900">3.</span> Switch to final when ready.</li>
+          <li><span className="font-semibold text-slate-900">4.</span> Review results and export.</li>
+        </ol>
+      </section>
+
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+          Admin areas
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+          Monitor and manage
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Open a focused workspace for participants, results, analytics, cases, or help.
+        </p>
+      </section>
+
+      <AdminNavigationCards />
+
+      <section>
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">
+          Maintenance
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-slate-950">
+          Dangerous actions
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">
+          Use only when intentionally clearing workshop run data before or after an event.
+        </p>
+      </section>
+
+      <AdminResetPanel />
     </AdminPageFrame>
   );
 }
