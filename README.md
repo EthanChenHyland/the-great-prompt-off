@@ -145,6 +145,11 @@ The scorer allows structural recovery, such as JSON inside markdown fences or a 
 
 The participant controls the clinical extraction strategy. The server supplies a hidden formatting/task-contract instruction to the evaluation model so formatting is consistent without giving the participant a medical answer strategy. This hidden instruction does not contain report-specific answers or clinical reasoning hints.
 
+Strategy gating treats vague commands such as `extract all findings` as
+underspecified. A short participant prompt can still be usable, but it must
+provide real evidence-to-label mapping logic rather than only asking the model
+to read, summarize, or return findings.
+
 `OPENROUTER_MODEL` remains the fallback model. Admins can optionally select a
 challenge-specific evaluation model from `/admin`; the override is used for
 new real submissions and calibration until it is cleared. Admin Health Check

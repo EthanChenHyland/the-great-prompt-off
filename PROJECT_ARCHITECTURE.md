@@ -300,7 +300,12 @@ The server does not send:
 - Supabase service-role keys
 - answer key labels as part of the model prompt
 
-The hidden instruction controls formatting and the meaning of `not_reported`; it does not contain medical interpretation rules, report-specific reasoning, or answer hints. The app does not force a provider response format, and the scorer still validates the returned JSON independently.
+The hidden instruction controls formatting, strategy gating, and the meaning of
+`not_reported`; it does not contain medical interpretation rules, report-specific
+reasoning, or answer hints. Vague commands such as `extract all findings` are
+treated as underspecified, while short prompts with real evidence-to-label
+mapping logic can remain usable. The app does not force a provider response
+format, and the scorer still validates the returned JSON independently.
 
 `OPENROUTER_MODEL` is the production fallback. Admins can set an
 `evaluation_model` override for the active challenge from `/admin`; new real

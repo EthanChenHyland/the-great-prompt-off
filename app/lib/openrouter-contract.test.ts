@@ -14,6 +14,15 @@ describe("OpenRouter evaluation contract", () => {
       "The participant strategy is required.",
     );
     expect(openRouterSystemInstruction).toContain(
+      "A strategy is usable only when it provides enough extraction and evidence-to-label mapping logic for the requested finding or findings.",
+    );
+    expect(openRouterSystemInstruction).toContain(
+      "A request to extract, read, summarize, identify, or return findings without mapping logic is underspecified, even if it mentions the report or findings.",
+    );
+    expect(openRouterSystemInstruction).toContain(
+      "Treat vague strategies such as 'extract all findings', 'extract the requested findings', 'read the MRI report and answer', 'identify abnormalities', 'summarize the MRI', or 'return the findings' as underspecified.",
+    );
+    expect(openRouterSystemInstruction).toContain(
       "If the participant strategy is blank, nonsense, irrelevant, or not a usable clinical extraction strategy, immediately return not_reported for every required field.",
     );
     expect(openRouterSystemInstruction).toContain(
@@ -24,6 +33,9 @@ describe("OpenRouter evaluation contract", () => {
     );
     expect(openRouterSystemInstruction).toContain(
       "If either the participant strategy or the report evidence is insufficient for a finding, output not_reported for that finding.",
+    );
+    expect(openRouterSystemInstruction).toContain(
+      "A short strategy may be usable when it gives real mapping logic; do not require a long prompt when the necessary rules are present.",
     );
   });
 
