@@ -185,7 +185,7 @@ export async function GET() {
         title: challenge.title,
         description: challenge.description,
         instructions: challenge.instructions,
-        evaluationModelDisplayName: getFriendlyModelName(challenge.locked_model),
+        evaluationModelDisplayName: getFriendlyModelName(getOpenRouterModel()),
         publicSubmissionLimit: challenge.public_submission_limit,
         finalSubmissionLimit: challenge.final_submission_limit,
         eventPhase: challenge.event_phase,

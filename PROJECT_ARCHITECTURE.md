@@ -56,6 +56,7 @@ Admins can:
 - set a display-only timer
 - monitor participant progress
 - review read-only workshop analytics
+- run admin-only baseline difficulty calibration on public reports
 - export access codes and results
 - grant one extra Test Attempt
 - deactivate/reactivate participants
@@ -298,6 +299,13 @@ The server does not send:
 - answer key labels as part of the model prompt
 
 The hidden instruction controls formatting and the meaning of `not_reported`; it does not contain medical interpretation rules, report-specific reasoning, or answer hints. The app does not force a provider response format, and the scorer still validates the returned JSON independently.
+
+`OPENROUTER_MODEL` is the production model source of truth. The challenge's
+`locked_model` metadata remains useful for seed/configuration context, but real
+OpenRouter requests use the server environment model. Admins can see the active
+model in Health Check and run non-persistent baseline calibration from
+`/admin/analytics`. Calibration uses public reports only and does not create
+participant submissions, consume attempts, or affect the leaderboard.
 
 ## What Is Public vs Private
 

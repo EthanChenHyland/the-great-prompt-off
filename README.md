@@ -75,6 +75,7 @@ Admin tools include:
 - announcement and timer controls
 - participant progress monitor
 - workshop analytics dashboard
+- admin-only baseline difficulty calibration on public reports
 - participant management
 - extra Test Attempt override
 - CSV exports
@@ -143,6 +144,10 @@ The output must use exactly the six required fields and one of the controlled la
 The scorer allows structural recovery, such as JSON inside markdown fences or a single nested report object, but it does not translate clinical phrases into labels. For example, phrases like `intact`, `partial tear`, `trace`, `yes`, or `no` are invalid values.
 
 The participant controls the clinical extraction strategy. The server supplies a hidden formatting/task-contract instruction to the evaluation model so formatting is consistent without giving the participant a medical answer strategy. This hidden instruction does not contain report-specific answers or clinical reasoning hints.
+
+Model selection remains environment-based: `OPENROUTER_MODEL` is the production source of truth. Admin Health Check shows the active model, and `/admin/analytics` can run temporary blank, nonsense, generic, and basic clinical baselines against public reports. Calibration does not create submissions or affect attempts. Compare candidate models with the same public report set before an event; if weak baselines score high, try a less capable model or increase dataset difficulty.
+
+Candidate IDs to compare during calibration include `google/gemini-2.0-flash-001`, `google/gemini-2.5-flash`, `anthropic/claude-sonnet-4`, and `openai/gpt-4.1`. Availability and pricing depend on the OpenRouter account, so verify the selected ID before the event.
 
 Regression tests in `app/lib/scoring.test.ts` help prevent accidental return to overly lenient scoring.
 

@@ -6,6 +6,7 @@ import {
   isLeaderboardVisibility,
   type LeaderboardVisibility,
 } from "@/app/lib/leaderboard-visibility";
+import { getOpenRouterModel } from "@/app/lib/openrouter";
 import { createSupabaseAdminClient } from "./admin";
 
 export type AdminParticipantRow = {
@@ -322,8 +323,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     health: {
       supabaseConnected: true,
       useRealLlm: process.env.USE_REAL_LLM === "true",
-      openRouterModel:
-        process.env.OPENROUTER_MODEL || "google/gemini-2.0-flash-001",
+      openRouterModel: getOpenRouterModel(),
       reportCounts: {
         public: reportCounts.public,
         private: reportCounts.private,

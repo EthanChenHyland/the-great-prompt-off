@@ -681,7 +681,7 @@ async function mapWithConcurrency<T, R>(
   return results;
 }
 
-async function getActiveChallenge(
+export async function getActiveChallenge(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
 ) {
   const { data, error } = await supabase
@@ -782,7 +782,7 @@ async function getExtraPublicAttempts(
   return data?.extra_public_attempts ?? 0;
 }
 
-async function getSupabaseAnswerKeysForSplit(
+export async function getSupabaseAnswerKeysForSplit(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   challengeId: string,
   split: ReportSplit,

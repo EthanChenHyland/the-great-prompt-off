@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { AdminLoginForm } from "../../components/AdminLoginForm";
 import { AdminAutoRefresh } from "../../components/AdminAutoRefresh";
+import { AdminCalibrationPanel } from "../../components/AdminCalibrationPanel";
 import {
   AdminHeader,
   AdminPageFrame,
@@ -41,6 +42,8 @@ export default async function AdminAnalyticsPage() {
         <AdminSectionNav currentHref="/admin/analytics" />
         <AdminAutoRefresh intervalSeconds={15} />
       </div>
+
+      <AdminCalibrationPanel />
 
       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Participants" value={data.summary.totalParticipants} />

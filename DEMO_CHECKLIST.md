@@ -32,6 +32,10 @@ Use this checklist before rehearsal and again before the real event. See `README
 - [ ] Confirm public/private report counts are correct.
 - [ ] Confirm answer-key count covers all reports.
 - [ ] Confirm participant access codes exist.
+- [ ] Confirm Admin Health Check shows the intended `OPENROUTER_MODEL`.
+- [ ] Run the `/admin/analytics` baseline calibration on public reports.
+- [ ] Record blank/nonsense/generic/basic-clinical baseline scores before the event.
+- [ ] If weak baselines are too high, switch `OPENROUTER_MODEL` or revise the dataset before the live event.
 - [ ] Confirm `/api/run-sample` returns `410 Gone`.
 - [ ] Confirm `/api/health/supabase` returns small safe JSON if using the
       keep-alive health check.

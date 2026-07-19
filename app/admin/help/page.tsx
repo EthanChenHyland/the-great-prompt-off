@@ -81,6 +81,7 @@ const helpSections = [
       "Test Attempts evaluate 5 public reports.",
       "Final Submission evaluates 45 hidden private reports and may take longer.",
       "OPENROUTER_CONCURRENCY controls how many report evaluations run at once.",
+      "OPENROUTER_MODEL is the production source of truth. Use the Analytics baseline calibration on public reports to compare model/dataset difficulty before an event.",
     ],
   },
   {
