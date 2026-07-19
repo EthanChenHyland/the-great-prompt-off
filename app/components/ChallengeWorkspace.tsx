@@ -1593,9 +1593,15 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
                   </summary>
                   <div className="mt-2 grid gap-2 text-xs leading-5 text-slate-600">
                     <div className="grid grid-cols-2 gap-2">
-                      <span>Returned the required JSON format?</span>
+                      <span>Strict JSON on first pass?</span>
                       <span className="text-right font-semibold text-slate-800">
-                        {report.strictJsonValid ? "Yes" : "No"}
+                        {report.strictJsonValid
+                          ? "Yes"
+                          : report.recoveredJsonUsed ||
+                              report.nestedObjectUsed ||
+                              report.normalizationUsed
+                            ? "No - cleaned up"
+                            : "No"}
                       </span>
                       <span>Accepted after formatting cleanup?</span>
                       <span className="text-right font-semibold text-slate-800">

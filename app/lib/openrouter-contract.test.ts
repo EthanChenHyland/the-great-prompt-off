@@ -8,13 +8,34 @@ import {
 describe("OpenRouter evaluation contract", () => {
   it("requires a usable participant strategy", () => {
     expect(openRouterSystemInstruction).toContain(
+      "First, silently evaluate whether the participant strategy is a usable clinical extraction strategy.",
+    );
+    expect(openRouterSystemInstruction).toContain(
       "The participant strategy is required.",
     );
     expect(openRouterSystemInstruction).toContain(
-      "If the participant strategy is blank, irrelevant, or does not describe how to evaluate the requested findings, return not_reported for every field.",
+      "If the participant strategy is blank, nonsense, irrelevant, or not a usable clinical extraction strategy, immediately return not_reported for every required field.",
     );
     expect(openRouterSystemInstruction).toContain(
-      "Do not use unstated default clinical reasoning to compensate for missing or irrelevant participant instructions.",
+      "When the strategy is unusable, do not use the report text to infer, rescue, or fill in any answers.",
+    );
+    expect(openRouterSystemInstruction).toContain(
+      "Do not use your own default medical reasoning or knowledge to compensate for an unusable participant strategy.",
+    );
+    expect(openRouterSystemInstruction).toContain(
+      "If either the participant strategy or the report evidence is insufficient for a finding, output not_reported for that finding.",
+    );
+  });
+
+  it("requires one raw JSON object without markdown or explanations", () => {
+    expect(openRouterSystemInstruction).toContain(
+      "Return exactly one raw JSON object and nothing else.",
+    );
+    expect(openRouterSystemInstruction).toContain(
+      "Do not wrap the JSON in markdown or code fences.",
+    );
+    expect(openRouterSystemInstruction).toContain(
+      "Do not include explanations, comments, or extra text before or after the JSON object.",
     );
   });
 

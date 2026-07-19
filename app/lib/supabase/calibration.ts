@@ -19,7 +19,7 @@ import { createSupabaseAdminClient } from "./admin";
 
 export const calibrationBaselines = [
   { id: "blank", label: "Blank prompt", prompt: "" },
-  { id: "nonsense", label: "Nonsense prompt", prompt: "asdf qwer banana" },
+  { id: "nonsense", label: "Nonsense prompt", prompt: "goon goon" },
   {
     id: "generic",
     label: "Generic prompt",
