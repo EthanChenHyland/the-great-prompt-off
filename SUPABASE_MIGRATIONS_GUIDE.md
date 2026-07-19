@@ -171,6 +171,32 @@ from challenges
 where is_active = true;
 ```
 
+### `supabase/not-reported.sql`
+
+What it adds:
+
+- The `not_reported` value to the existing `finding_value` enum.
+
+Why it exists:
+
+This lets answer keys and stored structured outputs distinguish an explicitly absent finding from a finding that the report does not provide enough information to determine.
+
+Required before production:
+
+Yes, before deploying code that may score or store `not_reported` in Supabase. It does not rewrite existing answer keys.
+
+How to verify:
+
+```sql
+select e.enumlabel
+from pg_enum e
+join pg_type t on t.oid = e.enumtypid
+where t.typname = 'finding_value'
+order by e.enumsortorder;
+```
+
+Review existing answer keys separately. They remain unchanged until an organizer deliberately updates them to use `not_reported`.
+
 ## Event-Control Columns on `challenges`
 
 ### `event_phase`
@@ -249,6 +275,7 @@ These RPC functions are safer than app-side deletes because the related deletes 
   - `supabase/leaderboard-visibility.sql`
   - `supabase/event-announcement.sql`
   - `supabase/event-timer.sql`
+  - `supabase/not-reported.sql`
 - Run `npm run seed:supabase` with production Supabase environment variables.
 - Verify the active challenge has `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.
 - Verify reset RPC functions exist and were updated from `supabase/admin-atomic-clears.sql`.

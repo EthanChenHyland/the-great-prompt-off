@@ -4,7 +4,13 @@ import path from "node:path";
 import answerKeys from "@/data/mock-answer-keys.json";
 import manifest from "@/data/mock-report-manifest.json";
 import { createSupabaseAdminClient } from "./supabase/admin";
-import type { AnswerKeyItem, ReportManifestItem, ReportSplit, SampleReport } from "./types";
+import type {
+  AnswerKeyItem,
+  FindingValue,
+  ReportManifestItem,
+  ReportSplit,
+  SampleReport,
+} from "./types";
 
 const typedManifest = manifest as ReportManifestItem[];
 const typedAnswerKeys = answerKeys as AnswerKeyItem[];
@@ -23,12 +29,12 @@ type SupabaseReportRow = {
 
 type SupabaseAnswerKeyRow = {
   report_id: string;
-  acl_tear: "present" | "absent" | "uncertain";
-  mcl_injury: "present" | "absent" | "uncertain";
-  meniscus_tear: "present" | "absent" | "uncertain";
-  fracture: "present" | "absent" | "uncertain";
-  osteoarthritis: "present" | "absent" | "uncertain";
-  effusion: "present" | "absent" | "uncertain";
+  acl_tear: FindingValue;
+  mcl_injury: FindingValue;
+  meniscus_tear: FindingValue;
+  fracture: FindingValue;
+  osteoarthritis: FindingValue;
+  effusion: FindingValue;
 };
 
 export type PublicChallengeReport = Pick<

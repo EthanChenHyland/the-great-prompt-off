@@ -4,16 +4,13 @@ This document summarizes progress since the doctor meeting and frames the curren
 
 ## 1. What Changed Since The Meeting
 
-- Scoring was tightened so accepted output values are only:
+- Scoring now accepts these strict controlled output values:
   - `present`
   - `absent`
   - `uncertain`
+- `not_reported` was added for findings that the report does not provide enough information to determine.
 - Clinical phrases such as `intact`, `partial tear`, `trace`, `yes`, or `no` are now invalid values rather than being silently mapped to controlled labels.
-- The participant prompt editor was split into two editable sections:
-  - Clinical extraction instructions
-  - Output formatting instructions
-- The Output formatting instructions box is prefilled with a concise default that tells the model to return JSON with the six required fields and allowed values.
-- A shorter participant reminder now appears near the formatting box instead of a large tutorial.
+- The participant prompt editor now focuses on one editable clinical extraction section. Output formatting is controlled by a hidden server-side task contract.
 - Scoring regression tests were added with Vitest.
 - `PROJECT_ARCHITECTURE.md` was rewritten as the main system/data-flow explanation.
 - `DEMO_CHECKLIST.md` was expanded into the live rehearsal and run-of-show checklist.
@@ -29,16 +26,18 @@ This document summarizes progress since the doctor meeting and frames the curren
 
 ### Stricter Data Structure
 
-The scoring system now enforces the controlled output contract more honestly. Only `present`, `absent`, and `uncertain` receive credit. This directly addresses the concern that the system was too forgiving of medically reasonable but incorrectly formatted outputs.
+The scoring system now enforces the controlled output contract more honestly. Only `present`, `absent`, `uncertain`, and `not_reported` receive credit. Clinical phrases still do not receive credit. `not_reported` addresses the concern that the model should not guess when a finding is not mentioned.
 
 ### Separating Clinical Reasoning From Formatting
 
-The two-section prompt editor reflects the meeting point that the task has two parts:
+The prompt design now separates the two responsibilities:
 
-- deciding what findings are present
-- getting the model to return the exact machine-readable format
+- the participant controls the clinical extraction strategy
+- the platform controls the machine-readable output contract
 
-Participants can work on both without the app adding hidden rescue instructions.
+The hidden contract contains formatting and unsupported-inference handling only. It does not contain medical reasoning answers or report-specific hints.
+
+Existing answer keys were not rewritten. They should be manually reviewed before using `not_reported` as a real expected answer for reports where a finding is not mentioned.
 
 ### Better Software Discipline
 
@@ -73,7 +72,7 @@ The app currently supports:
 - public Test Attempts
 - locked Final Submission
 - strict scoring values
-- two-section prompt editor
+- participant clinical extraction prompt editor with platform-controlled formatting
 - public Test Attempt diagnostics
 - sanitized Final Submission feedback
 - event phases
@@ -124,8 +123,8 @@ Still important to rehearse manually:
 
 ## 5. Questions For The Next Meeting
 
-- Should the challenge continue to require participants to handle output formatting, or should we later add a separate formatting helper/system instruction mode?
-- Is the strict `present` / `absent` / `uncertain` label set clinically sufficient for this workshop?
+- Is the platform-controlled formatting/task contract appropriately separated from the participant's clinical strategy?
+- Is the strict `present` / `absent` / `uncertain` / `not_reported` label set clinically sufficient for this workshop?
 - Should public Test Attempt feedback show more or less detail?
 - Should final feedback show only score, or also aggregate format diagnostics?
 - Are five public Test Attempts the right number?

@@ -1,4 +1,4 @@
-import { findingKeys, valueOptions } from "./challenge-constants";
+import { findingKeys } from "./challenge-constants";
 import { scoreModelOutput } from "./scoring";
 import type {
   AnswerKey,
@@ -109,20 +109,32 @@ function createMockPrediction(prompt: string, answerKey: AnswerKey): AnswerKey {
 
 function promptQuality(prompt: string) {
   const lower = prompt.toLowerCase();
-  const mentionsAllFields = findingKeys.every((key) => lower.includes(key));
-  const asksForJson = lower.includes("json");
-  const constrainsValues = valueOptions.every((value) => lower.includes(value));
+  const mentionedFindings = findingKeys.filter((key) =>
+    findingTerms[key].some((term) => lower.includes(term)),
+  ).length;
 
-  if (mentionsAllFields && asksForJson && constrainsValues) {
+  // Mock mode treats the platform-controlled output contract as satisfied.
+  // Its lightweight quality approximation should respond to the participant's
+  // clinical strategy, not to formatting instructions that are no longer editable.
+  if (mentionedFindings === findingKeys.length) {
     return "strong";
   }
 
-  if (asksForJson && (mentionsAllFields || constrainsValues)) {
+  if (mentionedFindings >= 4) {
     return "medium";
   }
 
   return "weak";
 }
+
+const findingTerms: Record<FindingKey, string[]> = {
+  acl_tear: ["acl", "anterior cruciate"],
+  mcl_injury: ["mcl", "medial collateral"],
+  meniscus_tear: ["meniscus", "meniscal"],
+  fracture: ["fracture", "bone break"],
+  osteoarthritis: ["osteoarthritis", "degenerative", "narrowing", "spurring"],
+  effusion: ["effusion", "fluid collection"],
+};
 
 function fallbackValue(key: FindingKey, correct: FindingValue): FindingValue {
   if (key === "effusion" && correct === "present") {

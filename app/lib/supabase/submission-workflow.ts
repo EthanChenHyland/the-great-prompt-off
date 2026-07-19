@@ -73,12 +73,12 @@ type ReportRow = {
 
 type AnswerKeyRow = {
   report_id: string;
-  acl_tear: "present" | "absent" | "uncertain";
-  mcl_injury: "present" | "absent" | "uncertain";
-  meniscus_tear: "present" | "absent" | "uncertain";
-  fracture: "present" | "absent" | "uncertain";
-  osteoarthritis: "present" | "absent" | "uncertain";
-  effusion: "present" | "absent" | "uncertain";
+  acl_tear: FindingValue;
+  mcl_injury: FindingValue;
+  meniscus_tear: FindingValue;
+  fracture: FindingValue;
+  osteoarthritis: FindingValue;
+  effusion: FindingValue;
 };
 
 type SupabaseErrorLike = {

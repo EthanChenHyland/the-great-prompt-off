@@ -43,6 +43,24 @@ describe("scoreModelOutput", () => {
     expect(result.overall_score).toBe(100);
   });
 
+  it("accepts not_reported as a strict controlled value", () => {
+    const expected: AnswerKey = {
+      ...answerKey,
+      acl_tear: "not_reported",
+    };
+    const result = scoreModelOutput(
+      {
+        ...strictOutput,
+        acl_tear: "not_reported",
+      },
+      expected,
+    );
+
+    expect(result.per_field[0].actual).toBe("not_reported");
+    expect(result.per_field[0].correct).toBe(true);
+    expect(result.invalid_fields).toEqual([]);
+  });
+
   it("normalizes exact labels by case and surrounding whitespace only", () => {
     const result = scoreModelOutput(
       {
@@ -68,13 +86,52 @@ describe("scoreModelOutput", () => {
     expect(result.diagnostics.value_normalization_used).toBe(true);
   });
 
+  it("normalizes not_reported only by case and surrounding whitespace", () => {
+    const expected: AnswerKey = {
+      ...answerKey,
+      acl_tear: "not_reported",
+    };
+    const result = scoreModelOutput(
+      {
+        ...strictOutput,
+        acl_tear: " Not_Reported ",
+      },
+      expected,
+    );
+
+    expect(result.per_field[0].actual).toBe("not_reported");
+    expect(result.per_field[0].correct).toBe(true);
+
+    const invalid = scoreModelOutput(
+      {
+        ...strictOutput,
+        acl_tear: "not reported",
+      },
+      expected,
+    );
+
+    expect(invalid.per_field[0].actual).toBeNull();
+    expect(invalid.invalid_fields).toContainEqual({
+      field: "acl_tear",
+      value: "not reported",
+    });
+  });
+
   it.each([
     ["acl_tear", "intact"],
+    ["acl_tear", "normal"],
     ["meniscus_tear", "partial tear"],
+    ["meniscus_tear", "no tear"],
+    ["meniscus_tear", "torn"],
+    ["mcl_injury", "sprain"],
     ["fracture", "no fracture"],
     ["effusion", "trace"],
+    ["effusion", "small"],
+    ["effusion", "large"],
     ["mcl_injury", "yes"],
     ["mcl_injury", "no"],
+    ["mcl_injury", "positive"],
+    ["mcl_injury", "negative"],
   ] as Array<[FindingKey, string]>)(
     "marks clinical phrase %s=%s as invalid with no credit",
     (field, value) => {

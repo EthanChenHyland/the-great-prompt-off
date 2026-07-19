@@ -17,11 +17,12 @@ Participants write prompts that ask an evaluation model to read synthetic, non-P
 - `osteoarthritis`
 - `effusion`
 
-The only accepted output values are:
+The accepted output values are:
 
 - `present`
 - `absent`
 - `uncertain`
+- `not_reported`
 
 The app has two participant workflows:
 
@@ -34,9 +35,8 @@ Participants:
 
 - enter a unique access code on the home page
 - see a friendly participant label such as `P001`
-- write two prompt sections:
-  - clinical extraction instructions
-  - output formatting instructions
+- write clinical extraction instructions
+- rely on the platform for the output formatting contract
 - use Test Attempts while practice is open
 - submit one Final Submission when final is open
 - see sanitized feedback
@@ -160,17 +160,13 @@ Stores admin-granted extra Test Attempts. These are event-run data and are clear
 
 Participants write prompts in `/challenge`.
 
-The frontend combines the two visible sections into one prompt:
+The participant prompt is stored as the clinical extraction instructions only:
 
 ```text
-Clinical extraction instructions:
 {clinicalInstructions}
-
-Output formatting instructions:
-{formattingInstructions}
 ```
 
-That combined prompt is sent to the submission API and stored in `prompt_runs.prompt_text`.
+That prompt is sent to the submission API and stored in `prompt_runs.prompt_text`. Older v2 drafts may still contain a formatting section; the clinical section is preserved, but the old formatting text is ignored.
 
 Model outputs are stored in `prompt_run_items.raw_model_output`.
 
@@ -188,7 +184,7 @@ Scores are stored in both:
 5. Frontend posts to `POST /api/submissions/public`.
 6. Server checks participant session, event phase, prompt length, and remaining attempts.
 7. Server loads public reports and hidden answer keys.
-8. If real LLM mode is on, the server sends the participant prompt plus one report at a time to OpenRouter.
+8. If real LLM mode is on, the server sends a hidden formatting/task-contract system message, the participant's clinical prompt, and one report at a time to OpenRouter.
 9. The model output is scored by `app/lib/scoring.ts`.
 10. The run/items/submission are saved in Supabase.
 11. Participant sees safe Test Attempt feedback.
@@ -211,7 +207,7 @@ It should not show answer key labels.
 3. Frontend posts to `POST /api/submissions/final`.
 4. Server checks participant session, event phase, prompt length, and whether final was already used.
 5. Server loads private reports and hidden answer keys.
-6. OpenRouter evaluates the prompt against private reports when real LLM mode is on.
+6. OpenRouter evaluates the participant's clinical prompt against private reports when real LLM mode is on, with the same hidden formatting/task-contract system message.
 7. Scoring uses the same strict scorer.
 8. The run/items/submission are saved in Supabase only after evaluation completes.
 9. Participant sees sanitized aggregate final feedback.
@@ -290,7 +286,8 @@ OpenRouter is used server-side for real model evaluation when `USE_REAL_LLM=true
 
 The server sends:
 
-- the participant's visible prompt
+- a platform-controlled formatting/task-contract instruction
+- the participant's clinical extraction prompt
 - one synthetic report text
 
 The server does not send:
@@ -300,7 +297,7 @@ The server does not send:
 - Supabase service-role keys
 - answer key labels as part of the model prompt
 
-The app does not add hidden extraction rescue prompts and does not force JSON response format. Participants are responsible for prompting the model to produce the required structured output.
+The hidden instruction controls formatting and the meaning of `not_reported`; it does not contain medical interpretation rules, report-specific reasoning, or answer hints. The app does not force a provider response format, and the scorer still validates the returned JSON independently.
 
 ## What Is Public vs Private
 

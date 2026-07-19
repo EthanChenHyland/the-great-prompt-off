@@ -19,7 +19,12 @@ const findingFields: AdminFindingField[] = [
   "osteoarthritis",
   "effusion",
 ];
-const findingValues: AdminFindingValue[] = ["present", "absent", "uncertain"];
+const findingValues: AdminFindingValue[] = [
+  "present",
+  "absent",
+  "uncertain",
+  "not_reported",
+];
 const emptyAnswerKey: AdminAnswerKey = {
   acl_tear: "absent",
   mcl_injury: "absent",

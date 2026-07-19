@@ -157,6 +157,8 @@ Future admin tools may include regenerating all access codes at once, adding/rem
 - `prompt_run_items`: Per-report model output, parsed JSON, validation details, and score.
 - `submissions`: Public and final submissions tied to prompt runs. Final submissions power the leaderboard.
 
+Finding values are strict controlled labels: `present`, `absent`, `uncertain`, and `not_reported`. Run `supabase/not-reported.sql` on an existing database before storing the new value. The migration does not rewrite existing answer keys; review those keys manually if unmentioned findings should be scored as `not_reported`.
+
 ## Replacing localStorage later
 
 Today:

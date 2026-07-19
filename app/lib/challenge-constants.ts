@@ -18,7 +18,7 @@ export const findingLabels: Record<FindingKey, string> = {
   effusion: "Effusion",
 };
 
-export const valueOptions = ["present", "absent", "uncertain"] as const;
+export const valueOptions = ["present", "absent", "uncertain", "not_reported"] as const;
 
 export const challenge = {
   title: "Knee MRI Extraction Challenge",

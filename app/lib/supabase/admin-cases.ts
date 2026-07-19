@@ -10,7 +10,7 @@ const findingFields = [
   "osteoarthritis",
   "effusion",
 ] as const;
-const findingValues = ["present", "absent", "uncertain"] as const;
+const findingValues = ["present", "absent", "uncertain", "not_reported"] as const;
 
 export type AdminCaseSplit = "public" | "private";
 export type AdminFindingField = (typeof findingFields)[number];
@@ -331,7 +331,9 @@ export function validateAnswerKey(value: unknown): AdminAnswerKey {
       const fieldValue = (value as Partial<Record<AdminFindingField, unknown>>)[field];
 
       if (!isFindingValue(fieldValue)) {
-        throw new Error(`${field} must be present, absent, or uncertain.`);
+        throw new Error(
+          `${field} must be present, absent, uncertain, or not_reported.`,
+        );
       }
 
       return [field, fieldValue];

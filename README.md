@@ -15,11 +15,12 @@ Participants compete by writing prompts that produce a structured output with si
 - `osteoarthritis`
 - `effusion`
 
-The only accepted output values are:
+The accepted output values are:
 
 - `present`
 - `absent`
 - `uncertain`
+- `not_reported`
 
 Participants get counted Test Attempts on public reports, then one locked Final Submission on hidden reports. Organizers control the event from an admin dashboard.
 
@@ -35,10 +36,8 @@ The goal is to make prompt engineering concrete for a clinical/medical imaging w
 ## Key Features
 
 - Access-code participant login with friendly participant labels.
-- Two-section prompt editor:
-  - clinical extraction instructions
-  - output formatting instructions
-- Strict scoring against controlled values: `present`, `absent`, `uncertain`.
+- Participant clinical extraction prompt editor with platform-controlled output formatting.
+- Strict scoring against controlled values: `present`, `absent`, `uncertain`, `not_reported`.
 - Public Test Attempts with sanitized feedback and format diagnostics.
 - One locked Final Submission with private/sanitized feedback.
 - Supabase-backed reports, answer keys, prompt runs, run items, and submissions.
@@ -58,7 +57,7 @@ The goal is to make prompt engineering concrete for a clinical/medical imaging w
 
 1. Participant enters an organizer-provided access code.
 2. The app shows a friendly label such as `P001`.
-3. Participant writes clinical instructions and output-formatting instructions.
+3. Participant writes clinical extraction instructions. Output formatting is handled by the platform.
 4. During practice, participant uses counted Test Attempts on public reports.
 5. Participant reviews score feedback and format diagnostics.
 6. During final, participant submits once on hidden reports.
@@ -134,13 +133,16 @@ Admins can see report text and answer keys through protected admin tools.
 
 The scorer compares the model output against the hidden answer key for each report.
 
-The output must use exactly the six required fields and the controlled labels:
+The output must use exactly the six required fields and one of the controlled labels:
 
 - `present`
 - `absent`
 - `uncertain`
+- `not_reported` when the report does not provide enough information to determine a finding.
 
 The scorer allows structural recovery, such as JSON inside markdown fences or a single nested report object, but it does not translate clinical phrases into labels. For example, phrases like `intact`, `partial tear`, `trace`, `yes`, or `no` are invalid values.
+
+The participant controls the clinical extraction strategy. The server supplies a hidden formatting/task-contract instruction to the evaluation model so formatting is consistent without giving the participant a medical answer strategy. This hidden instruction does not contain report-specific answers or clinical reasoning hints.
 
 Regression tests in `app/lib/scoring.test.ts` help prevent accidental return to overly lenient scoring.
 

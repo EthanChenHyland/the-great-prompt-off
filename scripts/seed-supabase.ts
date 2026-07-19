@@ -25,7 +25,12 @@ const findingFields = [
   "osteoarthritis",
   "effusion",
 ] as const;
-const allowedFindingValues = ["present", "absent", "uncertain"] as const;
+const allowedFindingValues = [
+  "present",
+  "absent",
+  "uncertain",
+  "not_reported",
+] as const;
 
 type FindingField = (typeof findingFields)[number];
 type FindingValue = (typeof allowedFindingValues)[number];
@@ -121,7 +126,7 @@ function assertFindingValues(report: AnswerKeyReport) {
 
     if (!allowedFindingValues.includes(value)) {
       throw new Error(
-        `${report.id} has invalid ${field}: ${String(value)}. Expected present, absent, or uncertain.`,
+        `${report.id} has invalid ${field}: ${String(value)}. Expected present, absent, uncertain, or not_reported.`,
       );
     }
   }

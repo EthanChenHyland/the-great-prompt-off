@@ -151,12 +151,9 @@ type ParticipantValidationResponse = {
 };
 
 const initialClinicalInstructions = "";
-const defaultFormattingInstructions =
-  "Return only valid JSON. Use exactly these field names: acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion. For each field, use exactly one value: present, absent, uncertain.";
 
 type PromptDraftV2 = {
   clinicalInstructions: string;
-  formattingInstructions: string;
 };
 
 export function ChallengeWorkspace({
@@ -173,9 +170,6 @@ export function ChallengeWorkspace({
   const [activeReportId, setActiveReportId] = useState(reports[0]?.id ?? "");
   const [clinicalInstructions, setClinicalInstructions] = useState(
     initialClinicalInstructions,
-  );
-  const [formattingInstructions, setFormattingInstructions] = useState(
-    defaultFormattingInstructions,
   );
   const [draftReadyKey, setDraftReadyKey] = useState("");
   const [lastSubmissionPromptDebug, setLastSubmissionPromptDebug] =
@@ -247,12 +241,12 @@ export function ChallengeWorkspace({
     ? `great-prompt-off-draft-v2:${challengeId}:${activeParticipantId}`
     : "";
   const loadedDraftKeyRef = useRef("");
-  const combinedPrompt = useMemo(
-    () => buildCombinedPrompt(clinicalInstructions, formattingInstructions),
-    [clinicalInstructions, formattingInstructions],
+  const participantPrompt = useMemo(
+    () => buildParticipantPrompt(clinicalInstructions),
+    [clinicalInstructions],
   );
-  const combinedPromptLength = combinedPrompt.length;
-  const promptOverLimit = combinedPromptLength > MAX_PROMPT_CHARS;
+  const participantPromptLength = participantPrompt.length;
+  const promptOverLimit = participantPromptLength > MAX_PROMPT_CHARS;
   const eventPhase = challengeDataStatus?.challenge?.eventPhase ?? "practice_open";
   const leaderboardVisibility =
     challengeDataStatus?.challenge?.leaderboardVisibility ?? "practice";
@@ -473,11 +467,6 @@ export function ChallengeWorkspace({
           setClinicalInstructions(
             (current) => current || parsedV2Draft.clinicalInstructions,
           );
-          setFormattingInstructions((current) =>
-            current === defaultFormattingInstructions
-              ? parsedV2Draft.formattingInstructions || defaultFormattingInstructions
-              : current,
-          );
           setDraftReadyKey(draftKey);
         }, 0);
       } else {
@@ -518,13 +507,12 @@ export function ChallengeWorkspace({
     try {
       const draft: PromptDraftV2 = {
         clinicalInstructions,
-        formattingInstructions,
       };
       window.localStorage.setItem(draftKey, JSON.stringify(draft));
     } catch {
       // Ignore storage quota/privacy mode failures.
     }
-  }, [clinicalInstructions, draftKey, draftReadyKey, formattingInstructions]);
+  }, [clinicalInstructions, draftKey, draftReadyKey]);
 
   const activeReport = reports.find((report) => report.id === activeReportId) ?? reports[0];
   const currentRows = useMemo(() => {
@@ -602,14 +590,14 @@ export function ChallengeWorkspace({
     setLastSubmissionFeedback(null);
 
     try {
-      const promptDebug = await createPromptDebug(combinedPrompt);
+      const promptDebug = await createPromptDebug(participantPrompt);
       const score = await postSubmission(
         kind === "public"
           ? "/api/submissions/public"
           : "/api/submissions/final",
         activeParticipantId,
         activeParticipantToken,
-        combinedPrompt,
+        participantPrompt,
       );
 
       if (score.source === "supabase") {
@@ -621,7 +609,7 @@ export function ChallengeWorkspace({
           participantId: activeParticipantId,
           kind,
           createdAt: new Date().toISOString(),
-          promptSnapshot: combinedPrompt,
+          promptSnapshot: participantPrompt,
           score: score.score,
           correctFields: score.correctFields ?? 0,
           totalFields: score.totalFields ?? 0,
@@ -905,16 +893,14 @@ export function ChallengeWorkspace({
           <section className="grid min-h-0 min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <PromptEditor
               clinicalInstructions={clinicalInstructions}
-              formattingInstructions={formattingInstructions}
               remainingPublicSubmissions={remainingPublicSubmissions}
               setClinicalInstructions={setClinicalInstructions}
-              setFormattingInstructions={setFormattingInstructions}
               onSubmitFinal={submitFinal}
               onSubmitPublic={submitPublic}
               finalSubmissionUsed={finalSubmissionUsed}
               participantReady={Boolean(activeParticipantId)}
               pendingAction={pendingAction}
-              promptLength={combinedPromptLength}
+              promptLength={participantPromptLength}
               promptOverLimit={promptOverLimit}
               canSubmitFinal={canSubmitFinal}
               canSubmitPublic={canSubmitPublic}
@@ -945,7 +931,7 @@ export function ChallengeWorkspace({
               onSubmitPublic={submitPublic}
               pendingAction={pendingAction}
               participantReady={Boolean(activeParticipantId)}
-              promptLength={combinedPromptLength}
+              promptLength={participantPromptLength}
               promptOverLimit={promptOverLimit}
               canSubmitFinal={canSubmitFinal}
               canSubmitPublic={canSubmitPublic}
@@ -1119,7 +1105,7 @@ function TaskSidebar({
       </h2>
       <p className="mt-3 text-sm leading-6 text-slate-600">
         Write a prompt that converts each synthetic knee MRI report into a JSON
-        object. Each field must use one of: present, absent, uncertain.
+        object. Each field is handled by the platform&apos;s output contract.
       </p>
 
       <div className="mt-6">
@@ -1197,7 +1183,6 @@ function PromptEditor({
   canSubmitPublic,
   clinicalInstructions,
   finalSubmissionUsed,
-  formattingInstructions,
   onSubmitFinal,
   onSubmitPublic,
   participantReady,
@@ -1209,13 +1194,11 @@ function PromptEditor({
   publicSubmissionLimit,
   remainingPublicSubmissions,
   setClinicalInstructions,
-  setFormattingInstructions,
 }: {
   canSubmitFinal: boolean;
   canSubmitPublic: boolean;
   clinicalInstructions: string;
   finalSubmissionUsed: boolean;
-  formattingInstructions: string;
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
   participantReady: boolean;
@@ -1227,7 +1210,6 @@ function PromptEditor({
   publicSubmissionLimit: number;
   remainingPublicSubmissions: number;
   setClinicalInstructions: (value: string) => void;
-  setFormattingInstructions: (value: string) => void;
 }) {
   return (
     <section className="h-full rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -1241,7 +1223,7 @@ function PromptEditor({
           </h2>
         </div>
         <span className="rounded-md bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-          Combined on submit
+          Clinical strategy
         </span>
       </div>
       <div className="mt-4 grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
@@ -1276,55 +1258,20 @@ function PromptEditor({
             className="h-[250px] w-full resize-none rounded-md border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-50 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
           />
         </label>
-        <label className="grid gap-2">
-          <span className="text-sm font-semibold text-slate-800">
-            Output formatting instructions
-          </span>
-          <span className="text-sm leading-6 text-slate-500">
-            Tell the model exactly how to format the answer so the scorer can
-            read it. Accepted values:{" "}
-            <span className="font-mono text-slate-700">
-              present, absent, uncertain
-            </span>
-            .
-          </span>
-          <textarea
-            value={formattingInstructions}
-            onChange={(event) => setFormattingInstructions(event.target.value)}
-            spellCheck={false}
-            className="h-[190px] w-full resize-none rounded-md border border-slate-300 bg-slate-950 p-4 font-mono text-sm leading-6 text-slate-50 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
-          />
-          <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
-            <p className="font-semibold text-slate-800">
-              Output format reminder
-            </p>
-            <p className="mt-1">
-              Required fields:{" "}
-              <span className="font-mono text-slate-800">
-                acl_tear, mcl_injury, meniscus_tear, fracture,
-                osteoarthritis, effusion
-              </span>
-            </p>
-            <p className="mt-1">
-              Allowed values:{" "}
-              <span className="font-mono text-slate-800">
-                present, absent, uncertain
-              </span>
-            </p>
-            <p className="mt-1">
-              Clinical phrases like &quot;intact,&quot; &quot;partial
-              tear,&quot; &quot;trace,&quot; &quot;yes,&quot; or &quot;no&quot;
-              are not accepted values.
-            </p>
-          </div>
-        </label>
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm leading-6 text-slate-600">
+          <p className="font-semibold text-slate-800">Output formatting</p>
+          <p className="mt-1">
+            Output formatting is handled automatically by the platform. Focus
+            your prompt on the clinical extraction strategy.
+          </p>
+        </div>
       </div>
       <div
         className={`mt-3 text-xs ${
           promptOverLimit ? "text-red-700" : "text-slate-500"
         }`}
       >
-        Combined prompt length: {promptLength.toLocaleString()} /{" "}
+        Clinical prompt length: {promptLength.toLocaleString()} /{" "}
         {MAX_PROMPT_CHARS.toLocaleString()} characters
         {promptOverLimit ? `. ${promptTooLongMessage}` : ""}
       </div>
@@ -1473,7 +1420,7 @@ function SubmissionPanel({
           promptOverLimit ? "text-red-700" : "text-slate-500"
         }`}
       >
-        Combined prompt length: {promptLength.toLocaleString()} /{" "}
+        Clinical prompt length: {promptLength.toLocaleString()} /{" "}
         {MAX_PROMPT_CHARS.toLocaleString()} characters
         {promptOverLimit ? `. ${promptTooLongMessage}` : ""}
       </p>
@@ -1802,16 +1749,10 @@ function Leaderboard({
   );
 }
 
-function buildCombinedPrompt(
+function buildParticipantPrompt(
   clinicalInstructions: string,
-  formattingInstructions: string,
 ) {
-  return [
-    `Clinical extraction instructions:\n${clinicalInstructions.trim()}`,
-    `Output formatting instructions:\n${formattingInstructions.trim()}`,
-  ]
-    .filter((section) => section.trim().length > 0)
-    .join("\n\n");
+  return clinicalInstructions.trim();
 }
 
 function parsePromptDraftV2(value: string | null): PromptDraftV2 | null {
@@ -1822,16 +1763,12 @@ function parsePromptDraftV2(value: string | null): PromptDraftV2 | null {
   try {
     const parsed = JSON.parse(value) as Partial<PromptDraftV2>;
 
-    if (
-      typeof parsed.clinicalInstructions !== "string" ||
-      typeof parsed.formattingInstructions !== "string"
-    ) {
+    if (typeof parsed.clinicalInstructions !== "string") {
       return null;
     }
 
     return {
       clinicalInstructions: parsed.clinicalInstructions,
-      formattingInstructions: parsed.formattingInstructions,
     };
   } catch {
     return null;

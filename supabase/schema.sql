@@ -7,7 +7,7 @@ create type app_role as enum ('admin', 'participant');
 create type report_split as enum ('sample', 'public', 'private');
 create type submission_type as enum ('public', 'final');
 create type run_type as enum ('sample', 'public_submission', 'final_submission');
-create type finding_value as enum ('present', 'absent', 'uncertain');
+create type finding_value as enum ('present', 'absent', 'uncertain', 'not_reported');
 
 create table participants (
   id uuid primary key default gen_random_uuid(),

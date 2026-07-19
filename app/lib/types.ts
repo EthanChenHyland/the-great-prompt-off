@@ -1,4 +1,4 @@
-export type FindingValue = "present" | "absent" | "uncertain";
+export type FindingValue = "present" | "absent" | "uncertain" | "not_reported";
 
 export type FindingKey =
   | "acl_tear"

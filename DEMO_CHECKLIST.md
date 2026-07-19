@@ -22,6 +22,7 @@ Use this checklist before rehearsal and again before the real event. See `README
   - [ ] `supabase/event-announcement.sql`
   - [ ] `supabase/event-timer.sql`
   - [ ] `supabase/participant-attempt-overrides.sql`
+  - [ ] `supabase/not-reported.sql`
 - [ ] Run `npm run test`.
 - [ ] Run `npm run lint`.
 - [ ] Run `npm run build`.
@@ -79,7 +80,7 @@ where is_active = true;
 - [ ] Confirm Test Attempts are enabled.
 - [ ] Confirm Final Submission is disabled.
 - [ ] Enter clinical extraction instructions.
-- [ ] Confirm output formatting instructions are visible and editable.
+- [ ] Confirm output formatting is platform-controlled and the participant can edit only clinical extraction instructions.
 - [ ] Submit one Test Attempt.
 - [ ] Confirm score feedback appears.
 - [ ] Confirm format diagnostics appear for public Test Attempts.

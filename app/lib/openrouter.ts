@@ -1,3 +1,5 @@
+import "server-only";
+
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const defaultModel = "google/gemini-2.0-flash-001";
 const defaultConcurrency = 3;
@@ -58,17 +60,15 @@ export async function extractReportWithOpenRouter({
     {
       role: "system",
       content:
-        "You are evaluating a participant's prompt against a synthetic knee MRI report. Follow the participant prompt exactly. Do not add hidden extraction requirements, schemas, or formatting rules beyond what the participant prompt asks for.",
+        "You are extracting structured findings from a medical report.\n\nReturn only valid JSON.\n\nUse exactly these field names:\nacl_tear\nmcl_injury\nmeniscus_tear\nfracture\nosteoarthritis\neffusion\n\nFor each field, use exactly one value:\npresent\nabsent\nuncertain\nnot_reported\n\nDo not infer findings that are not supported by the report. Use not_reported when the report does not contain enough information to determine the finding.\n\nThese instructions define formatting and output requirements only. Determine clinical values from the report and the participant's clinical extraction strategy.",
     },
     {
       role: "user",
-      content: [
-        "Participant prompt to follow exactly:",
-        prompt || "(No participant prompt provided.)",
-        "",
-        "Input synthetic knee MRI report:",
-        reportText,
-      ].join("\n"),
+      content: prompt || "(No participant clinical extraction instructions provided.)",
+    },
+    {
+      role: "user",
+      content: ["Input synthetic knee MRI report:", reportText].join("\n"),
     },
   ];
 
