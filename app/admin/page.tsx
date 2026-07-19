@@ -4,6 +4,7 @@ import {
   AdminEventAnnouncementControls,
   AdminEventControls,
   AdminEventTimerControls,
+  AdminEvaluationModelControls,
   AdminLeaderboardVisibilityControls,
   AdminLogoutButton,
   AdminResetPanel,
@@ -162,6 +163,22 @@ export default async function AdminPage() {
             />
             <HealthItem label="OpenRouter model" value={data.health.openRouterModel} />
             <HealthItem
+              label="Environment model fallback"
+              value={data.health.openRouterEnvironmentModel}
+            />
+            <HealthItem
+              label="Challenge model override"
+              value={data.health.challengeEvaluationModel || "Not set"}
+            />
+            <HealthItem
+              label="Model source"
+              value={
+                data.health.evaluationModelSource === "challenge_override"
+                  ? "Challenge override"
+                  : "Environment fallback"
+              }
+            />
+            <HealthItem
               label="Report split"
               value={`${data.health.reportCounts.public} public / ${data.health.reportCounts.private} private`}
             />
@@ -184,6 +201,11 @@ export default async function AdminPage() {
           </div>
         </div>
         <div className="grid gap-5">
+          <AdminEvaluationModelControls
+            currentModel={data.health.challengeEvaluationModel}
+            resolvedModel={data.health.openRouterModel}
+            fallbackModel={data.health.openRouterEnvironmentModel}
+          />
           <AdminEventControls currentPhase={data.overview.eventPhase} />
           <AdminEventAnnouncementControls
             currentAnnouncement={data.overview.eventAnnouncement}

@@ -51,6 +51,7 @@ create table challenges (
   instructions text,
   output_schema jsonb not null,
   locked_model text not null,
+  evaluation_model text null,
   public_submission_limit integer not null default 5,
   final_submission_limit integer not null default 1,
   event_phase text not null default 'not_started',
@@ -65,6 +66,7 @@ create table challenges (
   check (length(trim(slug)) > 0),
   check (length(trim(title)) > 0),
   check (length(trim(locked_model)) > 0),
+  check (evaluation_model is null or length(trim(evaluation_model)) > 0),
   check (public_submission_limit >= 0),
   check (final_submission_limit >= 0),
   check (event_phase in ('not_started', 'practice_open', 'final_open', 'ended')),
@@ -74,7 +76,9 @@ create table challenges (
 comment on table challenges is
   'Defines prompt engineering challenge configuration, including instructions, expected output schema, locked model, and submission limits.';
 comment on column challenges.locked_model is
-  'The model selected by admins for database-backed runs/submissions.';
+  'Legacy/configuration model metadata retained for challenge seeding and compatibility.';
+comment on column challenges.evaluation_model is
+  'Optional admin-selected OpenRouter model override. Null falls back to OPENROUTER_MODEL.';
 comment on column challenges.event_phase is
   'Organizer-controlled event phase that gates participant workspace actions and submissions.';
 comment on column challenges.leaderboard_visibility is

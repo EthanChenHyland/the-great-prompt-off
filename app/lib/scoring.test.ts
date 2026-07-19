@@ -117,6 +117,42 @@ describe("scoreModelOutput", () => {
     });
   });
 
+  it("does not treat absent and not_reported as interchangeable", () => {
+    const expected: AnswerKey = {
+      ...answerKey,
+      acl_tear: "not_reported",
+    };
+    const result = scoreModelOutput(
+      {
+        ...strictOutput,
+        acl_tear: "absent",
+      },
+      expected,
+    );
+
+    expect(result.per_field[0].actual).toBe("absent");
+    expect(result.per_field[0].correct).toBe(false);
+    expect(result.per_field[0].invalid).toBe(false);
+  });
+
+  it("does not convert a missing field into not_reported", () => {
+    const expected: AnswerKey = {
+      ...answerKey,
+      acl_tear: "not_reported",
+    };
+    const result = scoreModelOutput(
+      {
+        ...strictOutput,
+        acl_tear: undefined,
+      },
+      expected,
+    );
+
+    expect(result.per_field[0].actual).toBeNull();
+    expect(result.per_field[0].missing).toBe(true);
+    expect(result.per_field[0].correct).toBe(false);
+  });
+
   it.each([
     ["acl_tear", "intact"],
     ["acl_tear", "normal"],

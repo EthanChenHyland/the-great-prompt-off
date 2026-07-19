@@ -145,9 +145,32 @@ The scorer allows structural recovery, such as JSON inside markdown fences or a 
 
 The participant controls the clinical extraction strategy. The server supplies a hidden formatting/task-contract instruction to the evaluation model so formatting is consistent without giving the participant a medical answer strategy. This hidden instruction does not contain report-specific answers or clinical reasoning hints.
 
-Model selection remains environment-based: `OPENROUTER_MODEL` is the production source of truth. Admin Health Check shows the active model, and `/admin/analytics` can run temporary blank, nonsense, generic, and basic clinical baselines against public reports. Calibration does not create submissions or affect attempts. Compare candidate models with the same public report set before an event; if weak baselines score high, try a less capable model or increase dataset difficulty.
+`OPENROUTER_MODEL` remains the fallback model. Admins can optionally select a
+challenge-specific evaluation model from `/admin`; the override is used for
+new real submissions and calibration until it is cleared. Admin Health Check
+shows the resolved model, the environment fallback, and the challenge override.
+Previous runs retain their recorded model. Calibration does not create
+submissions or affect attempts. Compare candidate models with the same public
+report set before an event; if weak baselines score high, use a weaker model or
+plan a harder report set.
 
-Candidate IDs to compare during calibration include `google/gemini-2.0-flash-001`, `google/gemini-2.5-flash`, `anthropic/claude-sonnet-4`, and `openai/gpt-4.1`. Availability and pricing depend on the OpenRouter account, so verify the selected ID before the event.
+The current six-field challenge is temporary and may later be replaced with a
+harder 12-finding challenge. The no-assumption rule remains important:
+`not_reported` means the report is silent or insufficient, `absent` requires
+explicit negative evidence, and `uncertain` is reserved for ambiguous evidence.
+The hidden server instruction enforces this contract without solving the
+clinical task.
+
+The admin selector intentionally limits challenge overrides to these approved
+models:
+
+- `google/gemini-2.5-flash-lite` (Lightweight)
+- `mistralai/mistral-small-3.2-24b-instruct` (Medium-low)
+- `google/gemma-3-4b-it` (Experimental)
+- `google/gemini-2.5-flash` (Strong)
+
+Custom model IDs cannot be saved through the admin UI. Availability and pricing
+depend on the OpenRouter account, so run calibration after changing models.
 
 Regression tests in `app/lib/scoring.test.ts` help prevent accidental return to overly lenient scoring.
 

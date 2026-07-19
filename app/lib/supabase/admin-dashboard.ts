@@ -6,7 +6,11 @@ import {
   isLeaderboardVisibility,
   type LeaderboardVisibility,
 } from "@/app/lib/leaderboard-visibility";
-import { getOpenRouterModel } from "@/app/lib/openrouter";
+import {
+  getOpenRouterModel,
+  resolveOpenRouterModel,
+} from "@/app/lib/openrouter";
+import { isApprovedEvaluationModel } from "@/app/lib/model-options";
 import { createSupabaseAdminClient } from "./admin";
 
 export type AdminParticipantRow = {
@@ -55,6 +59,9 @@ export type AdminDashboardData = {
     supabaseConnected: boolean;
     useRealLlm: boolean;
     openRouterModel: string;
+    openRouterEnvironmentModel: string;
+    challengeEvaluationModel: string | null;
+    evaluationModelSource: "challenge_override" | "environment_fallback";
     reportCounts: {
       public: number;
       private: number;
@@ -100,6 +107,7 @@ type ReportCountRow = {
 
 type ChallengeControlRow = {
   id: string;
+  evaluation_model: string | null;
   event_phase: EventPhase;
   leaderboard_visibility: LeaderboardVisibility;
   event_announcement: string;
@@ -127,7 +135,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     supabase
       .from("challenges")
       .select(
-        "id, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label, public_submission_limit",
+        "id, evaluation_model, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label, public_submission_limit",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -323,7 +331,16 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     health: {
       supabaseConnected: true,
       useRealLlm: process.env.USE_REAL_LLM === "true",
-      openRouterModel: getOpenRouterModel(),
+      openRouterModel: resolveOpenRouterModel(
+        challengeResult.data.evaluation_model,
+      ),
+      openRouterEnvironmentModel: getOpenRouterModel(),
+      challengeEvaluationModel: challengeResult.data.evaluation_model,
+      evaluationModelSource: isApprovedEvaluationModel(
+        challengeResult.data.evaluation_model,
+      )
+        ? "challenge_override"
+        : "environment_fallback",
       reportCounts: {
         public: reportCounts.public,
         private: reportCounts.private,

@@ -10,8 +10,8 @@ import {
 import {
   extractReportWithOpenRouter,
   getOpenRouterConcurrency,
-  getOpenRouterModel,
   hasOpenRouterApiKey,
+  resolveOpenRouterModel,
   shouldUseRealLlm,
 } from "@/app/lib/openrouter";
 import { normalizeParticipantCode } from "@/app/lib/participant-codes";
@@ -39,6 +39,7 @@ type DataSource = "supabase" | "mock-file-fallback";
 type ActiveChallenge = {
   id: string;
   locked_model: string;
+  evaluation_model: string | null;
   public_submission_limit: number;
   final_submission_limit: number;
   event_phase: EventPhase;
@@ -285,6 +286,7 @@ export async function submitToSupabase({
     answerKeys,
     kind,
     prompt,
+    model: resolveOpenRouterModel(challenge.evaluation_model),
   });
   const now = new Date().toISOString();
   const attemptNumber =
@@ -551,13 +553,15 @@ async function evaluateSubmission({
   answerKeys,
   kind,
   prompt,
+  model,
 }: {
   answerKeys: Array<AnswerKeyItem & { supabaseReportId?: string; text?: string }>;
   kind: SubmissionKind;
   prompt: string;
+  model: string;
 }): Promise<EvaluationResult> {
   if (shouldUseRealLlm()) {
-    return evaluateWithRealLlm(answerKeys, prompt, kind);
+    return evaluateWithRealLlm(answerKeys, prompt, kind, model);
   }
 
   if (kind === "public" || kind === "final") {
@@ -595,6 +599,7 @@ async function evaluateWithRealLlm(
   answerKeys: Array<AnswerKeyItem & { supabaseReportId?: string; text?: string }>,
   prompt: string,
   kind: SubmissionKind,
+  model: string,
 ): Promise<EvaluationResult> {
   if (!hasOpenRouterApiKey()) {
     console.error(
@@ -605,7 +610,6 @@ async function evaluateWithRealLlm(
     );
   }
 
-  const model = getOpenRouterModel();
   const concurrency = getOpenRouterConcurrency();
 
   try {
@@ -622,6 +626,7 @@ async function evaluateWithRealLlm(
         const modelOutput = await extractReportWithOpenRouter({
           prompt,
           reportText: item.text,
+          model,
         });
         const score = scoreModelOutput(modelOutput, item.answer_key);
 
@@ -687,7 +692,7 @@ export async function getActiveChallenge(
   const { data, error } = await supabase
     .from("challenges")
     .select(
-      "id, locked_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
+      "id, locked_model, evaluation_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
     )
     .eq("is_active", true)
     .order("created_at", { ascending: false })

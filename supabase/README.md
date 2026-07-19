@@ -150,7 +150,7 @@ Future admin tools may include regenerating all access codes at once, adding/rem
 ## Tables
 
 - `participants`: Workshop identities and roles. `participant_code` is the friendly label; `access_code` is the unique workshop entry code.
-- `challenges`: Challenge configuration, instructions, output schema, locked model, active state, and submission limits.
+- `challenges`: Challenge configuration, instructions, output schema, legacy model metadata, optional admin-selected evaluation model, active state, and submission limits.
 - `reports`: Synthetic report text for each challenge. The current participant workflow uses `public` for reports `001`-`005` and `private` for reports `006`-`050`; `sample` remains a legacy-compatible split value.
 - `answer_keys`: Structured adjudicated labels for each report.
 - `prompt_runs`: One prompt execution against public test or final/private reports.
@@ -158,6 +158,15 @@ Future admin tools may include regenerating all access codes at once, adding/rem
 - `submissions`: Public and final submissions tied to prompt runs. Final submissions power the leaderboard.
 
 Finding values are strict controlled labels: `present`, `absent`, `uncertain`, and `not_reported`. Run `supabase/not-reported.sql` on an existing database before storing the new value. The migration does not rewrite existing answer keys; review those keys manually if unmentioned findings should be scored as `not_reported`.
+
+The active challenge's optional `evaluation_model` is the model override used
+for new real submissions and admin calibration. When it is null, the server
+uses the `OPENROUTER_MODEL` environment fallback. Run
+`supabase/evaluation-model.sql` before using the admin selector. The seed script
+does not set this column, so an organizer override survives later seed runs.
+The admin API accepts only the approved IDs in `app/lib/model-options.ts`; it
+does not accept arbitrary custom model IDs. An unsupported legacy value is
+ignored for new calls and should be replaced or cleared from `/admin`.
 
 ## Replacing localStorage later
 

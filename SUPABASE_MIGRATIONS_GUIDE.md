@@ -27,7 +27,7 @@ Git rollback also does not undo Supabase database changes. Database changes live
 
 ## Important Tables
 
-- `challenges`: Stores challenge configuration, locked model, submission limits, active event phase, leaderboard visibility, live announcement, and display timer settings.
+- `challenges`: Stores challenge configuration, legacy model metadata, optional selected evaluation model, submission limits, active event phase, leaderboard visibility, live announcement, and display timer settings.
 - `participants`: Stores participant identities, friendly codes such as `P001`, private access codes, roles, active/inactive state, display names, and email metadata.
 - `reports`: Stores synthetic MRI report text and split values such as `public` and `private`.
 - `answer_keys`: Stores the hidden structured labels for each report. This table must not be exposed to participants.
@@ -197,6 +197,37 @@ order by e.enumsortorder;
 
 Review existing answer keys separately. They remain unchanged until an organizer deliberately updates them to use `not_reported`.
 
+### `supabase/evaluation-model.sql`
+
+What it adds:
+
+- Nullable `challenges.evaluation_model`
+- A check that prevents a non-null model override from being blank
+
+Why it exists:
+
+This lets an admin choose the evaluation model for one active challenge without
+changing environment variables or exposing provider credentials. A null value
+falls back to `OPENROUTER_MODEL`. The admin API limits saved overrides to the
+approved IDs in `app/lib/model-options.ts`; custom IDs are not accepted.
+
+Required before production:
+
+Yes, before using the Evaluation model panel on `/admin`. The app continues to
+use the environment fallback after this migration is installed and the field
+is null.
+
+How to verify:
+
+```sql
+select id, slug, evaluation_model, is_active
+from challenges
+where is_active = true;
+```
+
+The admin selector does not rewrite previous runs. Their stored model value
+remains the model used for that run.
+
 ## Event-Control Columns on `challenges`
 
 ### `event_phase`
@@ -276,8 +307,9 @@ These RPC functions are safer than app-side deletes because the related deletes 
   - `supabase/event-announcement.sql`
   - `supabase/event-timer.sql`
   - `supabase/not-reported.sql`
+  - `supabase/evaluation-model.sql`
 - Run `npm run seed:supabase` with production Supabase environment variables.
-- Verify the active challenge has `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.
+- Verify the active challenge has `evaluation_model`, `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.
 - Verify reset RPC functions exist and were updated from `supabase/admin-atomic-clears.sql`.
 - Verify report counts.
 - Verify answer-key coverage.

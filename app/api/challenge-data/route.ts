@@ -4,7 +4,10 @@ import { createSupabaseAdminClient } from "@/app/lib/supabase/admin";
 import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { challenge as mockChallenge } from "@/app/lib/challenge-constants";
 import { getFriendlyModelName } from "@/app/lib/model-display";
-import { getOpenRouterModel } from "@/app/lib/openrouter";
+import {
+  getOpenRouterModel,
+  resolveOpenRouterModel,
+} from "@/app/lib/openrouter";
 import type { EventPhase } from "@/app/lib/event-phase";
 import type { LeaderboardVisibility } from "@/app/lib/leaderboard-visibility";
 import type { ReportManifestItem } from "@/app/lib/types";
@@ -18,6 +21,7 @@ type ChallengeRow = {
   description: string | null;
   instructions: string | null;
   locked_model: string;
+  evaluation_model: string | null;
   public_submission_limit: number;
   final_submission_limit: number;
   event_phase: EventPhase;
@@ -108,7 +112,7 @@ export async function GET() {
     const { data: challenge, error: challengeError } = await supabase
       .from("challenges")
       .select(
-        "id, slug, title, description, instructions, locked_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label",
+        "id, slug, title, description, instructions, locked_model, evaluation_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -185,7 +189,9 @@ export async function GET() {
         title: challenge.title,
         description: challenge.description,
         instructions: challenge.instructions,
-        evaluationModelDisplayName: getFriendlyModelName(getOpenRouterModel()),
+        evaluationModelDisplayName: getFriendlyModelName(
+          resolveOpenRouterModel(challenge.evaluation_model),
+        ),
         publicSubmissionLimit: challenge.public_submission_limit,
         finalSubmissionLimit: challenge.final_submission_limit,
         eventPhase: challenge.event_phase,

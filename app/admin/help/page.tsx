@@ -81,7 +81,18 @@ const helpSections = [
       "Test Attempts evaluate 5 public reports.",
       "Final Submission evaluates 45 hidden private reports and may take longer.",
       "OPENROUTER_CONCURRENCY controls how many report evaluations run at once.",
-      "OPENROUTER_MODEL is the production source of truth. Use the Analytics baseline calibration on public reports to compare model/dataset difficulty before an event.",
+      "OPENROUTER_MODEL is the fallback. The Evaluation model panel can set a challenge override for new submissions and calibration.",
+      "Challenge overrides are limited to the four approved models; custom model IDs are not accepted.",
+      "The model selector changes future evaluations only; previous runs keep their recorded model.",
+      "Use the Analytics baseline calibration on public reports to compare model/dataset difficulty before an event.",
+    ],
+  },
+  {
+    title: "No-assumption scoring",
+    items: [
+      "not_reported means the report is silent or does not provide enough information.",
+      "absent requires explicit negative evidence; uncertain is for ambiguous evidence.",
+      "The hidden formatting instruction enforces this contract without exposing answers or medical mapping hints.",
     ],
   },
   {

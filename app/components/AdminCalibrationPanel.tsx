@@ -6,6 +6,9 @@ import { getFriendlyModelName } from "../lib/model-display";
 
 type CalibrationResponse = {
   model: string;
+  modelSource: "challenge_override" | "environment_fallback";
+  environmentModel: string;
+  challengeModel: string | null;
   reportCount: number;
   baselines: Array<{
     id: string;
@@ -97,6 +100,15 @@ export function AdminCalibrationPanel() {
               Friendly name: {getFriendlyModelName(result.model)}
             </span>
             <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold">
+              Source: {result.modelSource === "challenge_override" ? "Challenge override" : "Environment fallback"}
+            </span>
+            <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold">
+              Environment fallback: {result.environmentModel}
+            </span>
+            <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold">
+              Challenge override: {result.challengeModel || "Not set"}
+            </span>
+            <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold">
               Public reports: {result.reportCount}
             </span>
           </div>
@@ -132,6 +144,10 @@ export function AdminCalibrationPanel() {
             Interpretation: if blank or nonsense prompts score very high, the
             current model/report set may be too easy. Strong participant prompts
             should show a meaningful gap above these baselines.
+          </p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Model choice is a difficulty setting. If blank or nonsense baselines
+            remain high, use a weaker model or harder reports.
           </p>
         </div>
       ) : null}

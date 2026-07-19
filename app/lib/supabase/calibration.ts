@@ -5,6 +5,7 @@ import {
   getOpenRouterConcurrency,
   getOpenRouterModel,
   hasOpenRouterApiKey,
+  resolveOpenRouterModel,
   shouldUseRealLlm,
 } from "@/app/lib/openrouter";
 import { scoreModelOutput } from "@/app/lib/scoring";
@@ -39,6 +40,9 @@ type CalibrationReport = AnswerKeyItem & {
 
 export type CalibrationResult = {
   model: string;
+  modelSource: "challenge_override" | "environment_fallback";
+  environmentModel: string;
+  challengeModel: string | null;
   reportCount: number;
   baselines: Array<{
     id: string;
@@ -66,6 +70,7 @@ export async function runBaselineCalibration(): Promise<CalibrationResult> {
     challenge.id,
     "public",
   )) as CalibrationReport[];
+  const model = resolveOpenRouterModel(challenge.evaluation_model);
 
   const baselines = [];
 
@@ -77,6 +82,7 @@ export async function runBaselineCalibration(): Promise<CalibrationResult> {
         const modelOutput = await extractReportWithOpenRouter({
           prompt: baseline.prompt,
           reportText: report.text,
+          model,
         });
         return scoreModelOutput(modelOutput, report.answer_key);
       },
@@ -86,7 +92,12 @@ export async function runBaselineCalibration(): Promise<CalibrationResult> {
   }
 
   return {
-    model: getOpenRouterModel(),
+    model,
+    modelSource: challenge.evaluation_model
+      ? "challenge_override"
+      : "environment_fallback",
+    environmentModel: getOpenRouterModel(),
+    challengeModel: challenge.evaluation_model,
     reportCount: reports.length,
     baselines,
   };

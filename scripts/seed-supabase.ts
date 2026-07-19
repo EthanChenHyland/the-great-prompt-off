@@ -201,6 +201,8 @@ async function main() {
           "Extract six structured findings from each synthetic knee MRI report.",
         output_schema: outputSchema,
         locked_model: process.env.OPENROUTER_MODEL || defaultModel,
+        // Leave evaluation_model unset so an organizer's challenge override
+        // survives later seed runs and fresh challenges use the env fallback.
         public_submission_limit: 5,
         final_submission_limit: 1,
         event_phase: getSeedEventPhase(),

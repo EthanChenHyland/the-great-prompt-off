@@ -12,6 +12,11 @@ import {
   leaderboardVisibilityModes,
   type LeaderboardVisibility,
 } from "@/app/lib/leaderboard-visibility";
+import { getFriendlyModelName } from "@/app/lib/model-display";
+import {
+  evaluationModelOptions,
+  isApprovedEvaluationModel,
+} from "@/app/lib/model-options";
 
 export function AdminLogoutButton() {
   const router = useRouter();
@@ -296,6 +301,151 @@ export function AdminLeaderboardVisibilityControls({
               : `Set ${leaderboardVisibilityLabel(visibility)}`}
           </button>
         ))}
+      </div>
+      {message ? (
+        <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+          {message}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+export function AdminEvaluationModelControls({
+  currentModel,
+  resolvedModel,
+  fallbackModel,
+}: {
+  currentModel: string | null;
+  resolvedModel: string;
+  fallbackModel: string;
+}) {
+  const router = useRouter();
+  const initialSelection = isApprovedEvaluationModel(currentModel)
+    ? currentModel
+    : "";
+  const [selection, setSelection] = useState(initialSelection);
+  const [message, setMessage] = useState("");
+  const [isPending, setIsPending] = useState(false);
+  const selectedOption = evaluationModelOptions.find(
+    (option) => option.id === selection,
+  );
+  const draftModel = selection;
+
+  async function saveModel() {
+    setIsPending(true);
+    setMessage("");
+
+    const response = await fetch("/api/admin/evaluation-model", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ model: draftModel }),
+    });
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+      evaluationModel?: string | null;
+    } | null;
+
+    if (!response.ok) {
+      setMessage(body?.error || "Could not update evaluation model.");
+      setIsPending(false);
+      return;
+    }
+
+    const savedModel = body?.evaluationModel || "";
+    setSelection(isApprovedEvaluationModel(savedModel) ? savedModel : "");
+    setMessage(savedModel ? "Challenge model override saved." : "Model override cleared.");
+    setIsPending(false);
+    router.refresh();
+  }
+
+  async function clearModel() {
+    setIsPending(true);
+    setMessage("");
+
+    const response = await fetch("/api/admin/evaluation-model", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clear: true }),
+    });
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+
+    if (!response.ok) {
+      setMessage(body?.error || "Could not clear evaluation model override.");
+      setIsPending(false);
+      return;
+    }
+
+    setSelection("");
+    setMessage("Model override cleared; environment fallback is active.");
+    setIsPending(false);
+    router.refresh();
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+        Evaluation model
+      </p>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-slate-950">Difficulty setting</h2>
+        <span className="rounded-md bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
+          {getFriendlyModelName(resolvedModel)}
+        </span>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        Model choice controls challenge difficulty. Weaker models may make
+        participant prompt strategy matter more. Use calibration after changing
+        models.
+      </p>
+      {currentModel && !isApprovedEvaluationModel(currentModel) ? (
+        <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
+          Unsupported saved model: {currentModel}. Choose an approved model or
+          reset to the environment fallback.
+        </p>
+      ) : null}
+      <label className="mt-4 block text-sm font-semibold text-slate-800">
+        Challenge model
+        <select
+          value={selection}
+          onChange={(event) => setSelection(event.target.value)}
+          className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+        >
+          <option value="">Use environment fallback</option>
+          {evaluationModelOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label} - {option.difficulty} ({option.id})
+            </option>
+          ))}
+        </select>
+      </label>
+      {selectedOption ? (
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          {selectedOption.difficulty}: {selectedOption.note}
+        </p>
+      ) : null}
+      <p className="mt-3 text-xs leading-5 text-slate-500">
+        Current resolved model: {resolvedModel}. Environment fallback: {fallbackModel}.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={saveModel}
+          disabled={isPending || !draftModel.trim()}
+          className="h-10 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          {isPending ? "Saving..." : "Save model"}
+        </button>
+        <button
+          type="button"
+          onClick={clearModel}
+          disabled={isPending || !currentModel}
+          className="h-10 rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          Use environment fallback
+        </button>
       </div>
       {message ? (
         <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">

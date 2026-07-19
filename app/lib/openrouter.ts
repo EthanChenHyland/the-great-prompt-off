@@ -1,5 +1,7 @@
 import "server-only";
 
+import { resolveChallengeEvaluationModel } from "./model-options";
+
 const openRouterUrl = "https://openrouter.ai/api/v1/chat/completions";
 const defaultModel = "google/gemini-2.0-flash-001";
 const defaultConcurrency = 3;
@@ -26,6 +28,10 @@ export function getOpenRouterModel() {
   return process.env.OPENROUTER_MODEL || defaultModel;
 }
 
+export function resolveOpenRouterModel(challengeModel?: string | null) {
+  return resolveChallengeEvaluationModel(challengeModel, getOpenRouterModel());
+}
+
 export function getOpenRouterConcurrency() {
   const parsed = Number.parseInt(process.env.OPENROUTER_CONCURRENCY || "", 10);
 
@@ -43,9 +49,11 @@ export function hasOpenRouterApiKey() {
 export async function extractReportWithOpenRouter({
   prompt,
   reportText,
+  model,
 }: {
   prompt: string;
   reportText: string;
+  model?: string;
 }) {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -60,7 +68,7 @@ export async function extractReportWithOpenRouter({
     {
       role: "system",
       content:
-        "You are extracting structured findings from a medical report.\n\nReturn only valid JSON.\n\nUse exactly these field names:\nacl_tear\nmcl_injury\nmeniscus_tear\nfracture\nosteoarthritis\neffusion\n\nFor each field, use exactly one value:\npresent\nabsent\nuncertain\nnot_reported\n\nDo not infer findings that are not supported by the report. Use not_reported when the report does not contain enough information to determine the finding.\n\nThese instructions define formatting and output requirements only. Determine clinical values from the report and the participant's clinical extraction strategy.",
+        "You are extracting structured findings from a medical report.\n\nReturn only valid JSON.\n\nUse exactly these field names:\nacl_tear\nmcl_injury\nmeniscus_tear\nfracture\nosteoarthritis\neffusion\n\nFor each field, use exactly one value:\npresent\nabsent\nuncertain\nnot_reported\n\nDo not infer findings that are not supported by the report. Use not_reported when the report does not contain enough information to determine a finding. Use absent only when the report explicitly rules out the finding. Use uncertain only when the report contains ambiguous or indeterminate evidence. Do not guess from a finding being unmentioned.\n\nThese instructions define formatting and output requirements only. Determine clinical values from the report and the participant's clinical extraction strategy.",
     },
     {
       role: "user",
@@ -83,7 +91,7 @@ export async function extractReportWithOpenRouter({
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: getOpenRouterModel(),
+        model: model || getOpenRouterModel(),
         messages,
         temperature: 0,
         max_tokens: 300,

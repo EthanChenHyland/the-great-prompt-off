@@ -64,6 +64,7 @@ Admins can:
 - clear one participant's run data
 - reset all run/submission/leaderboard data
 - manage reports and answer keys in the admin-only Case Manager
+- choose an evaluation model override for the active challenge
 
 The main admin pages are:
 
@@ -87,6 +88,7 @@ Stores the active challenge configuration:
 
 - title/slug
 - locked evaluation model
+- optional admin-selected evaluation model; if empty, `OPENROUTER_MODEL` is used
 - Test Attempt limit
 - Final Submission limit
 - event phase
@@ -300,12 +302,22 @@ The server does not send:
 
 The hidden instruction controls formatting and the meaning of `not_reported`; it does not contain medical interpretation rules, report-specific reasoning, or answer hints. The app does not force a provider response format, and the scorer still validates the returned JSON independently.
 
-`OPENROUTER_MODEL` is the production model source of truth. The challenge's
-`locked_model` metadata remains useful for seed/configuration context, but real
-OpenRouter requests use the server environment model. Admins can see the active
-model in Health Check and run non-persistent baseline calibration from
-`/admin/analytics`. Calibration uses public reports only and does not create
-participant submissions, consume attempts, or affect the leaderboard.
+`OPENROUTER_MODEL` is the production fallback. Admins can set an
+`evaluation_model` override for the active challenge from `/admin`; new real
+submissions and calibration use that override until it is cleared. The resolved
+model is shown in Admin Health Check and calibration results. Previous runs keep
+the model recorded at the time they ran and are not changed retroactively.
+Challenge overrides are limited to the approved model list in
+`app/lib/model-options.ts`; custom model IDs are not accepted by the admin API.
+Calibration uses public reports only and does not create participant
+submissions, consume attempts, or affect the leaderboard.
+
+The hidden instruction treats `not_reported` as the no-assumption state: use it
+when the report is silent or insufficient, use `absent` only for explicit
+negative evidence, and use `uncertain` for ambiguous evidence. It enforces
+output structure but does not provide medical interpretation hints or answer
+keys. The current six-field dataset is temporary; a later challenge may define
+more findings, including a planned 12-finding variant.
 
 ## What Is Public vs Private
 
