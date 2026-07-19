@@ -21,15 +21,16 @@ export const calibrationBaselines = [
   { id: "blank", label: "Blank prompt", prompt: "" },
   { id: "nonsense", label: "Nonsense prompt", prompt: "goon goon" },
   {
-    id: "generic",
-    label: "Generic prompt",
-    prompt: "Extract the requested findings from the report.",
+    id: "partial-acl",
+    label: "Partial ACL-only strategy",
+    prompt:
+      "Evaluate only ACL tear. For acl_tear, mark present only if the report explicitly identifies an ACL tear, absent only if the report explicitly rules out an ACL tear, uncertain if the ACL language is indeterminate, and not_reported if ACL tear is not discussed. Do not evaluate the other findings.",
   },
   {
     id: "basic-clinical",
-    label: "Basic clinical prompt",
+    label: "Basic all-findings strategy",
     prompt:
-      "Read the knee MRI report and determine whether each requested finding is present, absent, uncertain, or not reported.",
+      "For each requested finding, look for explicit evidence in the knee MRI report. Mark present only if the report identifies the finding, absent only if it explicitly rules it out, uncertain if the language is indeterminate, and not_reported if the report does not provide enough information.",
   },
 ] as const;
 

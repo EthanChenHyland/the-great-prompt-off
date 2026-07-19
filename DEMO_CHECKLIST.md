@@ -38,7 +38,7 @@ Use this checklist before rehearsal and again before the real event. See `README
 - [ ] Confirm the selector offers only the five approved models and no custom model field.
 - [ ] If changing models, rerun calibration before the live event.
 - [ ] Run the `/admin/analytics` baseline calibration on public reports.
-- [ ] Record blank/nonsense/generic/basic-clinical baseline scores before the event.
+- [ ] Record blank/nonsense/partial-ACL/basic-all-findings baseline scores before the event.
 - [ ] Confirm blank and nonsense baselines are meaningfully lower than a usable clinical strategy.
 - [ ] If weak baselines are too high, switch `OPENROUTER_MODEL` or revise the dataset before the live event.
 - [ ] Confirm calibration and new submissions use the same resolved model.

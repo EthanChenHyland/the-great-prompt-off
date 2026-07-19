@@ -147,9 +147,10 @@ export function AdminCalibrationPanel() {
             should show a meaningful gap above these baselines.
           </p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Blank and nonsense prompts should be low because the evaluation
-            contract requires a usable participant strategy. If they remain
-            high, use a weaker model or harder reports.
+            Blank and nonsense should score low. Partial ACL-only should usually
+            score somewhere in the middle because it only gives a usable
+            strategy for one field. Basic all-findings should score higher when
+            the challenge is calibrated well.
           </p>
         </div>
       ) : null}
