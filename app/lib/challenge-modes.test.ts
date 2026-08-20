@@ -3,6 +3,8 @@ import {
   challengeModes,
   defaultChallengeMode,
   getPublicChallengeModeMetadata,
+  kneeMri12BasicMode,
+  shoulderMriBasicMode,
 } from "./challenge-modes";
 import { findingKeys, findingLabels, valueOptions } from "./challenge-constants";
 
@@ -29,6 +31,15 @@ describe("challenge mode registry", () => {
 
   it("exposes the default mode through the registry", () => {
     expect(challengeModes["knee_mri_6_basic"]).toBe(defaultChallengeMode);
+  });
+
+  it("keeps future modes dormant in the registry", () => {
+    expect(challengeModes["knee_mri_12_basic"]).toBe(kneeMri12BasicMode);
+    expect(kneeMri12BasicMode.fields).toHaveLength(12);
+    expect(challengeModes["shoulder_mri_basic"]).toBe(shoulderMriBasicMode);
+    expect(shoulderMriBasicMode.fields).toHaveLength(8);
+    expect(shoulderMriBasicMode).not.toBe(defaultChallengeMode);
+    expect(defaultChallengeMode.id).toBe("knee_mri_6_basic");
   });
 
   it("keeps compatibility constants derived from the mode", () => {

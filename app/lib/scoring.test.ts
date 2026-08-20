@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { scoreModelOutput } from "./scoring";
-import { defaultChallengeMode } from "./challenge-modes";
+import {
+  defaultChallengeMode,
+  kneeMri12BasicMode,
+  shoulderMriBasicMode,
+} from "./challenge-modes";
 import type { AnswerKey, FindingKey } from "./types";
 
 const answerKey: AnswerKey = {
@@ -89,6 +93,32 @@ describe("scoreModelOutput", () => {
     expect(invalid.invalid_fields).toEqual([
       { field: "finding_a", value: "present" },
     ]);
+  });
+
+  it("scores a synthetic twelve-field knee answer when explicitly selected", () => {
+    const answerKey = Object.fromEntries(
+      kneeMri12BasicMode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const output = Object.fromEntries(
+      kneeMri12BasicMode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const result = scoreModelOutput(output, answerKey, kneeMri12BasicMode);
+
+    expect(result.overall_score).toBe(100);
+    expect(result.per_field).toHaveLength(12);
+  });
+
+  it("scores a synthetic shoulder answer when explicitly selected", () => {
+    const answerKey = Object.fromEntries(
+      shoulderMriBasicMode.fields.map((field) => [field.key, "absent"]),
+    );
+    const output = Object.fromEntries(
+      shoulderMriBasicMode.fields.map((field) => [field.key, "absent"]),
+    );
+    const result = scoreModelOutput(output, answerKey, shoulderMriBasicMode);
+
+    expect(result.overall_score).toBe(100);
+    expect(result.per_field).toHaveLength(8);
   });
 
   it("accepts exact controlled values", () => {

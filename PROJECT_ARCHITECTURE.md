@@ -24,6 +24,11 @@ The accepted output values are:
 - `uncertain`
 - `not_reported`
 
+The schema registry also contains dormant definitions for a twelve-field knee
+mode and a basic shoulder MRI mode. These are proof-of-generalization schemas
+for future work only; they are not active, selectable, seeded, or exposed as
+participant challenges.
+
 The app has two participant workflows:
 
 - **Test Attempts**: counted practice submissions on public reports.

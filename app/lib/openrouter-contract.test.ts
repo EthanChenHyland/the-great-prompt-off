@@ -6,6 +6,10 @@ import {
   openRouterSystemInstruction,
 } from "./openrouter-contract";
 import type { ChallengeModeDefinition } from "./challenge-modes";
+import {
+  kneeMri12BasicMode,
+  shoulderMriBasicMode,
+} from "./challenge-modes";
 
 describe("OpenRouter evaluation contract", () => {
   it("requires a usable participant strategy", () => {
@@ -93,6 +97,22 @@ describe("OpenRouter evaluation contract", () => {
     expect(instruction).toContain("no");
     expect(instruction).toContain("unknown");
     expect(instruction).not.toContain("acl_tear");
+  });
+
+  it("can generate a contract for the dormant knee twelve-field mode", () => {
+    const instruction = buildOpenRouterSystemInstruction(kneeMri12BasicMode);
+
+    expect(instruction).toContain("medial_meniscus_tear");
+    expect(instruction).toContain("bakers_cyst");
+    expect(instruction).toContain("not_reported");
+  });
+
+  it("can generate a contract for the dormant shoulder mode", () => {
+    const instruction = buildOpenRouterSystemInstruction(shoulderMriBasicMode);
+
+    expect(instruction).toContain("rotator_cuff_tear");
+    expect(instruction).toContain("glenohumeral_arthritis");
+    expect(instruction).toContain("not_reported");
   });
 
   it("uses the no-strategy placeholder without exposing the system instruction", () => {
