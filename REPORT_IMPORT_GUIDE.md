@@ -170,6 +170,23 @@ Every value must be one of `present`, `absent`, `uncertain`, or
 counts; it does not return answer-key values or report text. Validation does
 not activate the mode, create submissions, or change production data.
 
+### Twelve-Field Import Safety
+
+The current `answer_keys` table has one unique row per report and legacy
+six-field columns. The preparation endpoint therefore validates but does not
+write twelve-field values. This protects the active six-field answer keys from
+being overwritten.
+
+Before a real twelve-field import can write data, the database will need an
+additive answer-key versioning migration, such as:
+
+- `answer_keys.mode_id`
+- `answer_keys.schema_version`
+- a unique constraint on `(report_id, mode_id, schema_version)`
+
+That migration should preserve the existing six-field rows and be reviewed
+before the twelve-field mode is added to the activation allowlist.
+
 ## SQL Verification
 
 Report counts by split:

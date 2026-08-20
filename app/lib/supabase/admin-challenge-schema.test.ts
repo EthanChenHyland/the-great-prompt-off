@@ -13,6 +13,7 @@ import {
   createChallengeSchemaMetadata,
   getChallengeModeForValidation,
   getActivatableChallengeMode,
+  validateAnswerKeyImportPayload,
   validateTargetAnswerKeyCoverage,
   validateTargetAnswerKeys,
 } from "./admin-challenge-schema";
@@ -128,5 +129,59 @@ describe("admin challenge schema validation", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues[0].type).toBe("missing_schema_values");
+  });
+
+  it("validates twelve-field import entries without returning their values", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const result = validateAnswerKeyImportPayload(
+      {
+        mode_id: mode.id,
+        schema_version: mode.version,
+        items: [{ report_id_or_filename: "report_001.txt", answer_values: answerValues }],
+      },
+      [{ ...makeReport("import-1"), filename: "report_001.txt" }],
+      mode,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.validItemCount).toBe(1);
+    expect(result).not.toHaveProperty("answer_values");
+  });
+
+  it("rejects unknown, duplicate, missing, extra, and invalid import entries", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const complete = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const missing = { ...complete };
+    delete missing.bakers_cyst;
+
+    const result = validateAnswerKeyImportPayload(
+      {
+        items: [
+          { report_id_or_filename: "unknown", answer_values: complete },
+          { report_id_or_filename: "known", answer_values: missing },
+          { report_id_or_filename: "known", answer_values: { ...complete, extra: "absent" } },
+          { report_id_or_filename: "extra", answer_values: { ...complete, extra: "absent" } },
+          { report_id_or_filename: "invalid", answer_values: { ...complete, acl_tear: "yes" } },
+        ],
+      },
+      [makeReport("known"), makeReport("extra"), makeReport("invalid"), makeReport("not-in-import")],
+      mode,
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.issues.map((issue) => issue.type)).toEqual(
+      expect.arrayContaining([
+        "unknown_report",
+        "invalid_fields",
+        "invalid_values",
+        "missing_report_entry",
+      ]),
+    );
+    expect(result).not.toHaveProperty("answer_values");
   });
 });

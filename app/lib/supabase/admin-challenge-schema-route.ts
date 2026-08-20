@@ -6,9 +6,12 @@ import {
   getChallengeModeForValidation,
   type AdminSchemaAnswerKeyRow,
   type AdminSchemaReportRow,
+  validateAnswerKeyImportPayload,
   validateTargetAnswerKeyCoverage,
   validateTargetAnswerKeys,
 } from "./admin-challenge-schema";
+
+const TWELVE_FIELD_MODE = "knee_mri_12_basic";
 
 type SupabaseLike = {
   from: (table: string) => {
@@ -31,7 +34,7 @@ async function loadChallengeSchemaInputs(supabase: unknown) {
     throw new Error("No active challenge was found.");
   }
 
-  const reportsQuery = client.from("reports").select("id, split") as unknown as {
+  const reportsQuery = client.from("reports").select("id, split, filename, external_id") as unknown as {
     eq: (column: string, value: string) => {
       in: (column: string, values: string[]) => {
         returns: <T>() => Promise<{ data: T[]; error: { message: string } | null }>;
@@ -65,6 +68,19 @@ async function loadChallengeSchemaInputs(supabase: unknown) {
     reports: reportsResult.data,
     answerKeys: keysResult.data,
   };
+}
+
+export async function prepareAdminAnswerKeyImport(
+  supabase: unknown,
+  payload: unknown,
+) {
+  const body = payload as { mode_id?: unknown; schema_version?: unknown } | null;
+  const mode = getChallengeModeForValidation(body?.mode_id, body?.schema_version);
+  if (mode.id !== TWELVE_FIELD_MODE) {
+    throw new Error("This preparation path is only available for knee_mri_12_basic.");
+  }
+  const inputs = await loadChallengeSchemaInputs(supabase);
+  return validateAnswerKeyImportPayload(payload, inputs.reports, mode);
 }
 
 export async function validateAdminChallengeSchema(

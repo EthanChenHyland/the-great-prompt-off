@@ -28,7 +28,12 @@ export type AdminChallengeSchemaMetadata = {
   outputSchema: ReturnType<typeof buildOutputSchema>;
 };
 
-type ReportRow = { id: string; split: "public" | "private" };
+type ReportRow = {
+  id: string;
+  split: "public" | "private";
+  filename?: string | null;
+  external_id?: string | null;
+};
 
 export type AdminSchemaReportRow = ReportRow;
 
@@ -60,6 +65,28 @@ export type ChallengeSchemaValidationResult = {
   schemaVersion: number;
   reportCounts: { public: number; private: number };
   issues: ChallengeSchemaValidationIssue[];
+};
+
+export type AnswerKeyImportIssue = {
+  type:
+    | "unknown_report"
+    | "duplicate_report"
+    | "invalid_item"
+    | "invalid_fields"
+    | "invalid_values"
+    | "missing_report_entry";
+  count: number;
+  message: string;
+};
+
+export type AnswerKeyImportValidationResult = {
+  ok: boolean;
+  modeId: string;
+  schemaVersion: number;
+  reportCounts: { public: number; private: number };
+  itemCount: number;
+  validItemCount: number;
+  issues: AnswerKeyImportIssue[];
 };
 
 export function getChallengeModeForValidation(
@@ -217,6 +244,92 @@ export function validateTargetAnswerKeyCoverage(
     modeId: mode.id,
     schemaVersion: mode.version,
     reportCounts,
+    issues,
+  };
+}
+
+export function validateAnswerKeyImportPayload(
+  payload: unknown,
+  reports: readonly AdminSchemaReportRow[],
+  mode: ChallengeModeDefinition,
+): AnswerKeyImportValidationResult {
+  const items =
+    typeof payload === "object" && payload !== null && "items" in payload &&
+    Array.isArray(payload.items)
+      ? payload.items
+      : null;
+  const issueCounts = new Map<AnswerKeyImportIssue["type"], number>();
+  const increment = (type: AnswerKeyImportIssue["type"]) => {
+    issueCounts.set(type, (issueCounts.get(type) || 0) + 1);
+  };
+  const reportsByIdentifier = new Map<string, AdminSchemaReportRow>();
+  for (const report of reports) {
+    reportsByIdentifier.set(report.id, report);
+    if (report.filename) reportsByIdentifier.set(report.filename, report);
+    if (report.external_id) reportsByIdentifier.set(report.external_id, report);
+  }
+  const seenReports = new Set<string>();
+  let validItemCount = 0;
+
+  if (items) {
+    for (const item of items) {
+      if (typeof item !== "object" || item === null || !("report_id_or_filename" in item)) {
+        increment("invalid_item");
+        continue;
+      }
+      const record = item as Record<string, unknown>;
+      const identifier = record.report_id_or_filename;
+      const report = typeof identifier === "string" ? reportsByIdentifier.get(identifier) : undefined;
+      if (!report) {
+        increment("unknown_report");
+        continue;
+      }
+      if (seenReports.has(report.id)) {
+        increment("duplicate_report");
+        continue;
+      }
+      seenReports.add(report.id);
+      try {
+        validateAnswerValues(record.answer_values, mode);
+        validItemCount += 1;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "";
+        increment(message.includes("invalid for challenge mode") ? "invalid_values" : "invalid_fields");
+      }
+    }
+  } else {
+    increment("invalid_item");
+  }
+
+  for (const report of reports) {
+    if (!seenReports.has(report.id)) increment("missing_report_entry");
+  }
+
+  const messages: Record<AnswerKeyImportIssue["type"], string> = {
+    unknown_report: "One or more import entries do not match a public or private report.",
+    duplicate_report: "The import contains duplicate entries for one or more reports.",
+    invalid_item: "One or more import entries are not in the required format.",
+    invalid_fields: "One or more imported answer keys do not contain exactly the required fields.",
+    invalid_values: "One or more imported answer keys contain values outside the allowed labels.",
+    missing_report_entry: "One or more public or private reports are missing from the import.",
+  };
+  const issues = [...issueCounts.entries()].map(([type, count]) => ({
+    type,
+    count,
+    message: messages[type],
+  }));
+  const reportCounts = reports.reduce(
+    (counts, report) => ({ ...counts, [report.split]: counts[report.split] + 1 }),
+    { public: 0, private: 0 },
+  );
+
+  return {
+    ok: issues.length === 0,
+    modeId: mode.id,
+    schemaVersion: mode.version,
+    reportCounts,
+    itemCount: items?.length || 0,
+    validItemCount,
     issues,
   };
 }
