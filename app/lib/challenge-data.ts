@@ -4,6 +4,7 @@ import path from "node:path";
 import answerKeys from "@/data/mock-answer-keys.json";
 import manifest from "@/data/mock-report-manifest.json";
 import { createSupabaseAdminClient } from "./supabase/admin";
+import { resolveChallengeMode, validateAnswerValues } from "./schema-storage";
 import type {
   AnswerKeyItem,
   FindingValue,
@@ -17,6 +18,8 @@ const typedAnswerKeys = answerKeys as AnswerKeyItem[];
 
 type SupabaseChallengeRow = {
   id: string;
+  mode_id: string | null;
+  schema_version: number | null;
 };
 
 type SupabaseReportRow = {
@@ -29,6 +32,7 @@ type SupabaseReportRow = {
 
 type SupabaseAnswerKeyRow = {
   report_id: string;
+  answer_values: unknown;
   acl_tear: FindingValue;
   mcl_injury: FindingValue;
   meniscus_tear: FindingValue;
@@ -125,7 +129,7 @@ async function getSupabasePublicReports(): Promise<SampleReport[]> {
   const supabase = createSupabaseAdminClient();
   const { data: challenge, error: challengeError } = await supabase
     .from("challenges")
-    .select("id")
+    .select("id, mode_id, schema_version")
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -134,6 +138,8 @@ async function getSupabasePublicReports(): Promise<SampleReport[]> {
   if (challengeError || !challenge) {
     throw new Error(challengeError?.message || "No active challenge found.");
   }
+
+  const mode = resolveChallengeMode(challenge.mode_id, challenge.schema_version);
 
   const { data: reports, error: reportsError } = await supabase
     .from("reports")
@@ -155,7 +161,7 @@ async function getSupabasePublicReports(): Promise<SampleReport[]> {
   const { data: answerKeyRows, error: answerKeyError } = await supabase
     .from("answer_keys")
     .select(
-      "report_id, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+      "report_id, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
     )
     .in("report_id", reportIds)
     .returns<SupabaseAnswerKeyRow[]>();
@@ -175,19 +181,24 @@ async function getSupabasePublicReports(): Promise<SampleReport[]> {
       throw new Error(`Missing answer key for ${report.external_id}.`);
     }
 
+    const legacyAnswerValues = {
+      acl_tear: answerKey.acl_tear,
+      mcl_injury: answerKey.mcl_injury,
+      meniscus_tear: answerKey.meniscus_tear,
+      fracture: answerKey.fracture,
+      osteoarthritis: answerKey.osteoarthritis,
+      effusion: answerKey.effusion,
+    };
+
     return {
       id: report.external_id,
       filename: report.filename || report.external_id,
       split: report.split,
       text: report.report_text,
-      answer_key: {
-        acl_tear: answerKey.acl_tear,
-        mcl_injury: answerKey.mcl_injury,
-        meniscus_tear: answerKey.meniscus_tear,
-        fracture: answerKey.fracture,
-        osteoarthritis: answerKey.osteoarthritis,
-        effusion: answerKey.effusion,
-      },
+      answer_key: validateAnswerValues(
+        answerKey.answer_values ?? legacyAnswerValues,
+        mode,
+      ) as SampleReport["answer_key"],
     };
   });
 }

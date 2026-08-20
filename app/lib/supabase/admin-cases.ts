@@ -4,6 +4,11 @@ import {
   findingFields,
   findingValues,
 } from "../challenge-constants";
+import {
+  buildAnswerKeyStoragePayload,
+  resolveChallengeMode,
+  validateAnswerValues,
+} from "../schema-storage";
 import type { FindingKey, FindingValue } from "../types";
 import { createSupabaseAdminClient } from "./admin";
 
@@ -50,6 +55,7 @@ type ReportRow = {
 
 type AnswerKeyRow = {
   report_id: string;
+  answer_values: unknown;
   acl_tear: AdminFindingValue;
   mcl_injury: AdminFindingValue;
   meniscus_tear: AdminFindingValue;
@@ -79,7 +85,7 @@ export async function getAdminCaseManagerData(): Promise<AdminCaseManagerData> {
       ? supabase
           .from("answer_keys")
           .select(
-            "report_id, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+            "report_id, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
           )
           .in("report_id", reportIds)
           .returns<AnswerKeyRow[]>()
@@ -341,7 +347,7 @@ async function upsertAnswerKey(reportId: string, answerKey: AdminAnswerKey) {
   const { error } = await supabase.from("answer_keys").upsert(
     {
       report_id: reportId,
-      ...answerKey,
+      ...buildAnswerKeyStoragePayload(answerKey),
     },
     { onConflict: "report_id" },
   );
@@ -415,7 +421,7 @@ function externalIdFromFilename(filename: string) {
 }
 
 function toAnswerKey(answerKey: AnswerKeyRow): AdminAnswerKey {
-  return {
+  const legacyAnswerValues = {
     acl_tear: answerKey.acl_tear,
     mcl_injury: answerKey.mcl_injury,
     meniscus_tear: answerKey.meniscus_tear,
@@ -423,6 +429,11 @@ function toAnswerKey(answerKey: AnswerKeyRow): AdminAnswerKey {
     osteoarthritis: answerKey.osteoarthritis,
     effusion: answerKey.effusion,
   };
+
+  return validateAnswerValues(
+    answerKey.answer_values ?? legacyAnswerValues,
+    resolveChallengeMode(),
+  ) as AdminAnswerKey;
 }
 
 function isFindingValue(value: unknown): value is AdminFindingValue {

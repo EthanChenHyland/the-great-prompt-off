@@ -22,6 +22,12 @@ import {
   summarizeReportResults,
 } from "@/app/lib/mock-evaluation";
 import { scoreModelOutput } from "@/app/lib/scoring";
+import {
+  buildScoredValues,
+  createRunSchemaMetadata,
+  resolveChallengeMode,
+  validateAnswerValues,
+} from "@/app/lib/schema-storage";
 import type {
   AnswerKey,
   AnswerKeyItem,
@@ -40,6 +46,9 @@ type ActiveChallenge = {
   id: string;
   locked_model: string;
   evaluation_model: string | null;
+  mode_id: string | null;
+  schema_version: number | null;
+  schema_snapshot: Record<string, unknown> | null;
   public_submission_limit: number;
   final_submission_limit: number;
   event_phase: EventPhase;
@@ -74,6 +83,7 @@ type ReportRow = {
 
 type AnswerKeyRow = {
   report_id: string;
+  answer_values: unknown;
   acl_tear: FindingValue;
   mcl_injury: FindingValue;
   meniscus_tear: FindingValue;
@@ -242,6 +252,10 @@ export async function submitToSupabase({
 }): Promise<SubmitScoreResponse> {
   const supabase = createSupabaseAdminClient();
   const challenge = await getActiveChallenge(supabase);
+  const challengeMode = resolveChallengeMode(
+    challenge.mode_id,
+    challenge.schema_version,
+  );
   const participant = await getParticipantByCode(
     supabase,
     normalizeParticipantCode(participantCode),
@@ -281,7 +295,12 @@ export async function submitToSupabase({
   }
 
   const split: ReportSplit = kind === "public" ? "public" : "private";
-  const answerKeys = await getSupabaseAnswerKeysForSplit(supabase, challenge.id, split);
+  const answerKeys = await getSupabaseAnswerKeysForSplit(
+    supabase,
+    challenge.id,
+    split,
+    challengeMode,
+  );
   const evaluation = await evaluateSubmission({
     answerKeys,
     kind,
@@ -301,6 +320,7 @@ export async function submitToSupabase({
       participant_id: participant.id,
       run_type: runType,
       prompt_text: promptText,
+      ...createRunSchemaMetadata(challengeMode),
       model:
         evaluation.model ||
         (evaluation.mode === "mock" ? "mock-evaluator" : challenge.locked_model),
@@ -335,6 +355,7 @@ export async function submitToSupabase({
           invalid_fields: item.score.invalid_fields,
           field_accuracy: item.score.field_accuracy,
           overall_score: item.score.overall_score,
+          scored_values: item.prediction,
           acl_tear: item.prediction.acl_tear ?? null,
           mcl_injury: item.prediction.mcl_injury ?? null,
           meniscus_tear: item.prediction.meniscus_tear ?? null,
@@ -364,6 +385,8 @@ export async function submitToSupabase({
     correct_fields: evaluation.summary.correct,
     total_fields: evaluation.summary.total,
     report_count: evaluation.reportCount,
+    mode_id: challengeMode.id,
+    schema_version: challengeMode.version,
     submitted_at: now,
   });
 
@@ -692,7 +715,7 @@ export async function getActiveChallenge(
   const { data, error } = await supabase
     .from("challenges")
     .select(
-      "id, locked_model, evaluation_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
+      "id, locked_model, evaluation_model, mode_id, schema_version, schema_snapshot, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
     )
     .eq("is_active", true)
     .order("created_at", { ascending: false })
@@ -791,6 +814,7 @@ export async function getSupabaseAnswerKeysForSplit(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   challengeId: string,
   split: ReportSplit,
+  mode = resolveChallengeMode(),
 ) {
   const { data: reports, error: reportsError } = await supabase
     .from("reports")
@@ -812,7 +836,7 @@ export async function getSupabaseAnswerKeysForSplit(
   const { data: answerKeys, error: answerKeysError } = await supabase
     .from("answer_keys")
     .select(
-      "report_id, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+      "report_id, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
     )
     .in("report_id", reportIds)
     .returns<AnswerKeyRow[]>();
@@ -832,20 +856,26 @@ export async function getSupabaseAnswerKeysForSplit(
       throw new Error(`Missing answer key for ${report.external_id}.`);
     }
 
+    const legacyAnswerValues = {
+      acl_tear: answerKey.acl_tear,
+      mcl_injury: answerKey.mcl_injury,
+      meniscus_tear: answerKey.meniscus_tear,
+      fracture: answerKey.fracture,
+      osteoarthritis: answerKey.osteoarthritis,
+      effusion: answerKey.effusion,
+    };
+    const answerValues = validateAnswerValues(
+      answerKey.answer_values ?? legacyAnswerValues,
+      mode,
+    );
+
     return {
       id: report.external_id,
       supabaseReportId: report.id,
       filename: report.filename || report.external_id,
       split: report.split,
       text: report.report_text,
-      answer_key: {
-        acl_tear: answerKey.acl_tear,
-        mcl_injury: answerKey.mcl_injury,
-        meniscus_tear: answerKey.meniscus_tear,
-        fracture: answerKey.fracture,
-        osteoarthritis: answerKey.osteoarthritis,
-        effusion: answerKey.effusion,
-      },
+      answer_key: answerValues as AnswerKey,
     } satisfies AnswerKeyItem & { supabaseReportId: string; text: string };
   });
 }
@@ -945,11 +975,7 @@ function predictionFromScore(
     actual: FindingValue | null;
   }>,
 ): Partial<AnswerKey> {
-  return Object.fromEntries(
-    perField
-      .filter((field) => field.actual !== null)
-      .map((field) => [field.field, field.actual]),
-  ) as Partial<AnswerKey>;
+  return buildScoredValues(perField) as Partial<AnswerKey>;
 }
 
 function parseJsonObject(value: string) {

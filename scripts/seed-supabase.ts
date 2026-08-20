@@ -191,6 +191,8 @@ async function main() {
           "Synthetic knee MRI report extraction challenge seeded from local mock data.",
         instructions:
           "Extract six structured findings from each synthetic knee MRI report.",
+        mode_id: defaultChallengeMode.id,
+        schema_version: defaultChallengeMode.version,
         output_schema: outputSchema,
         locked_model: process.env.OPENROUTER_MODEL || defaultModel,
         // Leave evaluation_model unset so an organizer's challenge override
@@ -246,6 +248,7 @@ async function main() {
 
     return {
       report_id: reportId,
+      answer_values: report.answer_key,
       acl_tear: report.answer_key.acl_tear,
       mcl_injury: report.answer_key.mcl_injury,
       meniscus_tear: report.answer_key.meniscus_tear,
