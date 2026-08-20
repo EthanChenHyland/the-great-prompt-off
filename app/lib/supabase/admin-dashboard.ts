@@ -11,7 +11,11 @@ import {
   resolveOpenRouterModel,
 } from "@/app/lib/openrouter";
 import { isApprovedEvaluationModel } from "@/app/lib/model-options";
-import { defaultChallengeMode } from "@/app/lib/challenge-modes";
+import {
+  activatableChallengeModeIds,
+  challengeModes,
+  defaultChallengeMode,
+} from "@/app/lib/challenge-modes";
 import { resolveChallengeMode } from "@/app/lib/schema-storage";
 import { createSupabaseAdminClient } from "./admin";
 
@@ -62,6 +66,12 @@ export type AdminDashboardData = {
       title: string;
       fields: readonly { key: string; label: string }[];
       configurationLocked: boolean;
+      activationOptions: readonly {
+        id: string;
+        title: string;
+        version: number;
+        fieldCount: number;
+      }[];
     };
   };
   health: {
@@ -298,6 +308,15 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     configurationLocked: submissionsResult.data.some(
       (submission) => submission.challenge_id === challengeResult.data.id,
     ),
+    activationOptions: activatableChallengeModeIds.map((modeId) => {
+      const mode = challengeModes[modeId];
+      return {
+        id: mode.id,
+        title: mode.title,
+        version: mode.version,
+        fieldCount: mode.fields.length,
+      };
+    }),
   };
   const reportCounts = reportsResult.data.reduce(
     (counts, report) => ({

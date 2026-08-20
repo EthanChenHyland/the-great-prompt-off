@@ -470,8 +470,57 @@ export function AdminChallengeSchemaPanel({
     title: string;
     fields: readonly { key: string; label: string }[];
     configurationLocked: boolean;
+    activationOptions: readonly {
+      id: string;
+      title: string;
+      version: number;
+      fieldCount: number;
+    }[];
   };
 }) {
+  const router = useRouter();
+  const initialSelection = challengeSchema.activationOptions.some(
+    (option) => option.id === challengeSchema.modeId,
+  )
+    ? challengeSchema.modeId
+    : challengeSchema.activationOptions[0]?.id || "";
+  const [selection, setSelection] = useState(initialSelection);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [message, setMessage] = useState("");
+  const selectedMode = challengeSchema.activationOptions.find(
+    (option) => option.id === selection,
+  );
+
+  async function updateMode() {
+    if (!selectedMode) return;
+
+    setIsPending(true);
+    setMessage("");
+    const response = await fetch("/api/admin/challenge-schema", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        modeId: selectedMode.id,
+        schemaVersion: selectedMode.version,
+      }),
+    });
+    const body = (await response.json().catch(() => null)) as {
+      error?: string;
+    } | null;
+
+    if (!response.ok) {
+      setMessage(body?.error || "Could not update the challenge schema.");
+      setIsPending(false);
+      return;
+    }
+
+    setIsConfirming(false);
+    setMessage("Challenge mode updated.");
+    setIsPending(false);
+    router.refresh();
+  }
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -526,9 +575,81 @@ export function AdminChallengeSchemaPanel({
       </div>
       <p className="mt-4 text-xs leading-5 text-slate-500">
         {challengeSchema.configurationLocked
-          ? "Mode, schema version, and evaluation model cannot be changed after successful submissions. Reset workshop run data intentionally before changing event configuration."
+          ? "Challenge configuration is locked after event activity has started. Reset workshop run data before changing mode."
           : "This challenge is still configurable before submissions begin. Future mode or schema changes must happen before the first successful submission."}
       </p>
+      <div className="mt-5 border-t border-slate-200 pt-4">
+        <p className="text-sm font-semibold text-slate-800">Mode activation</p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          Only modes approved for activation appear here. Dormant schemas remain
+          unavailable until their reports and answer keys are prepared.
+        </p>
+        <label className="mt-3 block text-sm font-semibold text-slate-800">
+          Available challenge mode
+          <select
+            value={selection}
+            onChange={(event) => {
+              setSelection(event.target.value);
+              setIsConfirming(false);
+              setMessage("");
+            }}
+            disabled={challengeSchema.configurationLocked || isPending}
+            className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+          >
+            {challengeSchema.activationOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.id}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          onClick={() => setIsConfirming(true)}
+          disabled={challengeSchema.configurationLocked || isPending || !selectedMode}
+          className="mt-3 h-10 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+        >
+          Review mode change
+        </button>
+        {isConfirming && selectedMode ? (
+          <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+            <p className="font-semibold">Confirm challenge mode change</p>
+            <dl className="mt-2 grid gap-1 text-xs sm:grid-cols-2">
+              <div><dt className="text-amber-800">Mode ID</dt><dd className="font-mono">{selectedMode.id}</dd></div>
+              <div><dt className="text-amber-800">Title</dt><dd>{selectedMode.title}</dd></div>
+              <div><dt className="text-amber-800">Schema version</dt><dd>{selectedMode.version}</dd></div>
+              <div><dt className="text-amber-800">Field count</dt><dd>{selectedMode.fieldCount}</dd></div>
+            </dl>
+            <p className="mt-3 text-xs leading-5">
+              This requires compatible answer keys for every public and private
+              report and is allowed only before event activity begins.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={updateMode}
+                disabled={isPending}
+                className="h-9 rounded-md bg-amber-700 px-3 text-xs font-semibold text-white hover:bg-amber-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {isPending ? "Updating..." : "Confirm mode change"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsConfirming(false)}
+                disabled={isPending}
+                className="h-9 rounded-md border border-amber-300 bg-white px-3 text-xs font-semibold text-amber-900 hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {message ? (
+          <p className="mt-3 rounded-md bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+            {message}
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

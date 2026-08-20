@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   challengeModes,
+  activatableChallengeModeIds,
   defaultChallengeMode,
   getPublicChallengeModeMetadata,
   kneeMri12BasicMode,
@@ -40,6 +41,12 @@ describe("challenge mode registry", () => {
     expect(shoulderMriBasicMode.fields).toHaveLength(8);
     expect(shoulderMriBasicMode).not.toBe(defaultChallengeMode);
     expect(defaultChallengeMode.id).toBe("knee_mri_6_basic");
+  });
+
+  it("keeps the activation allowlist limited to the current mode", () => {
+    expect(activatableChallengeModeIds).toEqual(["knee_mri_6_basic"]);
+    expect(activatableChallengeModeIds).not.toContain("knee_mri_12_basic");
+    expect(activatableChallengeModeIds).not.toContain("shoulder_mri_basic");
   });
 
   it("keeps compatibility constants derived from the mode", () => {
