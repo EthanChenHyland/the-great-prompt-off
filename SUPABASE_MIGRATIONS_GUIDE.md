@@ -358,6 +358,65 @@ where tgrelid = 'public.challenges'::regclass
   and not tgisinternal;
 ```
 
+### `supabase/versioned-answer-keys.sql`
+
+What it adds:
+
+- `answer_keys.mode_id`
+- `answer_keys.schema_version`
+- A JSON-object check for `answer_values`
+- Positive schema-version validation
+- A composite unique constraint on `(report_id, mode_id, schema_version)`
+- An index on `(mode_id, schema_version)`
+
+Existing answer-key rows are backfilled as `knee_mri_6_basic`, version `1`.
+The legacy columns (`acl_tear`, `mcl_injury`, `meniscus_tear`, `fracture`,
+`osteoarthritis`, and `effusion`) remain in place. This migration does not
+activate `knee_mri_12_basic` and the application does not yet write dormant-mode
+answer keys.
+
+The original PostgreSQL-generated single-report constraint,
+`answer_keys_report_id_key`, is dropped only if that exact constraint name
+exists. The new composite constraint allows one answer key per report per
+mode/version while preserving existing six-field compatibility.
+
+Verify the migration:
+
+```sql
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'answer_keys'
+  and column_name in ('mode_id', 'schema_version', 'answer_values')
+order by column_name;
+```
+
+```sql
+select mode_id, schema_version, count(*)
+from answer_keys
+group by mode_id, schema_version
+order by mode_id, schema_version;
+```
+
+```sql
+select count(*) as missing_mode_version
+from answer_keys
+where mode_id is null or schema_version is null;
+```
+
+```sql
+select count(*) as missing_answer_values
+from answer_keys
+where answer_values is null;
+```
+
+```sql
+select report_id, mode_id, schema_version, count(*)
+from answer_keys
+group by report_id, mode_id, schema_version
+having count(*) > 1;
+```
+
 ## Event-Control Columns on `challenges`
 
 ### `event_phase`

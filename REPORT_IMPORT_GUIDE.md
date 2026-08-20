@@ -177,15 +177,16 @@ six-field columns. The preparation endpoint therefore validates but does not
 write twelve-field values. This protects the active six-field answer keys from
 being overwritten.
 
-Before a real twelve-field import can write data, the database will need an
-additive answer-key versioning migration, such as:
+Run `supabase/versioned-answer-keys.sql` before any future twelve-field import
+is allowed to write. It adds:
 
 - `answer_keys.mode_id`
 - `answer_keys.schema_version`
 - a unique constraint on `(report_id, mode_id, schema_version)`
 
-That migration should preserve the existing six-field rows and be reviewed
-before the twelve-field mode is added to the activation allowlist.
+The migration preserves existing six-field rows, but the application remains
+validation-only until a later dual-read/dual-write implementation is reviewed.
+The twelve-field mode must remain outside the activation allowlist until then.
 
 ## SQL Verification
 
