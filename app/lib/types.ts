@@ -1,12 +1,9 @@
-export type FindingValue = "present" | "absent" | "uncertain" | "not_reported";
+import type { defaultChallengeMode } from "./challenge-modes";
 
-export type FindingKey =
-  | "acl_tear"
-  | "mcl_injury"
-  | "meniscus_tear"
-  | "fracture"
-  | "osteoarthritis"
-  | "effusion";
+export type FindingKey = (typeof defaultChallengeMode.fields)[number]["key"];
+
+export type FindingValue =
+  (typeof defaultChallengeMode.fields)[number]["allowedValues"][number];
 
 export type AnswerKey = Record<FindingKey, FindingValue>;
 

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildOpenRouterMessages,
+  buildOpenRouterSystemInstruction,
   openRouterSystemInstruction,
 } from "./openrouter-contract";
+import type { ChallengeModeDefinition } from "./challenge-modes";
 
 describe("OpenRouter evaluation contract", () => {
   it("requires a usable participant strategy", () => {
@@ -69,6 +71,28 @@ describe("OpenRouter evaluation contract", () => {
       role: "user",
       content: `Input synthetic knee MRI report:\n${reportText}`,
     });
+  });
+
+  it("builds fields and values from the selected mode", () => {
+    const mode = {
+      id: "test-mode",
+      version: 1,
+      title: "Test mode",
+      domain: "test",
+      fields: [
+        { key: "finding_a", label: "Finding A", allowedValues: ["yes", "no"] },
+        { key: "finding_b", label: "Finding B", allowedValues: ["no", "unknown"] },
+      ],
+    } satisfies ChallengeModeDefinition;
+
+    const instruction = buildOpenRouterSystemInstruction(mode);
+
+    expect(instruction).toContain("finding_a");
+    expect(instruction).toContain("finding_b");
+    expect(instruction).toContain("yes");
+    expect(instruction).toContain("no");
+    expect(instruction).toContain("unknown");
+    expect(instruction).not.toContain("acl_tear");
   });
 
   it("uses the no-strategy placeholder without exposing the system instruction", () => {

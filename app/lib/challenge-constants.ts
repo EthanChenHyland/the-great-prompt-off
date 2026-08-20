@@ -1,28 +1,23 @@
+import { defaultChallengeMode } from "./challenge-modes";
 import type { FindingKey } from "./types";
 
-export const findingKeys: FindingKey[] = [
-  "acl_tear",
-  "mcl_injury",
-  "meniscus_tear",
-  "fracture",
-  "osteoarthritis",
-  "effusion",
-];
+export const findingKeys = defaultChallengeMode.fields.map(
+  (field) => field.key,
+) as FindingKey[];
 
-export const findingLabels: Record<FindingKey, string> = {
-  acl_tear: "ACL tear",
-  mcl_injury: "MCL injury",
-  meniscus_tear: "Meniscus tear",
-  fracture: "Fracture",
-  osteoarthritis: "Osteoarthritis",
-  effusion: "Effusion",
-};
+export const findingFields = findingKeys;
 
-export const valueOptions = ["present", "absent", "uncertain", "not_reported"] as const;
+export const findingLabels = Object.fromEntries(
+  defaultChallengeMode.fields.map((field) => [field.key, field.label]),
+) as Record<FindingKey, string>;
+
+export const valueOptions = defaultChallengeMode.fields[0].allowedValues;
+
+export const findingValues = valueOptions;
 
 export const challenge = {
-  title: "Knee MRI Extraction Challenge",
-  subtitle: "Extract structured findings from synthetic non-PHI radiology reports.",
+  title: defaultChallengeMode.title,
+  subtitle: defaultChallengeMode.description ?? "",
   allowedValues: valueOptions,
   sampleRange: "Public test reports 001-005",
 };

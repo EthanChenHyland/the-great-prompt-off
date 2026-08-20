@@ -1,9 +1,21 @@
+import {
+  defaultChallengeMode,
+  type ChallengeModeDefinition,
+} from "./challenge-modes";
+
 export type OpenRouterMessage = {
   role: "system" | "user" | "assistant";
   content: string;
 };
 
-export const openRouterSystemInstruction = [
+export function buildOpenRouterSystemInstruction(
+  mode: ChallengeModeDefinition = defaultChallengeMode,
+): string {
+  const allowedValues = [
+    ...new Set(mode.fields.flatMap((field) => field.allowedValues)),
+  ];
+
+  return [
   "You are evaluating a participant-provided clinical extraction strategy against a medical report.",
   "",
   "First, silently evaluate whether the participant strategy is a usable clinical extraction strategy.",
@@ -24,35 +36,32 @@ export const openRouterSystemInstruction = [
   "Do not include explanations, comments, or extra text before or after the JSON object.",
   "",
   "Use exactly these field names:",
-  "acl_tear",
-  "mcl_injury",
-  "meniscus_tear",
-  "fracture",
-  "osteoarthritis",
-  "effusion",
+  ...mode.fields.map((field) => field.key),
   "",
   "For each field, use exactly one value:",
-  "present",
-  "absent",
-  "uncertain",
-  "not_reported",
+  ...allowedValues,
   "",
   "Do not infer findings that are not supported by the report. Use not_reported when the report does not contain enough information to determine a finding. Use absent only when the report explicitly rules out the finding. Use uncertain only when the report contains ambiguous or indeterminate evidence. Do not guess from a finding being unmentioned.",
   "",
   "These instructions define formatting and evaluation-contract requirements only. Do not add clinical interpretation rules or answer hints beyond the participant strategy.",
-].join("\n");
+  ].join("\n");
+}
+
+export const openRouterSystemInstruction = buildOpenRouterSystemInstruction();
 
 export function buildOpenRouterMessages({
   prompt,
   reportText,
+  mode = defaultChallengeMode,
 }: {
   prompt: string;
   reportText: string;
+  mode?: ChallengeModeDefinition;
 }): OpenRouterMessage[] {
   return [
     {
       role: "system",
-      content: openRouterSystemInstruction,
+      content: buildOpenRouterSystemInstruction(mode),
     },
     {
       role: "user",

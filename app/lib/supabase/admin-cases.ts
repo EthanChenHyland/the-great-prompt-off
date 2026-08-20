@@ -1,20 +1,15 @@
 import "server-only";
 
+import {
+  findingFields,
+  findingValues,
+} from "../challenge-constants";
+import type { FindingKey, FindingValue } from "../types";
 import { createSupabaseAdminClient } from "./admin";
 
-const findingFields = [
-  "acl_tear",
-  "mcl_injury",
-  "meniscus_tear",
-  "fracture",
-  "osteoarthritis",
-  "effusion",
-] as const;
-const findingValues = ["present", "absent", "uncertain", "not_reported"] as const;
-
 export type AdminCaseSplit = "public" | "private";
-export type AdminFindingField = (typeof findingFields)[number];
-export type AdminFindingValue = (typeof findingValues)[number];
+export type AdminFindingField = FindingKey;
+export type AdminFindingValue = FindingValue;
 export type AdminAnswerKey = Record<AdminFindingField, AdminFindingValue>;
 
 export type AdminCaseRow = {

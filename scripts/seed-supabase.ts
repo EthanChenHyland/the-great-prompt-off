@@ -3,11 +3,13 @@ import { createClient } from "@supabase/supabase-js";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
+import { defaultChallengeMode } from "../app/lib/challenge-modes";
+import type { FindingKey, FindingValue } from "../app/lib/types";
 
 loadEnvConfig(process.cwd());
 
 const challengeSlug = "knee-mri-extraction";
-const challengeTitle = "Knee MRI Extraction Challenge";
+const challengeTitle = defaultChallengeMode.title;
 const defaultModel = "google/gemini-2.0-flash-001";
 const eventPhases = ["not_started", "practice_open", "final_open", "ended"] as const;
 const leaderboardVisibilityModes = [
@@ -17,23 +19,13 @@ const leaderboardVisibilityModes = [
   "ended",
   "always",
 ] as const;
-const findingFields = [
-  "acl_tear",
-  "mcl_injury",
-  "meniscus_tear",
-  "fracture",
-  "osteoarthritis",
-  "effusion",
-] as const;
-const allowedFindingValues = [
-  "present",
-  "absent",
-  "uncertain",
-  "not_reported",
-] as const;
+const findingFields = defaultChallengeMode.fields.map(
+  (field) => field.key,
+) as FindingKey[];
+const allowedFindingValues = defaultChallengeMode.fields[0]
+  .allowedValues as readonly FindingValue[];
 
-type FindingField = (typeof findingFields)[number];
-type FindingValue = (typeof allowedFindingValues)[number];
+type FindingField = FindingKey;
 type ReportSplit = "sample" | "public" | "private";
 type EventPhase = (typeof eventPhases)[number];
 type LeaderboardVisibility = (typeof leaderboardVisibilityModes)[number];

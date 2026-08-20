@@ -1,3 +1,4 @@
+import { defaultChallengeMode } from "./challenge-modes";
 import { findingKeys, valueOptions } from "./challenge-constants";
 import type {
   AnswerKey,
@@ -18,65 +19,9 @@ type ParsedModelOutput = {
 
 const allowedValues = new Set<string>(valueOptions);
 
-const keyAliases: Array<[FindingKey, string[]]> = [
-  [
-    "acl_tear",
-    [
-      "acl",
-      "ACL",
-      "acl_status",
-      "ACL_status",
-      "ACL_intact_or_torn",
-      "acl_intact_or_torn",
-      "anterior_cruciate_ligament",
-    ],
-  ],
-  [
-    "mcl_injury",
-    [
-      "mcl",
-      "MCL",
-      "mcl_status",
-      "MCL_status",
-      "MCL_intact_or_torn",
-      "mcl_intact_or_torn",
-      "medial_collateral_ligament",
-    ],
-  ],
-  [
-    "meniscus_tear",
-    [
-      "meniscus",
-      "meniscal_tear",
-      "meniscal_tear_partial_or_full_thickness",
-      "medial_or_lateral_meniscus_tear",
-      "medial_meniscus",
-      "lateral_meniscus",
-    ],
-  ],
-  ["fracture", ["fx", "bone_fracture"]],
-  [
-    "osteoarthritis",
-    [
-      "arthritis",
-      "oa",
-      "degenerative_change",
-      "degenerative_joint_disease",
-      "degenerative_narrowing_or_spurring_osteoarthritis",
-      "degenerative_narrowing",
-      "spurring",
-    ],
-  ],
-  [
-    "effusion",
-    [
-      "joint_effusion",
-      "knee_effusion",
-      "knee_joint_effusion",
-      "suprapatellar_effusion",
-    ],
-  ],
-];
+const keyAliases: Array<[FindingKey, string[]]> = defaultChallengeMode.fields.map(
+  (field) => [field.key as FindingKey, [...(field.aliases ?? [])]],
+);
 
 const keyMap = new Map<string, FindingKey>();
 

@@ -3,6 +3,7 @@ import answerKeys from "@/data/mock-answer-keys.json";
 import { createSupabaseAdminClient } from "@/app/lib/supabase/admin";
 import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { challenge as mockChallenge } from "@/app/lib/challenge-constants";
+import { getPublicChallengeModeMetadata } from "@/app/lib/challenge-modes";
 import { getFriendlyModelName } from "@/app/lib/model-display";
 import {
   getOpenRouterModel,
@@ -76,6 +77,7 @@ function getFallbackChallengeData(reason: string) {
       eventTimerEndsAt: null,
       eventTimerLabel: "",
     },
+    mode: getPublicChallengeModeMetadata(),
     reportCounts,
     sampleReports: typedManifest
       .filter((report) => report.split === "public")
@@ -200,6 +202,7 @@ export async function GET() {
         eventTimerEndsAt: challenge.event_timer_ends_at,
         eventTimerLabel: challenge.event_timer_label,
       },
+      mode: getPublicChallengeModeMetadata(),
       reportCounts,
       sampleReports: reports
         .filter((report) => report.split === "public")
