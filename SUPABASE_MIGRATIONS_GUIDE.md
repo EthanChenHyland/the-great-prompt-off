@@ -232,6 +232,97 @@ where is_active = true;
 The admin selector does not rewrite previous runs. Their stored model value
 remains the model used for that run.
 
+### `supabase/jsonb-schema-storage.sql`
+
+What it adds:
+
+- Transitional `mode_id` and `schema_version` metadata on `challenges`, `prompt_runs`, and `submissions`.
+- `prompt_runs.schema_snapshot` for a future immutable schema snapshot.
+- `answer_keys.answer_values` for generic answer-key JSON.
+- `prompt_run_items.scored_values` for generic normalized prediction JSON.
+- Basic positive-version and JSON-object checks.
+- Indexes for mode and schema-version lookups.
+
+Why it exists:
+
+The current database stores six finding columns directly. This migration adds
+future-compatible JSONB storage for twelve-field, shoulder, and later challenge
+modes without changing the current runtime behavior.
+
+Required before production:
+
+Only when deploying the matching future storage work. It is not required for
+the current app to score submissions, and it does not activate dormant modes.
+
+Important transition rule:
+
+The existing six-field columns remain in place and authoritative. The current
+application does not read or write the new JSONB columns yet. Do not remove or
+rewrite the old columns until a later dual-read/dual-write migration has been
+implemented and verified.
+
+The migration backfills current rows as `knee_mri_6_basic`, version `1`, and
+stores the existing six-field values in JSONB. It does not re-score historical
+model outputs.
+
+Verification:
+
+```sql
+select id, slug, mode_id, schema_version, is_active
+from challenges
+order by created_at;
+```
+
+```sql
+select table_name, column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and table_name in (
+    'challenges',
+    'answer_keys',
+    'prompt_runs',
+    'prompt_run_items',
+    'submissions'
+  )
+  and column_name in (
+    'mode_id',
+    'schema_version',
+    'schema_snapshot',
+    'answer_values',
+    'scored_values'
+  )
+order by table_name, column_name;
+```
+
+```sql
+select count(*) as answer_keys_missing_json
+from answer_keys
+where answer_values is null;
+```
+
+```sql
+select count(*) as prompt_runs_missing_schema_metadata
+from prompt_runs
+where mode_id is null
+   or schema_version is null
+   or schema_snapshot is null;
+```
+
+```sql
+select count(*) as answer_key_mismatches
+from answer_keys
+where answer_values is distinct from jsonb_build_object(
+  'acl_tear', acl_tear,
+  'mcl_injury', mcl_injury,
+  'meniscus_tear', meniscus_tear,
+  'fracture', fracture,
+  'osteoarthritis', osteoarthritis,
+  'effusion', effusion
+);
+```
+
+The expected mismatch count is zero for the current six-field data.
+
 ## Event-Control Columns on `challenges`
 
 ### `event_phase`
