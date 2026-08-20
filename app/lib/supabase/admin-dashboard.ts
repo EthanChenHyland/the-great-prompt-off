@@ -11,6 +11,8 @@ import {
   resolveOpenRouterModel,
 } from "@/app/lib/openrouter";
 import { isApprovedEvaluationModel } from "@/app/lib/model-options";
+import { defaultChallengeMode } from "@/app/lib/challenge-modes";
+import { resolveChallengeMode } from "@/app/lib/schema-storage";
 import { createSupabaseAdminClient } from "./admin";
 
 export type AdminParticipantRow = {
@@ -54,6 +56,13 @@ export type AdminDashboardData = {
     eventAnnouncement: string;
     eventTimerEndsAt: string | null;
     eventTimerLabel: string;
+    challengeSchema: {
+      modeId: string;
+      schemaVersion: number;
+      title: string;
+      fields: readonly { key: string; label: string }[];
+      configurationLocked: boolean;
+    };
   };
   health: {
     supabaseConnected: boolean;
@@ -86,6 +95,7 @@ type ParticipantRow = {
 };
 
 type SubmissionRow = {
+  challenge_id: string;
   participant_id: string;
   submission_type: "public" | "final";
   score: number;
@@ -108,6 +118,8 @@ type ReportCountRow = {
 type ChallengeControlRow = {
   id: string;
   evaluation_model: string | null;
+  mode_id: string | null;
+  schema_version: number | null;
   event_phase: EventPhase;
   leaderboard_visibility: LeaderboardVisibility;
   event_announcement: string;
@@ -135,7 +147,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     supabase
       .from("challenges")
       .select(
-        "id, evaluation_model, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label, public_submission_limit",
+        "id, evaluation_model, mode_id, schema_version, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label, public_submission_limit",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -152,7 +164,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .returns<ParticipantAttemptOverrideRow[]>(),
     supabase
       .from("submissions")
-      .select("participant_id, submission_type, score, submitted_at, prompt_run_id")
+      .select("challenge_id, participant_id, submission_type, score, submitted_at, prompt_run_id")
       .order("submitted_at", { ascending: true })
       .returns<SubmissionRow[]>(),
     supabase
@@ -274,6 +286,19 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
   ).length;
   const latestRunTimestamp =
     runsResult.data[0]?.completed_at || runsResult.data[0]?.created_at || null;
+  const challengeMode = resolveChallengeMode(
+    challengeResult.data.mode_id,
+    challengeResult.data.schema_version,
+  );
+  const challengeSchema = {
+    modeId: challengeResult.data.mode_id || defaultChallengeMode.id,
+    schemaVersion: challengeResult.data.schema_version || challengeMode.version,
+    title: challengeMode.title,
+    fields: challengeMode.fields.map(({ key, label }) => ({ key, label })),
+    configurationLocked: submissionsResult.data.some(
+      (submission) => submission.challenge_id === challengeResult.data.id,
+    ),
+  };
   const reportCounts = reportsResult.data.reduce(
     (counts, report) => ({
       ...counts,
@@ -327,6 +352,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       eventAnnouncement: challengeResult.data.event_announcement,
       eventTimerEndsAt: challengeResult.data.event_timer_ends_at,
       eventTimerLabel: challengeResult.data.event_timer_label,
+      challengeSchema,
     },
     health: {
       supabaseConnected: true,

@@ -461,6 +461,78 @@ export function AdminEvaluationModelControls({
   );
 }
 
+export function AdminChallengeSchemaPanel({
+  challengeSchema,
+}: {
+  challengeSchema: {
+    modeId: string;
+    schemaVersion: number;
+    title: string;
+    fields: readonly { key: string; label: string }[];
+    configurationLocked: boolean;
+  };
+}) {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
+            Challenge schema
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">
+            {challengeSchema.title}
+          </h2>
+        </div>
+        <span
+          className={`rounded-md px-2.5 py-1 text-xs font-semibold ${
+            challengeSchema.configurationLocked
+              ? "bg-amber-50 text-amber-800"
+              : "bg-emerald-50 text-emerald-800"
+          }`}
+        >
+          {challengeSchema.configurationLocked ? "Locked" : "Unlocked"}
+        </span>
+      </div>
+      <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+        <div>
+          <dt className="text-slate-500">Mode ID</dt>
+          <dd className="mt-1 font-mono text-xs text-slate-900">
+            {challengeSchema.modeId}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Schema version</dt>
+          <dd className="mt-1 font-semibold text-slate-900">
+            {challengeSchema.schemaVersion}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-slate-500">Field count</dt>
+          <dd className="mt-1 font-semibold text-slate-900">
+            {challengeSchema.fields.length}
+          </dd>
+        </div>
+      </dl>
+      <div className="mt-4">
+        <p className="text-sm font-semibold text-slate-800">Fields</p>
+        <ul className="mt-2 grid gap-1 text-sm text-slate-600 sm:grid-cols-2">
+          {challengeSchema.fields.map((field) => (
+            <li key={field.key}>
+              <span className="font-medium text-slate-900">{field.label}</span>{" "}
+              <span className="font-mono text-xs">({field.key})</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="mt-4 text-xs leading-5 text-slate-500">
+        {challengeSchema.configurationLocked
+          ? "Mode, schema version, and evaluation model cannot be changed after successful submissions. Reset workshop run data intentionally before changing event configuration."
+          : "This challenge is still configurable before submissions begin. Future mode or schema changes must happen before the first successful submission."}
+      </p>
+    </section>
+  );
+}
+
 export function AdminEventAnnouncementControls({
   currentAnnouncement,
 }: {

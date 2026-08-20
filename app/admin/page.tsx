@@ -4,6 +4,7 @@ import {
   AdminEventAnnouncementControls,
   AdminEventControls,
   AdminEventTimerControls,
+  AdminChallengeSchemaPanel,
   AdminEvaluationModelControls,
   AdminLeaderboardVisibilityControls,
   AdminLogoutButton,
@@ -221,6 +222,8 @@ export default async function AdminPage() {
           </span>
         </a>
       </section>
+
+      <AdminChallengeSchemaPanel challengeSchema={data.overview.challengeSchema} />
 
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
