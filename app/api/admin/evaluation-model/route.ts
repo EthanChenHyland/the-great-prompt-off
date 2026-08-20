@@ -1,5 +1,10 @@
 import { requireAdminSession } from "@/app/lib/supabase/admin-auth";
 import { createSupabaseAdminClient } from "@/app/lib/supabase/admin";
+import {
+  assertChallengeConfigurationMutable,
+  ChallengeConfigurationLockedError,
+  CHALLENGE_CONFIGURATION_LOCK_MESSAGE,
+} from "@/app/lib/supabase/admin-challenge";
 import { isApprovedEvaluationModel } from "@/app/lib/model-options";
 
 export async function POST(request: Request) {
@@ -42,6 +47,25 @@ export async function POST(request: Request) {
 
   try {
     const supabase = createSupabaseAdminClient();
+    const { data: challenge, error: challengeError } = await supabase
+      .from("challenges")
+      .select("id")
+      .eq("is_active", true)
+      .single<{ id: string }>();
+
+    if (challengeError || !challenge) {
+      console.error(
+        "[admin-evaluation-model] Active challenge lookup failed",
+        challengeError?.message || "No active challenge",
+      );
+      return Response.json(
+        { error: "Could not update the evaluation model. No active challenge was found." },
+        { status: 500 },
+      );
+    }
+
+    await assertChallengeConfigurationMutable(supabase, challenge.id);
+
     const { data, error } = await supabase
       .from("challenges")
       .update({ evaluation_model: evaluationModel })
@@ -50,6 +74,15 @@ export async function POST(request: Request) {
       .single<{ evaluation_model: string | null }>();
 
     if (error) {
+      if (
+        error.code === "55000" ||
+        error.message.toLowerCase().includes("first successful submission")
+      ) {
+        return Response.json(
+          { error: CHALLENGE_CONFIGURATION_LOCK_MESSAGE },
+          { status: 409 },
+        );
+      }
       console.error("[admin-evaluation-model] Update failed", error.message);
       return Response.json(
         { error: "Could not update the evaluation model. Verify the model migration is installed." },
@@ -59,6 +92,12 @@ export async function POST(request: Request) {
 
     return Response.json({ evaluationModel: data.evaluation_model });
   } catch (error) {
+    if (error instanceof ChallengeConfigurationLockedError) {
+      return Response.json(
+        { error: CHALLENGE_CONFIGURATION_LOCK_MESSAGE },
+        { status: 409 },
+      );
+    }
     console.error(
       "[admin-evaluation-model] Request failed",
       error instanceof Error ? error.message : String(error),

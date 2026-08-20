@@ -400,6 +400,11 @@ export function AdminEvaluationModelControls({
         participant prompt strategy matter more. Use calibration after changing
         models.
       </p>
+      <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+        The evaluation model and active mode/schema can be changed before the
+        first successful submission. After Test Attempts or a Final Submission
+        are recorded, they are locked until workshop run data is reset.
+      </p>
       {currentModel && !isApprovedEvaluationModel(currentModel) ? (
         <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm leading-6 text-amber-900">
           Unsupported saved model: {currentModel}. Choose an approved model or

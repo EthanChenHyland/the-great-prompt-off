@@ -256,10 +256,10 @@ the current app to score submissions, and it does not activate dormant modes.
 
 Important transition rule:
 
-The existing six-field columns remain in place and authoritative. The current
-application does not read or write the new JSONB columns yet. Do not remove or
-rewrite the old columns until a later dual-read/dual-write migration has been
-implemented and verified.
+The existing six-field columns remain in place for compatibility. The current
+application dual-reads/dual-writes the JSONB values for the active six-field
+mode, but the old columns must not be removed until the transition is complete
+and verified.
 
 The migration backfills current rows as `knee_mri_6_basic`, version `1`, and
 stores the existing six-field values in JSONB. It does not re-score historical
@@ -322,6 +322,41 @@ where answer_values is distinct from jsonb_build_object(
 ```
 
 The expected mismatch count is zero for the current six-field data.
+
+### `supabase/challenge-config-lock.sql`
+
+What it adds:
+
+- A database trigger that protects `evaluation_model`, `mode_id`,
+  `schema_version`, and `output_schema` after the first successful submission
+  for a challenge.
+
+Why it exists:
+
+Changing the model or output schema after scoring begins would make historical
+scores difficult to compare. The server-side admin model route also performs a
+friendly preflight check, while the trigger prevents races and protects future
+configuration routes.
+
+Failed or incomplete `prompt_runs` and admin calibration calls do not create
+`submissions` rows, so they do not lock the challenge. The existing full reset
+deletes submissions and run data; after an intentional reset, configuration can
+be changed again before the next event.
+
+Required before live configuration changes:
+
+- Run this migration in the same Supabase project as the app.
+- Do not edit protected configuration after successful submissions unless you
+  intentionally reset the workshop data first.
+
+Verify the trigger exists:
+
+```sql
+select tgname
+from pg_trigger
+where tgrelid = 'public.challenges'::regclass
+  and not tgisinternal;
+```
 
 ## Event-Control Columns on `challenges`
 
