@@ -4,6 +4,30 @@ import {
   type ChallengeModeDefinition,
 } from "./challenge-modes";
 
+export type OutputSchema = {
+  type: "object";
+  required: readonly string[];
+  additionalProperties: false;
+  properties: Record<
+    string,
+    { type: "string"; enum: readonly string[] }
+  >;
+};
+
+export function buildOutputSchema(mode: ChallengeModeDefinition = defaultChallengeMode): OutputSchema {
+  return {
+    type: "object",
+    required: mode.fields.map((field) => field.key),
+    additionalProperties: false,
+    properties: Object.fromEntries(
+      mode.fields.map((field) => [
+        field.key,
+        { type: "string", enum: [...field.allowedValues] },
+      ]),
+    ),
+  };
+}
+
 export function resolveChallengeMode(
   modeId?: string | null,
   schemaVersion?: number | null,

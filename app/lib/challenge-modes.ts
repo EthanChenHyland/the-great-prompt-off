@@ -173,6 +173,15 @@ export const challengeModes = {
 
 export const defaultChallengeMode = kneeMri6BasicMode;
 
+// Dormant registry entries are intentionally not activation-eligible yet.
+export const activatableChallengeModeIds = [defaultChallengeMode.id] as const;
+
+export function isChallengeModeActivationAllowed(modeId: string) {
+  return activatableChallengeModeIds.includes(
+    modeId as (typeof activatableChallengeModeIds)[number],
+  );
+}
+
 export function getPublicChallengeModeMetadata(
   mode: ChallengeModeDefinition = defaultChallengeMode,
 ): PublicChallengeModeMetadata {
