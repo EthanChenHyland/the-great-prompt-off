@@ -137,6 +137,39 @@ Allowed values:
 
 The seed script validates that each answer key has allowed values and that manifest metadata agrees with answer-key metadata.
 
+## Dormant Twelve-Field Preparation
+
+The `knee_mri_12_basic` schema is currently dormant and cannot be activated by
+the admin mode selector. You can validate future answer-key preparation with
+the admin-only endpoint:
+
+```text
+POST /api/admin/challenge-schema/validate
+```
+
+Send only the target mode and registry version:
+
+```json
+{
+  "modeId": "knee_mri_12_basic",
+  "schemaVersion": 1
+}
+```
+
+Future twelve-field entries should use `answer_values` with exactly these keys:
+
+```text
+acl_tear, mcl_tear, medial_meniscus_tear, lateral_meniscus_tear,
+fracture, bone_contusion, medial_osteoarthritis,
+lateral_osteoarthritis, patellofemoral_osteoarthritis, effusion,
+synovitis, bakers_cyst
+```
+
+Every value must be one of `present`, `absent`, `uncertain`, or
+`not_reported`. The validation response contains only report counts and issue
+counts; it does not return answer-key values or report text. Validation does
+not activate the mode, create submissions, or change production data.
+
 ## SQL Verification
 
 Report counts by split:

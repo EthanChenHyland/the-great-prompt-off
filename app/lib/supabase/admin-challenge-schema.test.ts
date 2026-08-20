@@ -11,7 +11,9 @@ import {
   CHALLENGE_MODE_ERROR,
   MISSING_SCHEMA_VALUES_ERROR,
   createChallengeSchemaMetadata,
+  getChallengeModeForValidation,
   getActivatableChallengeMode,
+  validateTargetAnswerKeyCoverage,
   validateTargetAnswerKeys,
 } from "./admin-challenge-schema";
 
@@ -70,5 +72,61 @@ describe("admin challenge schema validation", () => {
         fields: [],
       }),
     ).toThrow(MISSING_SCHEMA_VALUES_ERROR);
+  });
+
+  it("validates a complete dormant twelve-field answer key without activating it", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const result = validateTargetAnswerKeyCoverage(
+      [makeReport("report-12")],
+      [{
+        ...makeAnswerKey("report-12"),
+        answer_values: answerValues,
+      }],
+      mode,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.reportCounts).toEqual({ public: 1, private: 0 });
+    expect(result).not.toHaveProperty("answerValues");
+  });
+
+  it("reports missing, extra, and invalid twelve-field values safely", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const complete = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const missing = { ...complete };
+    delete missing.bakers_cyst;
+    const extra = { ...complete, unexpected: "absent" };
+    const invalid = { ...complete, acl_tear: "yes" };
+
+    expect(validateTargetAnswerKeyCoverage(
+      [makeReport("missing")],
+      [{ ...makeAnswerKey("missing"), answer_values: missing }],
+      mode,
+    ).issues[0].type).toBe("invalid_fields");
+    expect(validateTargetAnswerKeyCoverage(
+      [makeReport("extra")],
+      [{ ...makeAnswerKey("extra"), answer_values: extra }],
+      mode,
+    ).issues[0].type).toBe("invalid_fields");
+    expect(validateTargetAnswerKeyCoverage(
+      [makeReport("invalid")],
+      [{ ...makeAnswerKey("invalid"), answer_values: invalid }],
+      mode,
+    ).issues[0].type).toBe("invalid_values");
+  });
+
+  it("does not treat six-field legacy columns as a twelve-field answer key", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const legacy = makeAnswerKey("legacy");
+    legacy.answer_values = null;
+    const result = validateTargetAnswerKeyCoverage([makeReport("legacy")], [legacy], mode);
+
+    expect(result.ok).toBe(false);
+    expect(result.issues[0].type).toBe("missing_schema_values");
   });
 });
