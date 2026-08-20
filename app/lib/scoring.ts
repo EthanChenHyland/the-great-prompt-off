@@ -1,11 +1,13 @@
-import { defaultChallengeMode } from "./challenge-modes";
-import { findingKeys, valueOptions } from "./challenge-constants";
+import {
+  defaultChallengeMode,
+  type ChallengeFieldDefinition,
+  type ChallengeModeDefinition,
+} from "./challenge-modes";
 import type {
   AnswerKey,
-  FieldScoreResult,
-  FindingKey,
-  FindingValue,
   InvalidFieldResult,
+  SchemaFieldScoreResult,
+  SchemaScoringResult,
   ScoringDiagnostics,
   ScoringResult,
 } from "./types";
@@ -16,24 +18,6 @@ type ParsedModelOutput = {
   diagnostics: ScoringDiagnostics;
   output: ModelOutputObject | null;
 };
-
-const allowedValues = new Set<string>(valueOptions);
-
-const keyAliases: Array<[FindingKey, string[]]> = defaultChallengeMode.fields.map(
-  (field) => [field.key as FindingKey, [...(field.aliases ?? [])]],
-);
-
-const keyMap = new Map<string, FindingKey>();
-
-for (const field of findingKeys) {
-  keyMap.set(normalizeKeyToken(field), field);
-}
-
-for (const [field, aliases] of keyAliases) {
-  for (const alias of aliases) {
-    keyMap.set(normalizeKeyToken(alias), field);
-  }
-}
 
 const nestedReportKeys = new Set([
   "report",
@@ -47,37 +31,52 @@ const nestedReportKeys = new Set([
 export function scoreModelOutput(
   modelOutput: ModelOutputObject | string,
   answerKey: AnswerKey,
-): ScoringResult {
+): ScoringResult;
+export function scoreModelOutput(
+  modelOutput: ModelOutputObject | string,
+  answerKey: Record<string, string>,
+  mode: ChallengeModeDefinition,
+): SchemaScoringResult;
+export function scoreModelOutput(
+  modelOutput: ModelOutputObject | string,
+  answerKey: Record<string, string>,
+  mode: ChallengeModeDefinition = defaultChallengeMode,
+): ScoringResult | SchemaScoringResult {
+  const schema = createSchemaRuntime(mode);
   const parsed = parseModelOutput(modelOutput);
 
   if (!parsed.output) {
-    return buildInvalidJsonResult(answerKey, parsed.diagnostics);
+    return buildInvalidJsonResult(answerKey, parsed.diagnostics, schema.fields);
   }
 
-  const normalized = normalizeOutputObject(parsed.output, parsed.diagnostics);
+  const normalized = normalizeOutputObject(
+    parsed.output,
+    parsed.diagnostics,
+    schema,
+  );
   const output = normalized.output;
-  const missingFields: FindingKey[] = [];
+  const missingFields: string[] = [];
   const invalidFields: InvalidFieldResult[] = [];
 
-  const perField = findingKeys.map<FieldScoreResult>((field) => {
-    const rawValue = output[field];
+  const perField = schema.fields.map<SchemaFieldScoreResult>((field) => {
+    const rawValue = output[field.key];
     const missing = rawValue === undefined;
-    const invalid = !missing && !isFindingValue(rawValue);
-    const actual = isFindingValue(rawValue) ? rawValue : null;
+    const invalid = !missing && !isAllowedValue(rawValue, field);
+    const actual = isAllowedValue(rawValue, field) ? rawValue : null;
 
     if (missing) {
-      missingFields.push(field);
+      missingFields.push(field.key);
     }
 
     if (invalid) {
-      invalidFields.push({ field, value: rawValue });
+      invalidFields.push({ field: field.key, value: rawValue });
     }
 
     return {
-      field,
-      expected: answerKey[field],
+      field: field.key,
+      expected: answerKey[field.key],
       actual,
-      correct: actual === answerKey[field],
+      correct: actual === answerKey[field.key],
       missing,
       invalid,
     };
@@ -89,6 +88,7 @@ export function scoreModelOutput(
     missingFields,
     perField,
     validJson: true,
+    fieldCount: schema.fields.length,
   });
 }
 
@@ -181,9 +181,29 @@ function parseModelOutput(modelOutput: ModelOutputObject | string): ParsedModelO
   };
 }
 
+type SchemaRuntime = {
+  fields: readonly ChallengeFieldDefinition[];
+  keyMap: Map<string, string>;
+};
+
+function createSchemaRuntime(mode: ChallengeModeDefinition): SchemaRuntime {
+  const keyMap = new Map<string, string>();
+
+  for (const field of mode.fields) {
+    keyMap.set(normalizeKeyToken(field.key), field.key);
+
+    for (const alias of field.aliases ?? []) {
+      keyMap.set(normalizeKeyToken(alias), field.key);
+    }
+  }
+
+  return { fields: mode.fields, keyMap };
+}
+
 function normalizeOutputObject(
   output: ModelOutputObject,
   diagnostics: ScoringDiagnostics,
+  schema: SchemaRuntime,
 ) {
   const unwrapped = unwrapNestedSingleReport(output);
   const sourceOutput = unwrapped.output;
@@ -194,7 +214,7 @@ function normalizeOutputObject(
   let valueNormalizationUsed = diagnostics.value_normalization_used;
 
   Object.entries(sourceOutput).forEach(([rawField, rawValue]) => {
-    const field = normalizeField(rawField);
+    const field = normalizeField(rawField, schema);
 
     if (!field) {
       ignoredExtraFields.push(rawField);
@@ -211,7 +231,7 @@ function normalizeOutputObject(
       return;
     }
 
-    const normalizedValue = normalizeValue(rawValue, field);
+    const normalizedValue = normalizeValue(rawValue, field, schema);
 
     if (normalizedValue !== rawValue) {
       normalizationUsed = true;
@@ -235,20 +255,21 @@ function normalizeOutputObject(
   };
 }
 
-function normalizeField(field: string): FindingKey | null {
+function normalizeField(field: string, schema: SchemaRuntime): string | null {
   const normalized = normalizeKeyToken(field);
 
-  return keyMap.get(normalized) ?? null;
+  return schema.keyMap.get(normalized) ?? null;
 }
 
-function normalizeValue(value: unknown, field: FindingKey) {
+function normalizeValue(value: unknown, field: string, schema: SchemaRuntime) {
   if (typeof value !== "string") {
     return value;
   }
 
   const normalized = normalizeValueText(value);
+  const fieldDefinition = schema.fields.find((item) => item.key === field);
 
-  if (allowedValues.has(normalized)) {
+  if (fieldDefinition?.allowedValues.includes(normalized)) {
     return normalized;
   }
 
@@ -356,12 +377,13 @@ function extractFirstJsonObject(value: string) {
 }
 
 function buildInvalidJsonResult(
-  answerKey: AnswerKey,
+  answerKey: Record<string, string>,
   diagnostics: ScoringDiagnostics,
-): ScoringResult {
-  const perField = findingKeys.map<FieldScoreResult>((field) => ({
-    field,
-    expected: answerKey[field],
+  fields: readonly ChallengeFieldDefinition[],
+): SchemaScoringResult {
+  const perField = fields.map<SchemaFieldScoreResult>((field) => ({
+    field: field.key,
+    expected: answerKey[field.key],
     actual: null,
     correct: false,
     missing: true,
@@ -372,8 +394,9 @@ function buildInvalidJsonResult(
     diagnostics,
     validJson: false,
     perField,
-    missingFields: [...findingKeys],
+    missingFields: fields.map((field) => field.key),
     invalidFields: [],
+    fieldCount: fields.length,
   });
 }
 
@@ -383,15 +406,17 @@ function buildScoringResult({
   missingFields,
   perField,
   validJson,
+  fieldCount,
 }: {
   diagnostics: ScoringDiagnostics;
   invalidFields: InvalidFieldResult[];
-  missingFields: FindingKey[];
-  perField: FieldScoreResult[];
+  missingFields: string[];
+  perField: SchemaFieldScoreResult[];
   validJson: boolean;
-}): ScoringResult {
+  fieldCount: number;
+}): SchemaScoringResult {
   const correct = perField.filter((result) => result.correct).length;
-  const fieldAccuracy = (correct / findingKeys.length) * 100;
+  const fieldAccuracy = fieldCount === 0 ? 0 : (correct / fieldCount) * 100;
 
   return {
     valid_json: validJson,
@@ -404,8 +429,11 @@ function buildScoringResult({
   };
 }
 
-function isFindingValue(value: unknown): value is FindingValue {
-  return typeof value === "string" && allowedValues.has(value);
+function isAllowedValue(
+  value: unknown,
+  field: ChallengeFieldDefinition,
+): value is string {
+  return typeof value === "string" && field.allowedValues.includes(value);
 }
 
 function isPlainObject(value: unknown): value is ModelOutputObject {

@@ -54,6 +54,25 @@ export type ScoringResult = {
   diagnostics: ScoringDiagnostics;
 };
 
+export type SchemaFieldScoreResult = {
+  field: string;
+  expected: string;
+  actual: string | null;
+  correct: boolean;
+  missing: boolean;
+  invalid: boolean;
+};
+
+export type SchemaScoringResult = {
+  valid_json: boolean;
+  per_field: SchemaFieldScoreResult[];
+  missing_fields: string[];
+  invalid_fields: InvalidFieldResult[];
+  field_accuracy: number;
+  overall_score: number;
+  diagnostics: ScoringDiagnostics;
+};
+
 export type ScoringDiagnostics = {
   strict_json_valid: boolean;
   recovered_json_used: boolean;

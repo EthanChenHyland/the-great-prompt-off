@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { scoreModelOutput } from "./scoring";
+import { defaultChallengeMode } from "./challenge-modes";
 import type { AnswerKey, FindingKey } from "./types";
 
 const answerKey: AnswerKey = {
@@ -33,6 +34,63 @@ function fieldResult(output: unknown, field: FindingKey) {
 }
 
 describe("scoreModelOutput", () => {
+  it("defaults to the knee_mri_6_basic schema", () => {
+    const result = scoreModelOutput(strictOutput, answerKey);
+
+    expect(defaultChallengeMode.id).toBe("knee_mri_6_basic");
+    expect(result.per_field.map((field) => field.field)).toEqual(
+      defaultChallengeMode.fields.map((field) => field.key),
+    );
+    expect(result.per_field).toHaveLength(6);
+  });
+
+  it("scores fields and allowed values from a supplied schema", () => {
+    const mode = {
+      id: "test-mode",
+      version: 1,
+      title: "Test mode",
+      domain: "test",
+      fields: [
+        {
+          key: "finding_a",
+          label: "Finding A",
+          allowedValues: ["keep", "skip"],
+          aliases: ["a"],
+        },
+        {
+          key: "finding_b",
+          label: "Finding B",
+          allowedValues: ["unclear"],
+        },
+      ],
+    } as const;
+
+    const result = scoreModelOutput(
+      { a: "KEEP", finding_b: "unclear" },
+      { finding_a: "keep", finding_b: "unclear" },
+      mode,
+    );
+
+    expect(result.overall_score).toBe(100);
+    expect(result.per_field.map((field) => field.field)).toEqual([
+      "finding_a",
+      "finding_b",
+    ]);
+    expect(result.invalid_fields).toEqual([]);
+    expect(result.diagnostics.key_normalization_used).toBe(true);
+
+    const invalid = scoreModelOutput(
+      { finding_a: "present", finding_b: "unclear" },
+      { finding_a: "keep", finding_b: "unclear" },
+      mode,
+    );
+
+    expect(invalid.overall_score).toBe(50);
+    expect(invalid.invalid_fields).toEqual([
+      { field: "finding_a", value: "present" },
+    ]);
+  });
+
   it("accepts exact controlled values", () => {
     const result = scoreModelOutput(strictOutput, answerKey);
 
