@@ -14,6 +14,7 @@ import {
   STAGING_PROVENANCE_ERROR,
   UNSUPPORTED_PROVENANCE_ERROR,
   createChallengeSchemaMetadata,
+  createChallengeSchemaPreflight,
   createChallengeModesReadiness,
   createAnswerKeyImportWritePlan,
   executeAnswerKeyImportWrite,
@@ -203,6 +204,118 @@ describe("admin challenge schema validation", () => {
     expect(serialized).not.toContain("answer_values");
     expect(serialized).not.toContain("report_text");
     expect(serialized).not.toContain("adjudicated_by");
+    expect(serialized).not.toContain("import_batch_id");
+  });
+
+  it("preflights dormant staging coverage without treating it as clinically ready", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const reports = [makeReport("report-12")];
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const result = createChallengeSchemaPreflight(
+      reports,
+      [{
+        ...makeAnswerKey("report-12"),
+        mode_id: mode.id,
+        schema_version: mode.version,
+        provenance: "staging_demo",
+        answer_values: answerValues,
+      }],
+      mode,
+      { allowlisted: false, locked: false },
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      modeId: "knee_mri_12_basic",
+      structurallyReady: true,
+      clinicallyReady: false,
+      allowlisted: false,
+      locked: false,
+      activatableIfAllowlisted: false,
+      reportCounts: { public: 1, private: 0 },
+      coverage: { answerKeys: 1, missing: 0 },
+      provenanceCounts: { staging_demo: 1, clinician_adjudicated: 0 },
+    });
+    expect(result.messages).toEqual(expect.arrayContaining([
+      STAGING_PROVENANCE_ERROR,
+      "The selected mode is not currently allowlisted for activation.",
+    ]));
+  });
+
+  it("reports clinician-ready dormant coverage and activity locks independently", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const reports = [makeReport("report-12")];
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const answerKeys = [{
+      ...makeAnswerKey("report-12"),
+      mode_id: mode.id,
+      schema_version: mode.version,
+      provenance: "clinician_adjudicated",
+      answer_values: answerValues,
+    }];
+    const unlocked = createChallengeSchemaPreflight(
+      reports,
+      answerKeys,
+      mode,
+      { allowlisted: false, locked: false },
+    );
+    const locked = createChallengeSchemaPreflight(
+      reports,
+      answerKeys,
+      mode,
+      { allowlisted: false, locked: true },
+    );
+
+    expect(unlocked).toMatchObject({
+      structurallyReady: true,
+      clinicallyReady: true,
+      allowlisted: false,
+      locked: false,
+      activatableIfAllowlisted: true,
+    });
+    expect(unlocked.messages).toContain(
+      "The selected mode would be activatable if it were allowlisted.",
+    );
+    expect(locked).toMatchObject({
+      structurallyReady: true,
+      clinicallyReady: true,
+      locked: true,
+      activatableIfAllowlisted: false,
+    });
+    expect(locked.messages).toContain(
+      "Challenge configuration is locked after event activity has started.",
+    );
+    expect(() => getActivatableChallengeMode(mode.id, mode.version)).toThrow(
+      CHALLENGE_MODE_ERROR,
+    );
+  });
+
+  it("keeps activation preflight aggregate-only", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const report = makeReport("report-12");
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const result = createChallengeSchemaPreflight(
+      [report],
+      [{
+        ...makeAnswerKey(report.id),
+        provenance: "clinician_adjudicated",
+        answer_values: answerValues,
+      }],
+      mode,
+      { allowlisted: false, locked: false },
+    );
+    const serialized = JSON.stringify(result);
+
+    expect(serialized).not.toContain("answer_values");
+    expect(serialized).not.toContain("report_text");
+    expect(serialized).not.toContain("adjudicated_by");
+    expect(serialized).not.toContain("notes");
     expect(serialized).not.toContain("import_batch_id");
   });
 

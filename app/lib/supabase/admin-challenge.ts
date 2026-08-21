@@ -22,6 +22,15 @@ export async function assertChallengeConfigurationMutable(
   supabase: unknown,
   challengeId: string,
 ) {
+  if (await getChallengeConfigurationLockStatus(supabase, challengeId)) {
+    throw new ChallengeConfigurationLockedError();
+  }
+}
+
+export async function getChallengeConfigurationLockStatus(
+  supabase: unknown,
+  challengeId: string,
+) {
   const client = supabase as {
     from: (table: string) => {
       select: (
@@ -44,7 +53,5 @@ export async function assertChallengeConfigurationMutable(
     throw new Error(`Could not check challenge configuration lock: ${error.message}`);
   }
 
-  if (isChallengeConfigurationLocked(count ?? 0)) {
-    throw new ChallengeConfigurationLockedError();
-  }
+  return isChallengeConfigurationLocked(count ?? 0);
 }

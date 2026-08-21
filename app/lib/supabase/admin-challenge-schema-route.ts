@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   createChallengeSchemaMetadata,
+  createChallengeSchemaPreflight,
   createEmptyProvenanceCounts,
   EXISTING_ANSWER_KEY_ERROR,
   executeAnswerKeyImportWrite,
@@ -15,6 +16,8 @@ import {
   validateTargetAnswerKeysForActivation,
 } from "./admin-challenge-schema";
 import type { ChallengeModeDefinition } from "@/app/lib/challenge-modes";
+import { isChallengeModeActivationAllowed } from "@/app/lib/challenge-modes";
+import { getChallengeConfigurationLockStatus } from "./admin-challenge";
 
 const TWELVE_FIELD_MODE = "knee_mri_12_basic";
 
@@ -236,6 +239,29 @@ export async function validateAdminChallengeSchema(
   const mode = getChallengeModeForValidation(modeId, schemaVersion);
   const inputs = await loadChallengeSchemaInputsForMode(supabase, mode);
   return validateTargetAnswerKeyCoverage(inputs.reports, inputs.answerKeys, mode);
+}
+
+export async function preflightAdminChallengeSchema(
+  supabase: unknown,
+  modeId: unknown,
+  schemaVersion: unknown,
+) {
+  const mode = getChallengeModeForValidation(modeId, schemaVersion);
+  const inputs = await loadChallengeSchemaInputsForMode(supabase, mode);
+  const locked = await getChallengeConfigurationLockStatus(
+    supabase,
+    inputs.challengeId,
+  );
+
+  return createChallengeSchemaPreflight(
+    inputs.reports,
+    inputs.answerKeys,
+    mode,
+    {
+      allowlisted: isChallengeModeActivationAllowed(mode.id),
+      locked,
+    },
+  );
 }
 
 export async function callAdminChallengeSchemaUpdate(

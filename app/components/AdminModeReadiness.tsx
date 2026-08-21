@@ -1,4 +1,8 @@
+"use client";
+
+import { useState } from "react";
 import type { AdminModeReadiness as AdminModeReadinessRow } from "@/app/lib/supabase/admin-challenge-schema";
+import type { AdminChallengeSchemaPreflight } from "@/app/lib/supabase/admin-challenge-schema";
 
 const activationLabels: Record<
   AdminModeReadinessRow["activationStatus"],
@@ -32,6 +36,46 @@ export function AdminModeReadiness({
   modes: readonly AdminModeReadinessRow[];
   configurationLocked: boolean;
 }) {
+  const initialMode = modes.find((mode) => mode.activationStatus === "dormant") || modes[0];
+  const [selection, setSelection] = useState(initialMode?.modeId || "");
+  const [result, setResult] = useState<AdminChallengeSchemaPreflight | null>(null);
+  const [message, setMessage] = useState("");
+  const [isPending, setIsPending] = useState(false);
+  const selectedMode = modes.find((mode) => mode.modeId === selection);
+
+  async function runPreflight() {
+    if (!selectedMode) return;
+    setIsPending(true);
+    setMessage("");
+    setResult(null);
+
+    const response = await fetch("/api/admin/challenge-schema/preflight", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        modeId: selectedMode.modeId,
+        schemaVersion: selectedMode.schemaVersion,
+      }),
+    });
+    const body = (await response.json().catch(() => null)) as
+      | AdminChallengeSchemaPreflight
+      | { error?: string }
+      | null;
+
+    if (!response.ok || !body || !("ok" in body)) {
+      setMessage(
+        body && "error" in body && body.error
+          ? body.error
+          : "Could not run activation preflight.",
+      );
+      setIsPending(false);
+      return;
+    }
+
+    setResult(body);
+    setIsPending(false);
+  }
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 p-5">
@@ -152,6 +196,91 @@ export function AdminModeReadiness({
           </tbody>
         </table>
       </div>
+      <div className="border-t border-slate-200 p-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div>
+            <label className="text-sm font-semibold text-slate-800">
+              Activation preflight target
+              <select
+                value={selection}
+                onChange={(event) => {
+                  setSelection(event.target.value);
+                  setResult(null);
+                  setMessage("");
+                }}
+                disabled={isPending}
+                className="mt-2 h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm font-normal outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+              >
+                {modes.map((mode) => (
+                  <option key={`${mode.modeId}:${mode.schemaVersion}`} value={mode.modeId}>
+                    {mode.title} ({mode.modeId})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              Preflight only. This checks dormant modes without activating them
+              or changing the activation allowlist.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={runPreflight}
+            disabled={!selectedMode || isPending}
+            className="h-10 rounded-md bg-teal-700 px-4 text-sm font-semibold text-white hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {isPending ? "Checking..." : "Run activation preflight"}
+          </button>
+        </div>
+
+        {message ? (
+          <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-800">
+            {message}
+          </p>
+        ) : null}
+
+        {result ? (
+          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 p-4">
+            <div className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-5">
+              <PreflightStatus label="Structural" ready={result.structurallyReady} />
+              <PreflightStatus label="Clinical" ready={result.clinicallyReady} />
+              <PreflightStatus label="Allowlisted" ready={result.allowlisted} />
+              <PreflightStatus label="Unlocked" ready={!result.locked} />
+              <PreflightStatus
+                label="Activatable if allowlisted"
+                ready={result.activatableIfAllowlisted}
+              />
+            </div>
+            <p className="mt-4 text-xs text-slate-600">
+              Coverage: {result.coverage.answerKeys} answer keys, {result.coverage.missing} missing.
+              {" "}Reports: {result.reportCounts.public} public / {result.reportCounts.private} private.
+            </p>
+            <p className="mt-2 text-xs text-slate-600">
+              Provenance: {result.provenanceCounts.clinician_adjudicated} clinician,
+              {" "}{result.provenanceCounts.staging_demo} staging/demo,
+              {" "}{result.provenanceCounts.legacy} legacy,
+              {" "}{result.provenanceCounts.imported} imported,
+              {" "}{result.provenanceCounts.unknown} unknown.
+            </p>
+            {result.messages.length > 0 ? (
+              <ul className="mt-3 grid gap-1 text-xs leading-5 text-slate-700">
+                {result.messages.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </section>
+  );
+}
+
+function PreflightStatus({ label, ready }: { label: string; ready: boolean }) {
+  return (
+    <div>
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className={`mt-1 font-semibold ${ready ? "text-emerald-700" : "text-amber-800"}`}>
+        {ready ? "Yes" : "No"}
+      </p>
+    </div>
   );
 }

@@ -280,6 +280,19 @@ version-matched answer key to be `clinician_adjudicated`; staging, imported,
 unknown, or missing provenance cannot activate a mode. This enforcement does
 not expand the activation allowlist.
 
+Use the admin-only activation preflight before considering an allowlist change:
+
+```text
+POST /api/admin/challenge-schema/preflight
+```
+
+Send `modeId` and `schemaVersion`. The read-only response reports structural
+and clinical readiness, report coverage, aggregate provenance counts, current
+lock status, and whether the mode would be activatable if allowlisted. It does
+not call the schema-update RPC, activate a mode, or return answer values,
+report text, adjudicator details, notes, or import-batch identifiers. The same
+preflight is available from the Mode readiness panel on `/admin`.
+
 ### Rehearsal Sequence
 
 Use an authenticated admin session for every endpoint call. The browser console

@@ -129,6 +129,21 @@ export type AdminModeReadiness = {
   provenanceNotice: string | null;
 };
 
+export type AdminChallengeSchemaPreflight = {
+  ok: true;
+  modeId: string;
+  schemaVersion: number;
+  structurallyReady: boolean;
+  clinicallyReady: boolean;
+  allowlisted: boolean;
+  locked: boolean;
+  activatableIfAllowlisted: boolean;
+  messages: string[];
+  reportCounts: { public: number; private: number };
+  coverage: { answerKeys: number; missing: number };
+  provenanceCounts: AnswerKeyProvenanceCounts;
+};
+
 export type AnswerKeyImportIssue = {
   type:
     | "unknown_report"
@@ -424,6 +439,69 @@ export function validateTargetAnswerKeysForActivation(
   if (!provenance.ok) {
     throw new Error(provenance.error || "The selected mode is not clinically ready for activation.");
   }
+}
+
+export function createChallengeSchemaPreflight(
+  reports: readonly AdminSchemaReportRow[],
+  answerKeys: readonly AdminSchemaAnswerKeyRow[],
+  mode: ChallengeModeDefinition,
+  options: { allowlisted: boolean; locked: boolean },
+): AdminChallengeSchemaPreflight {
+  const structural = validateTargetAnswerKeyCoverage(reports, answerKeys, mode);
+  const structurallyReady = reports.length > 0 && structural.ok;
+  const provenance = validateAnswerKeyProvenanceForActivation(
+    reports,
+    answerKeys,
+    mode,
+  );
+  const clinicallyReady = structurallyReady && provenance.ok;
+  const coveredReportIds = new Set(
+    answerKeys
+      .map((answerKey) => answerKey.report_id)
+      .filter((reportId) => reports.some((report) => report.id === reportId)),
+  );
+  const messages = structural.issues.map((issue) => issue.message);
+
+  if (structurallyReady && !clinicallyReady && provenance.error) {
+    messages.push(provenance.error);
+  }
+  if (options.locked) {
+    messages.push(
+      "Challenge configuration is locked after event activity has started.",
+    );
+  }
+  if (!options.allowlisted) {
+    messages.push("The selected mode is not currently allowlisted for activation.");
+  }
+  if (
+    structurallyReady &&
+    clinicallyReady &&
+    !options.locked &&
+    options.allowlisted
+  ) {
+    messages.push("The selected mode passes the current activation checks.");
+  } else if (structurallyReady && clinicallyReady && !options.locked) {
+    messages.push("The selected mode would be activatable if it were allowlisted.");
+  }
+
+  return {
+    ok: true,
+    modeId: mode.id,
+    schemaVersion: mode.version,
+    structurallyReady,
+    clinicallyReady,
+    allowlisted: options.allowlisted,
+    locked: options.locked,
+    activatableIfAllowlisted:
+      structurallyReady && clinicallyReady && !options.locked,
+    messages: [...new Set(messages)],
+    reportCounts: structural.reportCounts,
+    coverage: {
+      answerKeys: coveredReportIds.size,
+      missing: Math.max(0, reports.length - coveredReportIds.size),
+    },
+    provenanceCounts: provenance.provenanceCounts,
+  };
 }
 
 export function validateTargetAnswerKeyCoverage(
