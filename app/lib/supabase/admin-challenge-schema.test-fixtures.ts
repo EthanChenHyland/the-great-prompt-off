@@ -19,6 +19,7 @@ export function makeAnswerKey(
 ) {
   return {
     report_id: reportId,
+    provenance: "legacy",
     answer_values: {
       acl_tear: "absent",
       mcl_injury: "absent",

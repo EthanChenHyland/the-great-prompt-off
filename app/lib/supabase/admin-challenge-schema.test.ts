@@ -16,6 +16,7 @@ import {
   executeAnswerKeyImportWrite,
   getChallengeModeForValidation,
   getActivatableChallengeMode,
+  parseAnswerKeyImportMetadata,
   prepareAnswerKeyImportPayload,
   validateAnswerKeyImportPayload,
   validateTargetAnswerKeyCoverage,
@@ -159,6 +160,7 @@ describe("admin challenge schema validation", () => {
         ...makeAnswerKey("public-report"),
         mode_id: "knee_mri_12_basic",
         schema_version: 1,
+        provenance: "staging_demo",
         answer_values: knee12Values,
       },
       {
@@ -217,6 +219,7 @@ describe("admin challenge schema validation", () => {
         ...makeAnswerKey(report.id),
         mode_id: mode.id,
         schema_version: mode.version,
+        provenance: "clinician_adjudicated",
         answer_values: answerValues,
       }],
       "knee_mri_6_basic",
@@ -230,12 +233,48 @@ describe("admin challenge schema validation", () => {
       missingAnswerKeyCount: 0,
       validationPasses: true,
       statusMessage: "Dormant / not allowlisted",
+      clinicallyReady: true,
     });
     expect(serialized).not.toContain("answer_values");
     expect(serialized).not.toContain("report_text");
     expect(() => getActivatableChallengeMode(mode.id, mode.version)).toThrow(
       CHALLENGE_MODE_ERROR,
     );
+  });
+
+  it("keeps complete staging-only twelve-field coverage out of clinical readiness", () => {
+    const report = makeReport("report-12");
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const readiness = createChallengeModesReadiness(
+      [report],
+      [{
+        ...makeAnswerKey(report.id),
+        mode_id: mode.id,
+        schema_version: mode.version,
+        provenance: "staging_demo",
+        answer_values: answerValues,
+      }],
+      "knee_mri_6_basic",
+      1,
+    ).find((candidate) => candidate.modeId === mode.id);
+
+    expect(readiness).toMatchObject({
+      validationPasses: true,
+      clinicallyReady: false,
+      statusMessage: "Structurally valid / staging data only",
+      provenanceCounts: {
+        legacy: 0,
+        staging_demo: 1,
+        clinician_adjudicated: 0,
+        imported: 0,
+        unknown: 0,
+      },
+    });
+    expect(JSON.stringify(readiness)).not.toContain("answer_values");
+    expect(JSON.stringify(readiness)).not.toContain("report_text");
   });
 
   it("does not treat an empty report set as activation-ready", () => {
@@ -296,14 +335,55 @@ describe("admin challenge schema validation", () => {
       mode_id: "knee_mri_12_basic",
       schema_version: 1,
       answer_values: answerValues,
+      provenance: "unknown",
+      import_batch_id: "unbatched",
+      adjudicated_by: null,
+      adjudicated_at: null,
+      notes: null,
     }]);
     expect(Object.keys(preparation.rows[0])).toEqual([
       "report_id",
       "mode_id",
       "schema_version",
       "answer_values",
+      "provenance",
+      "import_batch_id",
+      "adjudicated_by",
+      "adjudicated_at",
+      "notes",
     ]);
     expect(preparation.validation).not.toHaveProperty("answer_values");
+  });
+
+  it("attaches validated provenance metadata without returning identity in aggregates", () => {
+    const metadata = parseAnswerKeyImportMetadata(
+      {
+        provenance: "clinician_adjudicated",
+        importBatchId: "review-batch-1",
+        adjudicatedBy: "Clinical review team",
+        adjudicatedAt: "2026-08-20T12:00:00Z",
+      },
+      "generated-batch",
+      "2026-08-20T13:00:00Z",
+    );
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const preparation = prepareAnswerKeyImportPayload(
+      { items: [{ report_id_or_filename: "report-001", answer_values: answerValues }] },
+      [makeReport("report-001")],
+      mode,
+      metadata,
+    );
+
+    expect(preparation.rows[0]).toMatchObject({
+      provenance: "clinician_adjudicated",
+      import_batch_id: "review-batch-1",
+      adjudicated_by: "Clinical review team",
+      adjudicated_at: "2026-08-20T12:00:00.000Z",
+    });
+    expect(JSON.stringify(preparation.validation)).not.toContain("Clinical review team");
   });
 
   it("plans inserts without overwriting another mode's rows", () => {

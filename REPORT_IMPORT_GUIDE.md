@@ -177,6 +177,7 @@ Run these migrations in order before writing twelve-field answer keys:
 
 1. `supabase/versioned-answer-keys.sql`
 2. `supabase/future-mode-answer-keys.sql`
+3. `supabase/answer-key-provenance.sql`
 
 They add:
 
@@ -185,6 +186,7 @@ They add:
 - a unique constraint on `(report_id, mode_id, schema_version)`
 - nullable legacy columns for future-mode rows, with a check that keeps all six
   legacy values required for `knee_mri_6_basic` version `1`
+- provenance, import-batch, and optional clinician-adjudication metadata
 
 The migrations preserve existing six-field rows. Twelve-field rows use
 `answer_values` and do not write the legacy six-field columns. The preparation
@@ -215,6 +217,9 @@ POST /api/admin/challenge-schema/prepare-answer-keys
 {
   "modeId": "knee_mri_12_basic",
   "schemaVersion": 1,
+  "provenance": "staging_demo",
+  "importBatchId": "knee-mri-12-rehearsal-1",
+  "notes": "Staging pipeline rehearsal; not clinically adjudicated.",
   "write": false,
   "items": [
     {
@@ -252,6 +257,22 @@ answer values or report text.
 `knee_mri_12_basic` remains dormant. Importing its answer keys does not add it
 to the activation allowlist or change the active challenge mode.
 
+### Provenance and Clinical Readiness
+
+Every prepared answer-key batch is classified as `legacy`, `staging_demo`,
+`clinician_adjudicated`, `imported`, or `unknown`. Existing six-field rows are
+backfilled as `legacy`. The twelve-field preparation endpoint defaults to
+`staging_demo`, generates an import batch ID when none is supplied, and stores
+a clear non-adjudicated note. A clinician-reviewed import must explicitly use
+`clinician_adjudicated` and include `adjudicatedBy`; `adjudicatedAt` defaults to
+the server timestamp when omitted.
+
+The admin readiness dashboard shows aggregate provenance counts only. Complete,
+structurally valid staging data is labeled as staging/demo and does not make
+`knee_mri_12_basic` clinically ready. Clinical readiness requires complete
+version-matched coverage with `clinician_adjudicated` provenance. Adjudicator
+identity, answer values, report text, and batch notes remain admin/server-only.
+
 ### Rehearsal Sequence
 
 Use an authenticated admin session for every endpoint call. The browser console
@@ -259,8 +280,9 @@ on `/admin` is suitable for a local rehearsal because its requests include the
 existing admin session. Do not paste answer keys into participant pages,
 screenshares, logs, or documentation.
 
-1. Apply `supabase/versioned-answer-keys.sql`, then
-   `supabase/future-mode-answer-keys.sql`.
+1. Apply `supabase/versioned-answer-keys.sql`,
+   `supabase/future-mode-answer-keys.sql`, and then
+   `supabase/answer-key-provenance.sql`.
 2. Prepare a complete reviewed payload from the template. Keep `write` and
    `overwrite` set to `false`.
    For a staging-only pipeline rehearsal, you may instead use the complete demo
@@ -374,6 +396,38 @@ select count(*) as knee_mri_6_basic_answer_key_rows
 from answer_keys
 where mode_id = 'knee_mri_6_basic'
   and schema_version = 1;
+```
+
+Review aggregate provenance without selecting answer values or adjudicator
+details:
+
+```sql
+select mode_id, schema_version, provenance, count(*)
+from answer_keys
+group by mode_id, schema_version, provenance
+order by mode_id, schema_version, provenance;
+```
+
+Confirm twelve-field clinical coverage by report split:
+
+```sql
+select
+  r.split,
+  count(*) as report_count,
+  count(ak.id) filter (
+    where ak.provenance = 'clinician_adjudicated'
+  ) as clinician_adjudicated_count
+from reports r
+join challenges c
+  on c.id = r.challenge_id
+ and c.is_active = true
+left join answer_keys ak
+  on ak.report_id = r.id
+ and ak.mode_id = 'knee_mri_12_basic'
+ and ak.schema_version = 1
+where r.split in ('public', 'private')
+group by r.split
+order by r.split;
 ```
 
 ## SQL Verification

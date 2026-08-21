@@ -235,7 +235,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
     const answerKeysResult = await supabase
       .from("answer_keys")
       .select(
-        "report_id, mode_id, schema_version, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+        "report_id, mode_id, schema_version, provenance, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
       )
       .in("report_id", readinessReports.map((report) => report.id))
       .returns<AdminSchemaAnswerKeyRow[]>();

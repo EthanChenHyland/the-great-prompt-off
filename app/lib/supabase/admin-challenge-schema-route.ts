@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   createChallengeSchemaMetadata,
+  createEmptyProvenanceCounts,
   EXISTING_ANSWER_KEY_ERROR,
   executeAnswerKeyImportWrite,
   getActivatableChallengeMode,
@@ -9,6 +10,7 @@ import {
   type AdminSchemaAnswerKeyRow,
   type AdminSchemaReportRow,
   prepareAnswerKeyImportPayload,
+  parseAnswerKeyImportMetadata,
   validateTargetAnswerKeyCoverage,
   validateTargetAnswerKeys,
 } from "./admin-challenge-schema";
@@ -100,8 +102,20 @@ export async function prepareAdminAnswerKeyImport(
 
   const write = body?.write === true;
   const overwrite = body?.overwrite === true;
+  const importMetadata = parseAnswerKeyImportMetadata(
+    payload,
+    `knee-mri-12-${crypto.randomUUID()}`,
+    new Date().toISOString(),
+  );
   const inputs = await loadActiveChallengeReports(supabase, mode);
-  const preparation = prepareAnswerKeyImportPayload(payload, inputs.reports, mode);
+  const preparation = prepareAnswerKeyImportPayload(
+    payload,
+    inputs.reports,
+    mode,
+    importMetadata,
+  );
+  const provenanceCounts = createEmptyProvenanceCounts();
+  provenanceCounts[importMetadata.provenance] = preparation.validation.validItemCount;
   const baseResult = {
     ok: preparation.validation.ok,
     modeId: mode.id,
@@ -113,17 +127,18 @@ export async function prepareAdminAnswerKeyImport(
     skippedCount: write && !preparation.validation.ok
       ? preparation.validation.itemCount
       : 0,
+    provenanceCounts,
     issues: preparation.validation.issues,
   };
 
   if (!write || !preparation.validation.ok) return baseResult;
 
   const client = supabase as SupabaseLike;
-  const existingQuery = client.from("answer_keys").select("report_id") as unknown as {
+  const existingQuery = client.from("answer_keys").select("report_id, provenance") as unknown as {
     in: (column: string, values: string[]) => {
       eq: (column: string, value: string | number) => {
         eq: (column: string, value: string | number) => Promise<{
-          data: { report_id: string }[] | null;
+          data: { report_id: string; provenance: string | null }[] | null;
           error: { message: string; code?: string } | null;
         }>;
       };
@@ -143,6 +158,17 @@ export async function prepareAdminAnswerKeyImport(
   const existingReportIds = new Set(
     (existingResult.data || []).map((row) => row.report_id),
   );
+  if (
+    overwrite &&
+    importMetadata.provenance !== "clinician_adjudicated" &&
+    (existingResult.data || []).some(
+      (row) => row.provenance === "clinician_adjudicated",
+    )
+  ) {
+    throw new Error(
+      "Clinician-adjudicated answer keys cannot be replaced by non-adjudicated imports.",
+    );
+  }
   const answerKeysTable = client.from("answer_keys") as unknown as {
     insert: (rows: typeof preparation.rows) => Promise<{
       error: { message: string; code?: string } | null;
@@ -238,7 +264,7 @@ async function loadChallengeSchemaInputsForMode(
   const reports = await loadActiveChallengeReports(supabase, mode);
   const client = supabase as SupabaseLike;
   const keysQuery = client.from("answer_keys").select(
-    "report_id, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+    "report_id, provenance, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
   ) as unknown as {
     in: (column: string, values: string[]) => {
       eq: (column: string, value: string | number) => {

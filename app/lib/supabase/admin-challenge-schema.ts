@@ -23,6 +23,24 @@ export const ANSWER_KEY_VALUE_ERROR =
   "An answer key contains a value that is not allowed for the selected schema.";
 export const EXISTING_ANSWER_KEY_ERROR =
   "One or more answer keys already exist for this mode and schema version. Enable overwrite to replace them.";
+export const answerKeyProvenanceValues = [
+  "legacy",
+  "staging_demo",
+  "clinician_adjudicated",
+  "imported",
+  "unknown",
+] as const;
+
+export type AnswerKeyProvenance = (typeof answerKeyProvenanceValues)[number];
+export type AnswerKeyProvenanceCounts = Record<AnswerKeyProvenance, number>;
+
+export type AnswerKeyImportMetadata = {
+  provenance: AnswerKeyProvenance;
+  import_batch_id: string;
+  adjudicated_by: string | null;
+  adjudicated_at: string | null;
+  notes: string | null;
+};
 
 export type AdminChallengeSchemaMetadata = {
   modeId: string;
@@ -43,6 +61,7 @@ export type AdminSchemaAnswerKeyRow = {
   report_id: string;
   mode_id?: string | null;
   schema_version?: number | null;
+  provenance?: string | null;
   answer_values: unknown;
   acl_tear: unknown;
   mcl_injury: unknown;
@@ -82,11 +101,15 @@ export type AdminModeReadiness = {
   answerKeyCoverageCount: number;
   missingAnswerKeyCount: number;
   validationPasses: boolean;
+  clinicallyReady: boolean;
+  provenanceCounts: AnswerKeyProvenanceCounts;
   statusMessage:
     | "Active mode"
     | "Ready for activation"
     | "Missing answer keys"
     | "Validation failed"
+    | "Structurally valid / staging data only"
+    | "Structurally valid / clinician review incomplete"
     | "Dormant / not allowlisted";
   issues: ChallengeSchemaValidationIssue[];
   provenanceNotice: string | null;
@@ -120,6 +143,11 @@ export type AnswerKeyImportWriteRow = {
   mode_id: string;
   schema_version: number;
   answer_values: Record<string, string>;
+  provenance: AnswerKeyProvenance;
+  import_batch_id: string;
+  adjudicated_by: string | null;
+  adjudicated_at: string | null;
+  notes: string | null;
 };
 
 export type AnswerKeyImportPreparation = {
@@ -166,6 +194,106 @@ export function getChallengeModeForValidation(
   }
 
   return mode;
+}
+
+export function createEmptyProvenanceCounts(): AnswerKeyProvenanceCounts {
+  return {
+    legacy: 0,
+    staging_demo: 0,
+    clinician_adjudicated: 0,
+    imported: 0,
+    unknown: 0,
+  };
+}
+
+export function isAnswerKeyProvenance(
+  value: unknown,
+): value is AnswerKeyProvenance {
+  return typeof value === "string" &&
+    answerKeyProvenanceValues.includes(value as AnswerKeyProvenance);
+}
+
+export function parseAnswerKeyImportMetadata(
+  payload: unknown,
+  generatedBatchId: string,
+  currentTimestamp: string,
+): AnswerKeyImportMetadata {
+  const body = typeof payload === "object" && payload !== null
+    ? payload as Record<string, unknown>
+    : {};
+  const provenanceValue = body.provenance ?? "staging_demo";
+  if (!isAnswerKeyProvenance(provenanceValue) || provenanceValue === "legacy") {
+    throw new Error(
+      provenanceValue === "legacy"
+        ? "Legacy provenance is reserved for existing six-field answer keys."
+        : "Answer-key provenance is not supported.",
+    );
+  }
+
+  const suppliedBatchId = body.importBatchId ?? body.import_batch_id;
+  if (suppliedBatchId !== undefined && (
+    typeof suppliedBatchId !== "string" ||
+    suppliedBatchId.trim().length === 0 ||
+    suppliedBatchId.trim().length > 120
+  )) {
+    throw new Error("Import batch ID must be 1 to 120 characters.");
+  }
+  const importBatchId = typeof suppliedBatchId === "string"
+    ? suppliedBatchId.trim()
+    : generatedBatchId;
+
+  const suppliedNotes = body.notes;
+  if (suppliedNotes !== undefined && (
+    typeof suppliedNotes !== "string" || suppliedNotes.length > 1000
+  )) {
+    throw new Error("Answer-key notes must be 1,000 characters or fewer.");
+  }
+  const notes = typeof suppliedNotes === "string" && suppliedNotes.trim()
+    ? suppliedNotes.trim()
+    : null;
+
+  const suppliedAdjudicator = body.adjudicatedBy ?? body.adjudicated_by;
+  const suppliedAdjudicatedAt = body.adjudicatedAt ?? body.adjudicated_at;
+  if (provenanceValue === "clinician_adjudicated") {
+    if (
+      typeof suppliedAdjudicator !== "string" ||
+      suppliedAdjudicator.trim().length === 0 ||
+      suppliedAdjudicator.trim().length > 120
+    ) {
+      throw new Error(
+        "Clinician-adjudicated imports require an adjudicator name of 120 characters or fewer.",
+      );
+    }
+    const adjudicatedAt = suppliedAdjudicatedAt ?? currentTimestamp;
+    if (typeof adjudicatedAt !== "string" || Number.isNaN(Date.parse(adjudicatedAt))) {
+      throw new Error("Clinician-adjudicated imports require a valid adjudication timestamp.");
+    }
+    return {
+      provenance: provenanceValue,
+      import_batch_id: importBatchId,
+      adjudicated_by: suppliedAdjudicator.trim(),
+      adjudicated_at: new Date(adjudicatedAt).toISOString(),
+      notes,
+    };
+  }
+
+  if (suppliedAdjudicator !== undefined || suppliedAdjudicatedAt !== undefined) {
+    throw new Error(
+      "Adjudicator metadata is only allowed for clinician-adjudicated imports.",
+    );
+  }
+
+  return {
+    provenance: provenanceValue,
+    import_batch_id: importBatchId,
+    adjudicated_by: null,
+    adjudicated_at: null,
+    notes: provenanceValue === "staging_demo"
+      ? ["Staging/demo import; not clinically adjudicated.", notes]
+          .filter(Boolean)
+          .join(" ")
+      : notes,
+  };
 }
 
 export function getActivatableChallengeMode(
@@ -333,12 +461,28 @@ export function createChallengeModesReadiness(
       0,
       reports.length - coveredReportIds.size,
     );
+    const provenanceCounts = createEmptyProvenanceCounts();
+    for (const answerKey of matchingAnswerKeys) {
+      const provenance = isAnswerKeyProvenance(answerKey.provenance)
+        ? answerKey.provenance
+        : "unknown";
+      provenanceCounts[provenance] += 1;
+    }
+    const requiresClinicalAdjudication = mode.id === "knee_mri_12_basic";
+    const clinicallyReady = validationPasses && (
+      !requiresClinicalAdjudication ||
+      provenanceCounts.clinician_adjudicated === reports.length
+    );
     let statusMessage: AdminModeReadiness["statusMessage"];
 
     if (missingAnswerKeyCount > 0) {
       statusMessage = "Missing answer keys";
     } else if (!validationPasses) {
       statusMessage = "Validation failed";
+    } else if (requiresClinicalAdjudication && !clinicallyReady) {
+      statusMessage = provenanceCounts.staging_demo === reports.length
+        ? "Structurally valid / staging data only"
+        : "Structurally valid / clinician review incomplete";
     } else if (isActive) {
       statusMessage = "Active mode";
     } else if (!isAllowlisted) {
@@ -358,12 +502,13 @@ export function createChallengeModesReadiness(
       answerKeyCoverageCount: coveredReportIds.size,
       missingAnswerKeyCount,
       validationPasses,
+      clinicallyReady,
+      provenanceCounts,
       statusMessage,
       issues: validation.issues,
-      provenanceNotice:
-        mode.id === "knee_mri_12_basic"
-          ? "A staging/demo payload exists for pipeline rehearsal, but it is not clinically adjudicated. Verify stored key provenance before any future activation."
-          : null,
+      provenanceNotice: provenanceCounts.staging_demo > 0
+        ? `${provenanceCounts.staging_demo} answer key${provenanceCounts.staging_demo === 1 ? " is" : "s are"} staging/demo only and not clinically adjudicated.`
+        : null,
     };
   });
 }
@@ -380,6 +525,13 @@ export function prepareAnswerKeyImportPayload(
   payload: unknown,
   reports: readonly AdminSchemaReportRow[],
   mode: ChallengeModeDefinition,
+  metadata: AnswerKeyImportMetadata = {
+    provenance: "unknown",
+    import_batch_id: "unbatched",
+    adjudicated_by: null,
+    adjudicated_at: null,
+    notes: null,
+  },
 ): AnswerKeyImportPreparation {
   const items =
     typeof payload === "object" && payload !== null && "items" in payload &&
@@ -425,6 +577,7 @@ export function prepareAnswerKeyImportPayload(
           mode_id: mode.id,
           schema_version: mode.version,
           answer_values: answerValues,
+          ...metadata,
         });
         validItemCount += 1;
       } catch (error) {

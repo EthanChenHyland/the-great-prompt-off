@@ -26,7 +26,11 @@ export async function POST(request: Request) {
       message.includes("already exist") ||
       message.includes("import") ||
       message.includes("write option") ||
-      message.includes("overwrite option");
+      message.includes("overwrite option") ||
+      message.includes("provenance") ||
+      message.includes("adjudicat") ||
+      message.includes("batch ID") ||
+      message.includes("notes");
     const isSafeStorageError = message === "Could not write twelve-field answer keys.";
     const safeMessage = isSafeInputError || isSafeStorageError
       ? message

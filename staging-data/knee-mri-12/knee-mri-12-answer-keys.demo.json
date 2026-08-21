@@ -2,6 +2,9 @@
   "stagingNotice": "Synthetic staging/demo labels for import-pipeline rehearsal only. These values are deterministic placeholders and are not clinically adjudicated truth.",
   "modeId": "knee_mri_12_basic",
   "schemaVersion": 1,
+  "provenance": "staging_demo",
+  "importBatchId": "knee-mri-12-staging-demo-v1",
+  "notes": "Synthetic staging/demo import-pipeline rehearsal data; not clinically adjudicated.",
   "write": false,
   "overwrite": false,
   "items": [

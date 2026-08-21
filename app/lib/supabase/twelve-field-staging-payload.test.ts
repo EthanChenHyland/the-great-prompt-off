@@ -5,6 +5,7 @@ import payload from "../../../staging-data/knee-mri-12/knee-mri-12-answer-keys.d
 import { isChallengeModeActivationAllowed } from "../challenge-modes";
 import {
   getChallengeModeForValidation,
+  parseAnswerKeyImportMetadata,
   prepareAnswerKeyImportPayload,
 } from "./admin-challenge-schema";
 
@@ -16,11 +17,23 @@ describe("knee MRI twelve-field staging payload", () => {
       split: index < 5 ? "public" as const : "private" as const,
       filename: item.report_id_or_filename,
     }));
-    const preparation = prepareAnswerKeyImportPayload(payload, reports, mode);
+    const metadata = parseAnswerKeyImportMetadata(
+      payload,
+      "generated-staging-batch",
+      "2026-08-20T12:00:00Z",
+    );
+    const preparation = prepareAnswerKeyImportPayload(payload, reports, mode, metadata);
 
     expect(payload.stagingNotice).toContain("not clinically adjudicated truth");
     expect(payload.write).toBe(false);
     expect(payload.overwrite).toBe(false);
+    expect(metadata).toMatchObject({
+      provenance: "staging_demo",
+      import_batch_id: "knee-mri-12-staging-demo-v1",
+      adjudicated_by: null,
+      adjudicated_at: null,
+    });
+    expect(metadata.notes).toContain("not clinically adjudicated");
     expect(new Set(payload.items.map((item) => item.report_id_or_filename)).size).toBe(
       payload.items.length,
     );

@@ -107,6 +107,7 @@ export function buildVersionedAnswerKeyStoragePayload(
   return {
     mode_id: mode.id,
     schema_version: mode.version,
+    provenance: mode.id === defaultChallengeMode.id ? "legacy" : "unknown",
     ...buildAnswerKeyStoragePayload(answerValues, mode),
   };
 }

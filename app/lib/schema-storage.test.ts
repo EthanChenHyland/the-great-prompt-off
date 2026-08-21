@@ -53,6 +53,7 @@ describe("JSONB schema storage compatibility helpers", () => {
     expect(buildVersionedAnswerKeyStoragePayload(answerValues)).toMatchObject({
       mode_id: "knee_mri_6_basic",
       schema_version: 1,
+      provenance: "legacy",
       answer_values: answerValues,
       ...answerValues,
     });

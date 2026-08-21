@@ -372,8 +372,8 @@ What it adds:
 Existing answer-key rows are backfilled as `knee_mri_6_basic`, version `1`.
 The legacy columns (`acl_tear`, `mcl_injury`, `meniscus_tear`, `fracture`,
 `osteoarthritis`, and `effusion`) remain in place. This migration does not
-activate `knee_mri_12_basic` and the application does not yet write dormant-mode
-answer keys.
+activate `knee_mri_12_basic`; dormant-mode answer-key imports remain admin-only
+and do not change the activation allowlist.
 
 The original PostgreSQL-generated single-report constraint,
 `answer_keys_report_id_key`, is dropped only if that exact constraint name
@@ -469,6 +469,78 @@ group by mode_id, schema_version
 order by mode_id, schema_version;
 ```
 
+### `supabase/answer-key-provenance.sql`
+
+What it adds:
+
+- `answer_keys.provenance`
+- `answer_keys.import_batch_id`
+- `answer_keys.adjudicated_by`
+- `answer_keys.adjudicated_at`
+- `answer_keys.notes` when an older installation does not already have it
+- Allowed-provenance and clinician-adjudication checks
+- Indexes for mode/version/provenance and import-batch lookup
+
+Why it exists:
+
+Structurally valid staging labels must not be mistaken for clinician-reviewed
+truth. The migration backfills existing `knee_mri_6_basic` version `1` rows as
+`legacy`; other rows without metadata become `unknown`. New staging imports are
+stored as `staging_demo`, while reviewed batches may be marked
+`clinician_adjudicated` with an admin-only adjudicator and timestamp.
+
+The admin readiness dashboard uses aggregate provenance counts. A complete
+`knee_mri_12_basic` staging batch remains non-ready for clinical activation;
+complete version-matched clinician-adjudicated coverage is required. These
+fields and answer values are never participant-facing.
+
+Apply this after `supabase/versioned-answer-keys.sql` and
+`supabase/future-mode-answer-keys.sql`.
+
+Verify the columns and types:
+
+```sql
+select column_name, data_type, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'answer_keys'
+  and column_name in (
+    'provenance',
+    'import_batch_id',
+    'adjudicated_by',
+    'adjudicated_at',
+    'notes'
+  )
+order by column_name;
+```
+
+Verify the six-field backfill and aggregate provenance:
+
+```sql
+select mode_id, schema_version, provenance, count(*)
+from answer_keys
+group by mode_id, schema_version, provenance
+order by mode_id, schema_version, provenance;
+```
+
+```sql
+select count(*) as six_field_rows_without_legacy_provenance
+from answer_keys
+where mode_id = 'knee_mri_6_basic'
+  and schema_version = 1
+  and provenance <> 'legacy';
+```
+
+Verify clinician-adjudicated rows have review metadata without displaying the
+identity itself:
+
+```sql
+select count(*) as incomplete_clinician_metadata
+from answer_keys
+where provenance = 'clinician_adjudicated'
+  and (adjudicated_by is null or adjudicated_at is null);
+```
+
 ## Event-Control Columns on `challenges`
 
 ### `event_phase`
@@ -552,6 +624,7 @@ These RPC functions are safer than app-side deletes because the related deletes 
   - `supabase/jsonb-schema-storage.sql`
   - `supabase/versioned-answer-keys.sql`
   - `supabase/future-mode-answer-keys.sql` before writing dormant-mode answer keys
+  - `supabase/answer-key-provenance.sql` before using provenance-aware imports/readiness
 - Run `npm run seed:supabase` with production Supabase environment variables.
 - Verify the active challenge has `evaluation_model`, `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.
 - Verify reset RPC functions exist and were updated from `supabase/admin-atomic-clears.sql`.

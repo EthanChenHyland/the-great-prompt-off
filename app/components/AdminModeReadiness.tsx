@@ -15,6 +15,8 @@ function statusClasses(status: AdminModeReadinessRow["statusMessage"]) {
     case "Ready for activation":
       return "bg-emerald-50 text-emerald-800";
     case "Missing answer keys":
+    case "Structurally valid / staging data only":
+    case "Structurally valid / clinician review incomplete":
       return "bg-amber-50 text-amber-800";
     case "Validation failed":
       return "bg-rose-50 text-rose-800";
@@ -58,7 +60,7 @@ export function AdminModeReadiness({
       </div>
 
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1220px] border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
             <tr>
               <th className="px-5 py-3">Mode</th>
@@ -66,6 +68,7 @@ export function AdminModeReadiness({
               <th className="px-4 py-3">Schema</th>
               <th className="px-4 py-3">Reports</th>
               <th className="px-4 py-3">Answer keys</th>
+              <th className="px-4 py-3">Provenance</th>
               <th className="px-4 py-3">Validation</th>
               <th className="px-5 py-3">Readiness</th>
             </tr>
@@ -105,6 +108,13 @@ export function AdminModeReadiness({
                       {mode.missingAnswerKeyCount} missing
                     </p>
                   </td>
+                  <td className="px-4 py-4 text-xs leading-5 text-slate-600">
+                    <p>{mode.provenanceCounts.clinician_adjudicated} clinician</p>
+                    <p>{mode.provenanceCounts.staging_demo} staging/demo</p>
+                    <p>{mode.provenanceCounts.legacy} legacy</p>
+                    <p>{mode.provenanceCounts.imported} imported</p>
+                    <p>{mode.provenanceCounts.unknown} unknown</p>
+                  </td>
                   <td className="px-4 py-4">
                     <span
                       className={`font-semibold ${
@@ -113,6 +123,9 @@ export function AdminModeReadiness({
                     >
                       {mode.validationPasses ? "Pass" : "Fail"}
                     </span>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Clinical readiness: {mode.clinicallyReady ? "yes" : "no"}
+                    </p>
                     {mode.issues.length > 0 ? (
                       <p className="mt-1 max-w-56 text-xs leading-5 text-slate-500">
                         {mode.issues.map((issue) => `${issue.count}: ${issue.message}`).join(" ")}
