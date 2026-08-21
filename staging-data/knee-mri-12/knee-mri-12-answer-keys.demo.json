@@ -1,0 +1,859 @@
+{
+  "stagingNotice": "Synthetic staging/demo labels for import-pipeline rehearsal only. These values are deterministic placeholders and are not clinically adjudicated truth.",
+  "modeId": "knee_mri_12_basic",
+  "schemaVersion": 1,
+  "write": false,
+  "overwrite": false,
+  "items": [
+    {
+      "report_id_or_filename": "synthetic_report_001.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_002.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_003.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_004.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_005.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_006.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_007.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_008.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_009.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_010.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_011.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_012.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_013.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_014.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_015.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_016.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_017.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_018.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_019.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_020.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_021.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_022.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_023.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_024.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_025.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_026.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_027.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_028.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_029.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_030.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_031.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_032.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_033.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_034.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_035.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_036.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_037.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_038.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_039.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_040.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_041.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_042.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_043.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_044.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_045.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_046.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_047.txt",
+      "answer_values": {
+        "acl_tear": "uncertain",
+        "mcl_tear": "not_reported",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "uncertain",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "not_reported",
+        "synovitis": "present",
+        "bakers_cyst": "absent"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_048.txt",
+      "answer_values": {
+        "acl_tear": "not_reported",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "absent",
+        "lateral_meniscus_tear": "uncertain",
+        "fracture": "not_reported",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "absent",
+        "lateral_osteoarthritis": "uncertain",
+        "patellofemoral_osteoarthritis": "not_reported",
+        "effusion": "present",
+        "synovitis": "absent",
+        "bakers_cyst": "uncertain"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_049.txt",
+      "answer_values": {
+        "acl_tear": "present",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "present",
+        "bone_contusion": "absent",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "present",
+        "effusion": "absent",
+        "synovitis": "uncertain",
+        "bakers_cyst": "not_reported"
+      }
+    },
+    {
+      "report_id_or_filename": "synthetic_report_050.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "uncertain",
+        "medial_meniscus_tear": "not_reported",
+        "lateral_meniscus_tear": "present",
+        "fracture": "absent",
+        "bone_contusion": "uncertain",
+        "medial_osteoarthritis": "not_reported",
+        "lateral_osteoarthritis": "present",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "uncertain",
+        "synovitis": "not_reported",
+        "bakers_cyst": "present"
+      }
+    }
+  ]
+}

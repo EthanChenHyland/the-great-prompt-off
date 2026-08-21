@@ -198,6 +198,13 @@ illustrative and are not adjudicated clinical truth. Keep the working import
 outside `public/`, replace the placeholder, and add one reviewed item for every
 public and private report before using the endpoint.
 
+For a disposable staging rehearsal, the repository also includes
+`staging-data/knee-mri-12/knee-mri-12-answer-keys.demo.json`. It covers the 50
+current seed filenames with deterministic placeholder labels. Those labels are
+synthetic pipeline-test data, not clinically adjudicated truth, and must never
+be used for real scoring or promoted to production. The production seed script
+does not read `staging-data/`.
+
 Validate without writing:
 
 ```text
@@ -256,6 +263,9 @@ screenshares, logs, or documentation.
    `supabase/future-mode-answer-keys.sql`.
 2. Prepare a complete reviewed payload from the template. Keep `write` and
    `overwrite` set to `false`.
+   For a staging-only pipeline rehearsal, you may instead use the complete demo
+   payload under `staging-data/knee-mri-12/`; never use that payload against the
+   production Supabase project.
 3. Run validate-only against the preparation endpoint:
 
 ```js
