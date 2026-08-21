@@ -41,6 +41,8 @@ export type AdminSchemaReportRow = ReportRow;
 
 export type AdminSchemaAnswerKeyRow = {
   report_id: string;
+  mode_id?: string | null;
+  schema_version?: number | null;
   answer_values: unknown;
   acl_tear: unknown;
   mcl_injury: unknown;
@@ -67,6 +69,27 @@ export type ChallengeSchemaValidationResult = {
   schemaVersion: number;
   reportCounts: { public: number; private: number };
   issues: ChallengeSchemaValidationIssue[];
+};
+
+export type AdminModeReadiness = {
+  modeId: string;
+  title: string;
+  schemaVersion: number;
+  fieldCount: number;
+  activationStatus: "active" | "allowlisted" | "dormant";
+  publicReportCount: number;
+  privateReportCount: number;
+  answerKeyCoverageCount: number;
+  missingAnswerKeyCount: number;
+  validationPasses: boolean;
+  statusMessage:
+    | "Active mode"
+    | "Ready for activation"
+    | "Missing answer keys"
+    | "Validation failed"
+    | "Dormant / not allowlisted";
+  issues: ChallengeSchemaValidationIssue[];
+  provenanceNotice: string | null;
 };
 
 export type AnswerKeyImportIssue = {
@@ -273,6 +296,76 @@ export function validateTargetAnswerKeyCoverage(
     reportCounts,
     issues,
   };
+}
+
+export function createChallengeModesReadiness(
+  reports: readonly AdminSchemaReportRow[],
+  answerKeys: readonly AdminSchemaAnswerKeyRow[],
+  activeModeId: string,
+  activeSchemaVersion: number,
+): AdminModeReadiness[] {
+  const reportIds = new Set(reports.map((report) => report.id));
+
+  return Object.values(challengeModes).map((mode) => {
+    const matchingAnswerKeys = answerKeys.filter(
+      (answerKey) =>
+        reportIds.has(answerKey.report_id) &&
+        answerKey.mode_id === mode.id &&
+        answerKey.schema_version === mode.version,
+    );
+    const validation = validateTargetAnswerKeyCoverage(
+      reports,
+      matchingAnswerKeys,
+      mode,
+    );
+    const validationPasses = reports.length > 0 && validation.ok;
+    const coveredReportIds = new Set(
+      matchingAnswerKeys.map((answerKey) => answerKey.report_id),
+    );
+    const isActive = mode.id === activeModeId && mode.version === activeSchemaVersion;
+    const isAllowlisted = isChallengeModeActivationAllowed(mode.id);
+    const activationStatus = isActive
+      ? "active"
+      : isAllowlisted
+        ? "allowlisted"
+        : "dormant";
+    const missingAnswerKeyCount = Math.max(
+      0,
+      reports.length - coveredReportIds.size,
+    );
+    let statusMessage: AdminModeReadiness["statusMessage"];
+
+    if (missingAnswerKeyCount > 0) {
+      statusMessage = "Missing answer keys";
+    } else if (!validationPasses) {
+      statusMessage = "Validation failed";
+    } else if (isActive) {
+      statusMessage = "Active mode";
+    } else if (!isAllowlisted) {
+      statusMessage = "Dormant / not allowlisted";
+    } else {
+      statusMessage = "Ready for activation";
+    }
+
+    return {
+      modeId: mode.id,
+      title: mode.title,
+      schemaVersion: mode.version,
+      fieldCount: mode.fields.length,
+      activationStatus,
+      publicReportCount: validation.reportCounts.public,
+      privateReportCount: validation.reportCounts.private,
+      answerKeyCoverageCount: coveredReportIds.size,
+      missingAnswerKeyCount,
+      validationPasses,
+      statusMessage,
+      issues: validation.issues,
+      provenanceNotice:
+        mode.id === "knee_mri_12_basic"
+          ? "A staging/demo payload exists for pipeline rehearsal, but it is not clinically adjudicated. Verify stored key provenance before any future activation."
+          : null,
+    };
+  });
 }
 
 export function validateAnswerKeyImportPayload(

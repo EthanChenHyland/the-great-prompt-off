@@ -18,6 +18,11 @@ import {
 } from "@/app/lib/challenge-modes";
 import { resolveChallengeMode } from "@/app/lib/schema-storage";
 import { createSupabaseAdminClient } from "./admin";
+import {
+  createChallengeModesReadiness,
+  type AdminModeReadiness,
+  type AdminSchemaAnswerKeyRow,
+} from "./admin-challenge-schema";
 
 export type AdminParticipantRow = {
   participantCode: string;
@@ -73,6 +78,7 @@ export type AdminDashboardData = {
         fieldCount: number;
       }[];
     };
+    modeReadiness: AdminModeReadiness[];
   };
   health: {
     supabaseConnected: boolean;
@@ -122,6 +128,8 @@ type PromptRunRow = {
 };
 
 type ReportCountRow = {
+  id: string;
+  challenge_id: string;
   split: "sample" | "public" | "private";
 };
 
@@ -182,7 +190,10 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       .select("id, participant_id, model, completed_at, created_at")
       .order("created_at", { ascending: false })
       .returns<PromptRunRow[]>(),
-    supabase.from("reports").select("split").returns<ReportCountRow[]>(),
+    supabase
+      .from("reports")
+      .select("id, challenge_id, split")
+      .returns<ReportCountRow[]>(),
   ]);
 
   if (challengeResult.error) {
@@ -209,6 +220,32 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
 
   if (reportsResult.error) {
     throw new Error(`Failed to load report counts: ${reportsResult.error.message}`);
+  }
+
+  const activeReports = reportsResult.data.filter(
+    (report) => report.challenge_id === challengeResult.data.id,
+  );
+  const readinessReports = activeReports.filter(
+    (report): report is ReportCountRow & { split: "public" | "private" } =>
+      report.split === "public" || report.split === "private",
+  );
+  let readinessAnswerKeys: AdminSchemaAnswerKeyRow[] = [];
+
+  if (readinessReports.length > 0) {
+    const answerKeysResult = await supabase
+      .from("answer_keys")
+      .select(
+        "report_id, mode_id, schema_version, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+      )
+      .in("report_id", readinessReports.map((report) => report.id))
+      .returns<AdminSchemaAnswerKeyRow[]>();
+
+    if (answerKeysResult.error) {
+      throw new Error(
+        `Failed to load answer-key readiness: ${answerKeysResult.error.message}`,
+      );
+    }
+    readinessAnswerKeys = answerKeysResult.data;
   }
 
   const runsById = new Map(runsResult.data.map((run) => [run.id, run]));
@@ -318,7 +355,13 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       };
     }),
   };
-  const reportCounts = reportsResult.data.reduce(
+  const modeReadiness = createChallengeModesReadiness(
+    readinessReports,
+    readinessAnswerKeys,
+    challengeSchema.modeId,
+    challengeSchema.schemaVersion,
+  );
+  const reportCounts = activeReports.reduce(
     (counts, report) => ({
       ...counts,
       [report.split]: (counts[report.split] || 0) + 1,
@@ -372,6 +415,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
       eventTimerEndsAt: challengeResult.data.event_timer_ends_at,
       eventTimerLabel: challengeResult.data.event_timer_label,
       challengeSchema,
+      modeReadiness,
     },
     health: {
       supabaseConnected: true,

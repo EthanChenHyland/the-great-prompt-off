@@ -11,6 +11,7 @@ import {
   CHALLENGE_MODE_ERROR,
   MISSING_SCHEMA_VALUES_ERROR,
   createChallengeSchemaMetadata,
+  createChallengeModesReadiness,
   createAnswerKeyImportWritePlan,
   executeAnswerKeyImportWrite,
   getChallengeModeForValidation,
@@ -132,6 +133,125 @@ describe("admin challenge schema validation", () => {
 
     expect(result.ok).toBe(false);
     expect(result.issues[0].type).toBe("missing_schema_values");
+  });
+
+  it("reports active and dormant mode readiness with versioned coverage", () => {
+    const reports = [
+      { ...makeReport("public-report"), split: "public" as const },
+      { ...makeReport("private-report"), split: "private" as const },
+    ];
+    const knee12Mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const knee12Values = Object.fromEntries(
+      knee12Mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const answerKeys = [
+      {
+        ...makeAnswerKey("public-report"),
+        mode_id: "knee_mri_6_basic",
+        schema_version: 1,
+      },
+      {
+        ...makeAnswerKey("private-report"),
+        mode_id: "knee_mri_6_basic",
+        schema_version: 1,
+      },
+      {
+        ...makeAnswerKey("public-report"),
+        mode_id: "knee_mri_12_basic",
+        schema_version: 1,
+        answer_values: knee12Values,
+      },
+      {
+        ...makeAnswerKey("private-report"),
+        mode_id: "knee_mri_12_basic",
+        schema_version: 2,
+        answer_values: knee12Values,
+      },
+    ];
+
+    const readiness = createChallengeModesReadiness(
+      reports,
+      answerKeys,
+      "knee_mri_6_basic",
+      1,
+    );
+    const active = readiness.find((mode) => mode.modeId === "knee_mri_6_basic");
+    const knee12 = readiness.find((mode) => mode.modeId === "knee_mri_12_basic");
+    const shoulder = readiness.find((mode) => mode.modeId === "shoulder_mri_basic");
+
+    expect(readiness).toHaveLength(3);
+    expect(active).toMatchObject({
+      activationStatus: "active",
+      publicReportCount: 1,
+      privateReportCount: 1,
+      answerKeyCoverageCount: 2,
+      missingAnswerKeyCount: 0,
+      validationPasses: true,
+      statusMessage: "Active mode",
+    });
+    expect(knee12).toMatchObject({
+      activationStatus: "dormant",
+      answerKeyCoverageCount: 1,
+      missingAnswerKeyCount: 1,
+      validationPasses: false,
+      statusMessage: "Missing answer keys",
+    });
+    expect(knee12?.provenanceNotice).toContain("not clinically adjudicated");
+    expect(shoulder).toMatchObject({
+      activationStatus: "dormant",
+      answerKeyCoverageCount: 0,
+      missingAnswerKeyCount: 2,
+      validationPasses: false,
+    });
+  });
+
+  it("keeps validated dormant readiness aggregate-only and unselectable", () => {
+    const report = makeReport("report-12");
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const readiness = createChallengeModesReadiness(
+      [report],
+      [{
+        ...makeAnswerKey(report.id),
+        mode_id: mode.id,
+        schema_version: mode.version,
+        answer_values: answerValues,
+      }],
+      "knee_mri_6_basic",
+      1,
+    ).find((candidate) => candidate.modeId === mode.id);
+    const serialized = JSON.stringify(readiness);
+
+    expect(readiness).toMatchObject({
+      activationStatus: "dormant",
+      answerKeyCoverageCount: 1,
+      missingAnswerKeyCount: 0,
+      validationPasses: true,
+      statusMessage: "Dormant / not allowlisted",
+    });
+    expect(serialized).not.toContain("answer_values");
+    expect(serialized).not.toContain("report_text");
+    expect(() => getActivatableChallengeMode(mode.id, mode.version)).toThrow(
+      CHALLENGE_MODE_ERROR,
+    );
+  });
+
+  it("does not treat an empty report set as activation-ready", () => {
+    const readiness = createChallengeModesReadiness(
+      [],
+      [],
+      "knee_mri_6_basic",
+      1,
+    );
+
+    expect(readiness.every((mode) => !mode.validationPasses)).toBe(true);
+    expect(readiness.find((mode) => mode.modeId === "knee_mri_6_basic")).toMatchObject({
+      statusMessage: "Validation failed",
+      publicReportCount: 0,
+      privateReportCount: 0,
+    });
   });
 
   it("validates twelve-field import entries without returning their values", () => {

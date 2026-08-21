@@ -1,5 +1,6 @@
 import { AdminLoginForm } from "../components/AdminLoginForm";
 import { AdminAutoRefresh } from "../components/AdminAutoRefresh";
+import { AdminModeReadiness } from "../components/AdminModeReadiness";
 import {
   AdminEventAnnouncementControls,
   AdminEventControls,
@@ -224,6 +225,11 @@ export default async function AdminPage() {
       </section>
 
       <AdminChallengeSchemaPanel challengeSchema={data.overview.challengeSchema} />
+
+      <AdminModeReadiness
+        modes={data.overview.modeReadiness}
+        configurationLocked={data.overview.challengeSchema.configurationLocked}
+      />
 
       <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-700">
