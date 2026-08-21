@@ -12,7 +12,7 @@ import {
   prepareAnswerKeyImportPayload,
   parseAnswerKeyImportMetadata,
   validateTargetAnswerKeyCoverage,
-  validateTargetAnswerKeys,
+  validateTargetAnswerKeysForActivation,
 } from "./admin-challenge-schema";
 import type { ChallengeModeDefinition } from "@/app/lib/challenge-modes";
 
@@ -246,7 +246,7 @@ export async function callAdminChallengeSchemaUpdate(
   const mode = getActivatableChallengeMode(modeId, schemaVersion);
   const metadata = createChallengeSchemaMetadata(mode);
   const inputs = await loadChallengeSchemaInputsForMode(supabase, mode);
-  validateTargetAnswerKeys(inputs.reports, inputs.answerKeys, mode);
+  validateTargetAnswerKeysForActivation(inputs.reports, inputs.answerKeys, mode);
   const client = supabase as SupabaseLike;
   const rpcResult = await client.rpc("admin_update_challenge_schema", {
     target_mode_id: metadata.modeId,

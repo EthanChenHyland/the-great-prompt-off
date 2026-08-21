@@ -273,6 +273,13 @@ structurally valid staging data is labeled as staging/demo and does not make
 version-matched coverage with `clinician_adjudicated` provenance. Adjudicator
 identity, answer values, report text, and batch notes remain admin/server-only.
 
+The guarded challenge-schema activation route enforces the same rule on the
+server. The current `knee_mri_6_basic` mode accepts its backfilled `legacy`
+provenance (and clinician-adjudicated rows). Future modes require every
+version-matched answer key to be `clinician_adjudicated`; staging, imported,
+unknown, or missing provenance cannot activate a mode. This enforcement does
+not expand the activation allowlist.
+
 ### Rehearsal Sequence
 
 Use an authenticated admin session for every endpoint call. The browser console

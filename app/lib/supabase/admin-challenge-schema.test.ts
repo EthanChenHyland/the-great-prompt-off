@@ -9,7 +9,10 @@ import {
   ANSWER_KEY_FIELDS_ERROR,
   ANSWER_KEY_VALUE_ERROR,
   CHALLENGE_MODE_ERROR,
+  CLINICAL_READINESS_ERROR,
   MISSING_SCHEMA_VALUES_ERROR,
+  STAGING_PROVENANCE_ERROR,
+  UNSUPPORTED_PROVENANCE_ERROR,
   createChallengeSchemaMetadata,
   createChallengeModesReadiness,
   createAnswerKeyImportWritePlan,
@@ -19,8 +22,10 @@ import {
   parseAnswerKeyImportMetadata,
   prepareAnswerKeyImportPayload,
   validateAnswerKeyImportPayload,
+  validateAnswerKeyProvenanceForActivation,
   validateTargetAnswerKeyCoverage,
   validateTargetAnswerKeys,
+  validateTargetAnswerKeysForActivation,
 } from "./admin-challenge-schema";
 
 describe("admin challenge schema validation", () => {
@@ -78,6 +83,127 @@ describe("admin challenge schema validation", () => {
         fields: [],
       }),
     ).toThrow(MISSING_SCHEMA_VALUES_ERROR);
+  });
+
+  it("accepts legacy provenance for six-field activation compatibility", () => {
+    const mode = getActivatableChallengeMode("knee_mri_6_basic", 1);
+    const reports = [makeReport("report-1")];
+    const answerKeys = [{
+      ...makeAnswerKey("report-1"),
+      mode_id: mode.id,
+      schema_version: mode.version,
+      provenance: "legacy",
+    }];
+
+    expect(
+      validateAnswerKeyProvenanceForActivation(reports, answerKeys, mode),
+    ).toMatchObject({
+      ok: true,
+      compatibleCount: 1,
+      requiredCount: 1,
+    });
+    expect(() =>
+      validateTargetAnswerKeysForActivation(reports, answerKeys, mode)
+    ).not.toThrow();
+  });
+
+  it("rejects structurally valid staging-only future-mode keys", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const reports = [makeReport("report-12")];
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const answerKeys = [{
+      ...makeAnswerKey("report-12"),
+      mode_id: mode.id,
+      schema_version: mode.version,
+      provenance: "staging_demo",
+      answer_values: answerValues,
+    }];
+
+    expect(validateTargetAnswerKeyCoverage(reports, answerKeys, mode).ok).toBe(true);
+    expect(() =>
+      validateTargetAnswerKeysForActivation(reports, answerKeys, mode)
+    ).toThrow(STAGING_PROVENANCE_ERROR);
+  });
+
+  it.each([undefined, "unknown", "imported"])(
+    "rejects future-mode provenance %s",
+    (provenance) => {
+      const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+      const reports = [makeReport("report-12")];
+      const answerValues = Object.fromEntries(
+        mode.fields.map((field) => [field.key, "not_reported"]),
+      );
+      const answerKey = {
+        ...makeAnswerKey("report-12"),
+        mode_id: mode.id,
+        schema_version: mode.version,
+        provenance,
+        answer_values: answerValues,
+      };
+
+      expect(() =>
+        validateTargetAnswerKeysForActivation(reports, [answerKey], mode)
+      ).toThrow(UNSUPPORTED_PROVENANCE_ERROR);
+    },
+  );
+
+  it("accepts full clinician-adjudicated future coverage before allowlist checks", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const reports = [makeReport("report-12")];
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const answerKeys = [{
+      ...makeAnswerKey("report-12"),
+      mode_id: mode.id,
+      schema_version: mode.version,
+      provenance: "clinician_adjudicated",
+      answer_values: answerValues,
+    }];
+    const result = validateAnswerKeyProvenanceForActivation(
+      reports,
+      answerKeys,
+      mode,
+    );
+
+    expect(result).toMatchObject({
+      ok: true,
+      compatibleCount: 1,
+      requiredCount: 1,
+      error: null,
+    });
+    expect(() =>
+      validateTargetAnswerKeysForActivation(reports, answerKeys, mode)
+    ).not.toThrow();
+    expect(() => getActivatableChallengeMode(mode.id, mode.version)).toThrow(
+      CHALLENGE_MODE_ERROR,
+    );
+  });
+
+  it("returns only safe aggregate provenance activation diagnostics", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const report = makeReport("report-12");
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const result = validateAnswerKeyProvenanceForActivation(
+      [report],
+      [{
+        ...makeAnswerKey(report.id),
+        provenance: "legacy",
+        answer_values: answerValues,
+      }],
+      mode,
+    );
+    const serialized = JSON.stringify(result);
+
+    expect(result.error).toBe(CLINICAL_READINESS_ERROR);
+    expect(serialized).not.toContain("answer_values");
+    expect(serialized).not.toContain("report_text");
+    expect(serialized).not.toContain("adjudicated_by");
+    expect(serialized).not.toContain("import_batch_id");
   });
 
   it("validates a complete dormant twelve-field answer key without activating it", () => {

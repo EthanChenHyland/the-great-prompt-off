@@ -24,11 +24,13 @@ export async function POST(request: Request) {
       ? 401
       : message.includes("locked") || message.includes("Reset workshop")
         ? 409
-        : message.includes("not available") || message.includes("not supported") || message.includes("answer key")
+        : message.includes("not available") ||
+            message.includes("not supported") ||
+            message.includes("answer key") ||
+            message.includes("clinically ready")
           ? 400
           : 500;
     console.error("[admin-challenge-schema] Update failed", message);
     return Response.json({ error: status === 500 ? "Could not update the challenge schema. Please try again." : message }, { status });
   }
 }
-

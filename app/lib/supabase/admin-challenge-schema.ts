@@ -23,6 +23,12 @@ export const ANSWER_KEY_VALUE_ERROR =
   "An answer key contains a value that is not allowed for the selected schema.";
 export const EXISTING_ANSWER_KEY_ERROR =
   "One or more answer keys already exist for this mode and schema version. Enable overwrite to replace them.";
+export const STAGING_PROVENANCE_ERROR =
+  "One or more answer keys for the selected mode are staging/demo only.";
+export const UNSUPPORTED_PROVENANCE_ERROR =
+  "One or more answer keys for the selected mode have unknown or unsupported provenance.";
+export const CLINICAL_READINESS_ERROR =
+  "The selected mode has structurally valid answer keys, but they are not marked as clinician-adjudicated.";
 export const answerKeyProvenanceValues = [
   "legacy",
   "staging_demo",
@@ -33,6 +39,14 @@ export const answerKeyProvenanceValues = [
 
 export type AnswerKeyProvenance = (typeof answerKeyProvenanceValues)[number];
 export type AnswerKeyProvenanceCounts = Record<AnswerKeyProvenance, number>;
+
+export type AnswerKeyActivationProvenanceResult = {
+  ok: boolean;
+  compatibleCount: number;
+  requiredCount: number;
+  provenanceCounts: AnswerKeyProvenanceCounts;
+  error: string | null;
+};
 
 export type AnswerKeyImportMetadata = {
   provenance: AnswerKeyProvenance;
@@ -341,6 +355,77 @@ export function validateTargetAnswerKeys(
   }
 }
 
+export function validateAnswerKeyProvenanceForActivation(
+  reports: readonly ReportRow[],
+  answerKeys: readonly AdminSchemaAnswerKeyRow[],
+  mode: ChallengeModeDefinition,
+): AnswerKeyActivationProvenanceResult {
+  const reportIds = new Set(reports.map((report) => report.id));
+  const matchingAnswerKeys = answerKeys.filter((answerKey) =>
+    reportIds.has(answerKey.report_id)
+  );
+  const provenanceCounts = createEmptyProvenanceCounts();
+  let invalidProvenanceCount = 0;
+  let compatibleCount = 0;
+
+  for (const answerKey of matchingAnswerKeys) {
+    const provenance = isAnswerKeyProvenance(answerKey.provenance)
+      ? answerKey.provenance
+      : "unknown";
+    provenanceCounts[provenance] += 1;
+    if (!isAnswerKeyProvenance(answerKey.provenance)) {
+      invalidProvenanceCount += 1;
+    }
+
+    const compatible = mode.id === defaultChallengeMode.id
+      ? provenance === "legacy" || provenance === "clinician_adjudicated"
+      : provenance === "clinician_adjudicated";
+    if (compatible) compatibleCount += 1;
+  }
+
+  const requiredCount = reports.length;
+  const ok = requiredCount > 0 && compatibleCount === requiredCount;
+  let error: string | null = null;
+
+  if (!ok) {
+    if (provenanceCounts.staging_demo > 0) {
+      error = STAGING_PROVENANCE_ERROR;
+    } else if (
+      provenanceCounts.unknown > 0 ||
+      provenanceCounts.imported > 0 ||
+      invalidProvenanceCount > 0
+    ) {
+      error = UNSUPPORTED_PROVENANCE_ERROR;
+    } else {
+      error = CLINICAL_READINESS_ERROR;
+    }
+  }
+
+  return {
+    ok,
+    compatibleCount,
+    requiredCount,
+    provenanceCounts,
+    error,
+  };
+}
+
+export function validateTargetAnswerKeysForActivation(
+  reports: readonly ReportRow[],
+  answerKeys: readonly AdminSchemaAnswerKeyRow[],
+  mode: ChallengeModeDefinition,
+) {
+  validateTargetAnswerKeys(reports, answerKeys, mode);
+  const provenance = validateAnswerKeyProvenanceForActivation(
+    reports,
+    answerKeys,
+    mode,
+  );
+  if (!provenance.ok) {
+    throw new Error(provenance.error || "The selected mode is not clinically ready for activation.");
+  }
+}
+
 export function validateTargetAnswerKeyCoverage(
   reports: readonly ReportRow[],
   answerKeys: readonly AdminSchemaAnswerKeyRow[],
@@ -461,18 +546,14 @@ export function createChallengeModesReadiness(
       0,
       reports.length - coveredReportIds.size,
     );
-    const provenanceCounts = createEmptyProvenanceCounts();
-    for (const answerKey of matchingAnswerKeys) {
-      const provenance = isAnswerKeyProvenance(answerKey.provenance)
-        ? answerKey.provenance
-        : "unknown";
-      provenanceCounts[provenance] += 1;
-    }
-    const requiresClinicalAdjudication = mode.id === "knee_mri_12_basic";
-    const clinicallyReady = validationPasses && (
-      !requiresClinicalAdjudication ||
-      provenanceCounts.clinician_adjudicated === reports.length
+    const provenanceReadiness = validateAnswerKeyProvenanceForActivation(
+      reports,
+      matchingAnswerKeys,
+      mode,
     );
+    const provenanceCounts = provenanceReadiness.provenanceCounts;
+    const requiresClinicalAdjudication = mode.id !== defaultChallengeMode.id;
+    const clinicallyReady = validationPasses && provenanceReadiness.ok;
     let statusMessage: AdminModeReadiness["statusMessage"];
 
     if (missingAnswerKeyCount > 0) {
