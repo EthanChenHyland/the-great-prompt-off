@@ -1,0 +1,26 @@
+{
+  "templateNotice": "Example structure and labels only. Replace every item with reviewed synthetic-report adjudication before validation or writing.",
+  "modeId": "knee_mri_12_basic",
+  "schemaVersion": 1,
+  "write": false,
+  "overwrite": false,
+  "items": [
+    {
+      "report_id_or_filename": "REPLACE_WITH_REPORT_ID_FILENAME_OR_EXTERNAL_ID",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "present",
+        "medial_meniscus_tear": "uncertain",
+        "lateral_meniscus_tear": "not_reported",
+        "fracture": "absent",
+        "bone_contusion": "present",
+        "medial_osteoarthritis": "uncertain",
+        "lateral_osteoarthritis": "not_reported",
+        "patellofemoral_osteoarthritis": "absent",
+        "effusion": "present",
+        "synovitis": "not_reported",
+        "bakers_cyst": "uncertain"
+      }
+    }
+  ]
+}

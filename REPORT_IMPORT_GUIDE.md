@@ -191,6 +191,13 @@ The migrations preserve existing six-field rows. Twelve-field rows use
 endpoint requires a complete item for every public and private report, so it
 does not perform partial imports.
 
+Start from
+`seed-data/templates/knee-mri-12-answer-keys.template.json`. It is an example
+of the request shape only. Its identifier and labels are deliberately
+illustrative and are not adjudicated clinical truth. Keep the working import
+outside `public/`, replace the placeholder, and add one reviewed item for every
+public and private report before using the endpoint.
+
 Validate without writing:
 
 ```text
@@ -237,6 +244,127 @@ answer values or report text.
 
 `knee_mri_12_basic` remains dormant. Importing its answer keys does not add it
 to the activation allowlist or change the active challenge mode.
+
+### Rehearsal Sequence
+
+Use an authenticated admin session for every endpoint call. The browser console
+on `/admin` is suitable for a local rehearsal because its requests include the
+existing admin session. Do not paste answer keys into participant pages,
+screenshares, logs, or documentation.
+
+1. Apply `supabase/versioned-answer-keys.sql`, then
+   `supabase/future-mode-answer-keys.sql`.
+2. Prepare a complete reviewed payload from the template. Keep `write` and
+   `overwrite` set to `false`.
+3. Run validate-only against the preparation endpoint:
+
+```js
+const payload = {
+  /* Paste the complete reviewed template contents here. */
+};
+const validateResponse = await fetch(
+  "/api/admin/challenge-schema/prepare-answer-keys",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, write: false, overwrite: false }),
+  },
+);
+console.log(validateResponse.status, await validateResponse.json());
+```
+
+4. Inspect only the safe aggregate response. Continue only when `ok` is
+   `true`, `totalItems` equals the active challenge's public plus private report
+   count, and `issues` is empty. Validate-only should report
+   `insertedCount: 0` and `updatedCount: 0`.
+5. Write the same reviewed payload once. Keep overwrite disabled for the first
+   import:
+
+```js
+const writeResponse = await fetch(
+  "/api/admin/challenge-schema/prepare-answer-keys",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, write: true, overwrite: false }),
+  },
+);
+console.log(writeResponse.status, await writeResponse.json());
+```
+
+6. If matching twelve-field rows already exist, the write is rejected without
+   changing the batch. Review the existing data before deliberately retrying
+   with `overwrite: true`.
+7. Check stored readiness with the separate validation endpoint:
+
+```js
+const readinessResponse = await fetch(
+  "/api/admin/challenge-schema/validate",
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      modeId: "knee_mri_12_basic",
+      schemaVersion: 1,
+    }),
+  },
+);
+console.log(readinessResponse.status, await readinessResponse.json());
+```
+
+8. Run the Supabase verification queries below. Do not activate the mode as
+   part of this rehearsal.
+
+Count stored twelve-field rows:
+
+```sql
+select count(*) as knee_mri_12_basic_answer_key_rows
+from answer_keys
+where mode_id = 'knee_mri_12_basic'
+  and schema_version = 1;
+```
+
+Confirm there are no duplicate rows for a report/mode/version:
+
+```sql
+select report_id, mode_id, schema_version, count(*)
+from answer_keys
+where mode_id = 'knee_mri_12_basic'
+  and schema_version = 1
+group by report_id, mode_id, schema_version
+having count(*) > 1;
+```
+
+Verify twelve-field public/private coverage for the active challenge without
+selecting report text or answer values:
+
+```sql
+select
+  r.split,
+  count(*) as report_count,
+  count(ak.id) as twelve_field_answer_key_count,
+  count(*) filter (where ak.id is null) as missing_answer_key_count
+from reports r
+join challenges c
+  on c.id = r.challenge_id
+ and c.is_active = true
+left join answer_keys ak
+  on ak.report_id = r.id
+ and ak.mode_id = 'knee_mri_12_basic'
+ and ak.schema_version = 1
+where r.split in ('public', 'private')
+group by r.split
+order by r.split;
+```
+
+Confirm the active six-field rows still exist:
+
+```sql
+select count(*) as knee_mri_6_basic_answer_key_rows
+from answer_keys
+where mode_id = 'knee_mri_6_basic'
+  and schema_version = 1;
+```
 
 ## SQL Verification
 
