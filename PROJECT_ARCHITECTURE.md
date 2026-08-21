@@ -2,7 +2,8 @@
 
 This is the main "how the system works" document for The Great Prompt-Off. It explains the data, pages, APIs, and safety boundaries without trying to be the live event checklist.
 
-For rehearsal and event steps, use `DEMO_CHECKLIST.md`.
+For rehearsal and event steps, use `DEMO_CHECKLIST.md`. For the admin-only
+deterministic scoring rehearsal path, use `SIMULATION_GUIDE.md`.
 
 ## What The App Is
 
