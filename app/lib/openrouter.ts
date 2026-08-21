@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { ChallengeModeDefinition } from "./challenge-modes";
 import { resolveChallengeEvaluationModel } from "./model-options";
 import {
   buildOpenRouterMessages,
@@ -49,10 +50,12 @@ export async function extractReportWithOpenRouter({
   prompt,
   reportText,
   model,
+  mode,
 }: {
   prompt: string;
   reportText: string;
   model?: string;
+  mode?: ChallengeModeDefinition;
 }) {
   const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -66,6 +69,7 @@ export async function extractReportWithOpenRouter({
   const messages: OpenRouterMessage[] = buildOpenRouterMessages({
     prompt,
     reportText,
+    mode,
   });
 
   let response: Response;

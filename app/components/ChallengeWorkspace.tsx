@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  challenge,
-  findingKeys,
-  findingLabels,
-} from "../lib/challenge-constants";
+import { challenge } from "../lib/challenge-constants";
 import { fallbackChallengeConfig } from "../lib/challenge-config";
+import {
+  getPublicChallengeModeMetadata,
+  type PublicChallengeModeMetadata,
+} from "../lib/challenge-modes";
 import { MAX_PROMPT_CHARS, promptTooLongMessage } from "../lib/prompt-limits";
+import { formatFieldScore } from "../lib/score-display";
 import { normalizeParticipantCode } from "../lib/participant-codes";
 import {
   saveParticipantId,
@@ -113,6 +114,7 @@ type ChallengeDataStatus = {
     publicSubmissionLimit: number;
     finalSubmissionLimit: number;
   } | null;
+  mode: PublicChallengeModeMetadata;
   reportCounts: {
     sample: number;
     public: number;
@@ -225,6 +227,8 @@ export function ChallengeWorkspace({
     fallbackChallengeConfig.publicSubmissionLimit;
   const publicReportCount = challengeDataStatus?.reportCounts.public ?? reports.length;
   const privateReportCount = challengeDataStatus?.reportCounts.private ?? null;
+  const activeMode =
+    challengeDataStatus?.mode ?? getPublicChallengeModeMetadata();
   const publicReportDescription =
     publicReportCount > 0
       ? `${publicReportCount} public test report${publicReportCount === 1 ? "" : "s"}`
@@ -885,6 +889,7 @@ export function ChallengeWorkspace({
 
         <div className="grid min-h-0 gap-4 xl:grid-cols-[300px_minmax(0,1fr)_360px]">
           <TaskSidebar
+            fields={activeMode.fields}
             privateReportDescription={privateReportDescription}
             publicReportDescription={publicReportDescription}
             publicSubmissionLimit={publicSubmissionLimit}
@@ -892,6 +897,7 @@ export function ChallengeWorkspace({
 
           <section className="grid min-h-0 min-w-0 items-stretch gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
             <PromptEditor
+              fieldCount={activeMode.fields.length}
               clinicalInstructions={clinicalInstructions}
               remainingPublicSubmissions={remainingPublicSubmissions}
               setClinicalInstructions={setClinicalInstructions}
@@ -1087,10 +1093,12 @@ function LiveUpdateStatus({
 }
 
 function TaskSidebar({
+  fields,
   privateReportDescription,
   publicReportDescription,
   publicSubmissionLimit,
 }: {
+  fields: PublicChallengeModeMetadata["fields"];
   privateReportDescription: string;
   publicReportDescription: string;
   publicSubmissionLimit: number;
@@ -1111,13 +1119,15 @@ function TaskSidebar({
       <div className="mt-6">
         <h3 className="text-sm font-semibold text-slate-800">Output schema</h3>
         <div className="mt-3 grid gap-2">
-          {findingKeys.map((key) => (
+          {fields.map((field) => (
             <div
-              key={key}
+              key={field.key}
               className="flex items-center justify-between rounded-md border border-slate-200 px-3 py-2"
             >
-              <span className="font-mono text-xs text-slate-700">{key}</span>
-              <span className="text-xs text-slate-500">{findingLabels[key]}</span>
+              <span className="font-mono text-xs text-slate-700">
+                {field.key}
+              </span>
+              <span className="text-xs text-slate-500">{field.label}</span>
             </div>
           ))}
         </div>
@@ -1182,6 +1192,7 @@ function PromptEditor({
   canSubmitFinal,
   canSubmitPublic,
   clinicalInstructions,
+  fieldCount,
   finalSubmissionUsed,
   onSubmitFinal,
   onSubmitPublic,
@@ -1198,6 +1209,7 @@ function PromptEditor({
   canSubmitFinal: boolean;
   canSubmitPublic: boolean;
   clinicalInstructions: string;
+  fieldCount: number;
   finalSubmissionUsed: boolean;
   onSubmitFinal: () => void;
   onSubmitPublic: () => void;
@@ -1247,8 +1259,8 @@ function PromptEditor({
             Clinical extraction instructions
           </span>
           <span className="text-sm leading-6 text-slate-500">
-            Describe how the model should identify the six findings from the
-            reports.
+            Describe how the model should identify the {fieldCount} findings
+            from the reports.
           </span>
           <textarea
             value={clinicalInstructions}
@@ -1571,7 +1583,10 @@ function SafeFeedbackPanel({ feedback }: { feedback: SafeSubmissionFeedback }) {
                 >
                   <span>{report.reportLabel}</span>
                   <span className="font-semibold text-slate-800">
-                    {report.correctFields}/{report.totalFields}
+                    {formatFieldScore(
+                      report.correctFields,
+                      report.totalFields,
+                    )}
                   </span>
                 </div>
               ))}

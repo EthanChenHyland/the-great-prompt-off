@@ -10,7 +10,8 @@ import {
 } from "@/app/lib/openrouter";
 import { scoreModelOutput } from "@/app/lib/scoring";
 import { countCorrectFields } from "@/app/lib/mock-evaluation";
-import type { AnswerKeyItem, ScoringResult } from "@/app/lib/types";
+import { resolveChallengeMode } from "@/app/lib/schema-storage";
+import type { SchemaScoringResult } from "@/app/lib/types";
 import {
   getActiveChallenge,
   getSupabaseAnswerKeysForSplit,
@@ -34,7 +35,11 @@ export const calibrationBaselines = [
   },
 ] as const;
 
-type CalibrationReport = AnswerKeyItem & {
+type CalibrationReport = {
+  id: string;
+  filename: string;
+  split: "public";
+  answer_key: Record<string, string>;
   supabaseReportId?: string;
   text: string;
 };
@@ -45,6 +50,7 @@ export type CalibrationResult = {
   environmentModel: string;
   challengeModel: string | null;
   reportCount: number;
+  fieldCount: number;
   baselines: Array<{
     id: string;
     label: string;
@@ -66,10 +72,15 @@ export async function runBaselineCalibration(): Promise<CalibrationResult> {
 
   const supabase = createSupabaseAdminClient();
   const challenge = await getActiveChallenge(supabase);
+  const challengeMode = resolveChallengeMode(
+    challenge.mode_id,
+    challenge.schema_version,
+  );
   const reports = (await getSupabaseAnswerKeysForSplit(
     supabase,
     challenge.id,
     "public",
+    challengeMode,
   )) as CalibrationReport[];
   const model = resolveOpenRouterModel(challenge.evaluation_model);
 
@@ -84,8 +95,9 @@ export async function runBaselineCalibration(): Promise<CalibrationResult> {
           prompt: baseline.prompt,
           reportText: report.text,
           model,
+          mode: challengeMode,
         });
-        return scoreModelOutput(modelOutput, report.answer_key);
+        return scoreModelOutput(modelOutput, report.answer_key, challengeMode);
       },
     );
 
@@ -100,6 +112,7 @@ export async function runBaselineCalibration(): Promise<CalibrationResult> {
     environmentModel: getOpenRouterModel(),
     challengeModel: challenge.evaluation_model,
     reportCount: reports.length,
+    fieldCount: challengeMode.fields.length,
     baselines,
   };
 }
@@ -107,7 +120,7 @@ export async function runBaselineCalibration(): Promise<CalibrationResult> {
 function summarizeBaseline(
   id: string,
   label: string,
-  scores: ScoringResult[],
+  scores: SchemaScoringResult[],
 ) {
   const totalFields = scores.reduce(
     (total, score) => total + score.per_field.length,

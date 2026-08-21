@@ -76,12 +76,14 @@ export function createRunSchemaMetadata(mode: ChallengeModeDefinition) {
 
 export function buildScoredValues(
   perField: readonly { field: string; actual: string | null }[],
-) {
-  return Object.fromEntries(
-    perField
-      .filter((field) => field.actual !== null)
-      .map((field) => [field.field, field.actual]),
-  );
+): Record<string, string> {
+  return perField.reduce<Record<string, string>>((values, field) => {
+    if (field.actual !== null) {
+      values[field.field] = field.actual;
+    }
+
+    return values;
+  }, {});
 }
 
 export function buildAnswerKeyStoragePayload(

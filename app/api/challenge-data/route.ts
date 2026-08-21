@@ -208,7 +208,7 @@ export async function GET() {
         eventTimerEndsAt: challenge.event_timer_ends_at,
         eventTimerLabel: challenge.event_timer_label,
       },
-      mode: getPublicChallengeModeMetadata(),
+      mode: getPublicChallengeModeMetadata(activeMode),
       reportCounts,
       sampleReports: reports
         .filter((report) => report.split === "public")

@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { getFriendlyModelName } from "../lib/model-display";
+import { formatFieldScore } from "../lib/score-display";
 
 type CalibrationResponse = {
   model: string;
@@ -10,6 +11,7 @@ type CalibrationResponse = {
   environmentModel: string;
   challengeModel: string | null;
   reportCount: number;
+  fieldCount: number;
   baselines: Array<{
     id: string;
     label: string;
@@ -112,6 +114,9 @@ export function AdminCalibrationPanel() {
             <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold">
               Public reports: {result.reportCount}
             </span>
+            <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold">
+              Fields per report: {result.fieldCount}
+            </span>
           </div>
           <table className="w-full min-w-[680px] border-collapse text-left text-sm">
             <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
@@ -135,7 +140,9 @@ export function AdminCalibrationPanel() {
                     {baseline.correctFields}/{baseline.totalFields}
                   </td>
                   <td className="px-3 py-3 font-mono text-xs text-slate-600">
-                    {baseline.reportScores.join(" / ")} of 6
+                    {baseline.reportScores
+                      .map((score) => formatFieldScore(score, result.fieldCount))
+                      .join(" / ")}
                   </td>
                 </tr>
               ))}

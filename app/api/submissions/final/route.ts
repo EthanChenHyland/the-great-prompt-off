@@ -109,7 +109,7 @@ function toFinalClientResponse(result: SubmitScoreResponse) {
       score: result.score,
       correctFields: result.correctFields,
       totalFields: result.totalFields,
-      reportCount: Math.floor(result.totalFields / 6),
+      reportCount: result.reportCount,
     },
   };
 }

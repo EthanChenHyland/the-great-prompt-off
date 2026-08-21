@@ -2,6 +2,7 @@ import "server-only";
 
 import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { getAnswerKeyItems } from "@/app/lib/challenge-data";
+import type { ChallengeModeDefinition } from "@/app/lib/challenge-modes";
 import type { EventPhase } from "@/app/lib/event-phase";
 import {
   canShowParticipantLeaderboard,
@@ -30,13 +31,10 @@ import {
   validateAnswerValues,
 } from "@/app/lib/schema-storage";
 import type {
-  AnswerKey,
-  AnswerKeyItem,
-  FindingKey,
   FindingValue,
   ReportSplit,
+  SchemaScoringResult,
   ScoreSummary,
-  ScoringResult,
   SubmissionKind,
 } from "@/app/lib/types";
 import { createSupabaseAdminClient } from "./admin";
@@ -98,6 +96,16 @@ type AnswerKeyRow = {
 type SupabaseErrorLike = {
   code?: string;
   message: string;
+};
+
+type RuntimeAnswerKeyItem = {
+  id: string;
+  filename: string;
+  split: ReportSplit;
+  answer_key: Record<string, string>;
+  notes?: string;
+  supabaseReportId?: string;
+  text?: string;
 };
 
 export type SubmissionStatusResponse = {
@@ -164,8 +172,8 @@ type EvaluatedReport = {
   reportId: string;
   filename?: string;
   supabaseReportId?: string;
-  prediction: Partial<AnswerKey>;
-  score: ScoringResult;
+  prediction: Record<string, string>;
+  score: SchemaScoringResult;
   modelOutput: string;
   error: string | null;
 };
@@ -309,6 +317,7 @@ export async function submitToSupabase({
     kind,
     prompt,
     model: resolveOpenRouterModel(challenge.evaluation_model),
+    mode: challengeMode,
   });
   const now = new Date().toISOString();
   const attemptNumber =
@@ -580,18 +589,20 @@ async function evaluateSubmission({
   kind,
   prompt,
   model,
+  mode,
 }: {
-  answerKeys: Array<AnswerKeyItem & { supabaseReportId?: string; text?: string }>;
+  answerKeys: RuntimeAnswerKeyItem[];
   kind: SubmissionKind;
   prompt: string;
   model: string;
+  mode: ChallengeModeDefinition;
 }): Promise<EvaluationResult> {
   if (shouldUseRealLlm()) {
-    return evaluateWithRealLlm(answerKeys, prompt, kind, model);
+    return evaluateWithRealLlm(answerKeys, prompt, kind, model, mode);
   }
 
   if (kind === "public" || kind === "final") {
-    const items = evaluateAnswerKeyReports(answerKeys, prompt).map((item) => ({
+    const items = evaluateAnswerKeyReports(answerKeys, prompt, mode).map((item) => ({
       ...item,
       filename: answerKeys.find((answerKey) => answerKey.id === item.reportId)
         ?.filename,
@@ -610,7 +621,7 @@ async function evaluateSubmission({
     };
   }
 
-  const summary = evaluateAnswerKeySet(answerKeys, prompt);
+  const summary = evaluateAnswerKeySet(answerKeys, prompt, mode);
 
   return {
     mode: "mock",
@@ -622,10 +633,11 @@ async function evaluateSubmission({
 }
 
 async function evaluateWithRealLlm(
-  answerKeys: Array<AnswerKeyItem & { supabaseReportId?: string; text?: string }>,
+  answerKeys: RuntimeAnswerKeyItem[],
   prompt: string,
   kind: SubmissionKind,
   model: string,
+  mode: ChallengeModeDefinition,
 ): Promise<EvaluationResult> {
   if (!hasOpenRouterApiKey()) {
     console.error(
@@ -653,8 +665,9 @@ async function evaluateWithRealLlm(
           prompt,
           reportText: item.text,
           model,
+          mode,
         });
-        const score = scoreModelOutput(modelOutput, item.answer_key);
+        const score = scoreModelOutput(modelOutput, item.answer_key, mode);
 
         return {
           reportId: item.id,
@@ -881,12 +894,12 @@ export async function getSupabaseAnswerKeysForSplit(
       filename: report.filename || report.external_id,
       split: report.split,
       text: report.report_text,
-      answer_key: answerValues as AnswerKey,
-    } satisfies AnswerKeyItem & { supabaseReportId: string; text: string };
+      answer_key: answerValues,
+    } satisfies RuntimeAnswerKeyItem;
   });
 }
 
-function validationMessage(score: ScoringResult) {
+function validationMessage(score: SchemaScoringResult) {
   if (!score.valid_json) {
     return "Model output was not valid JSON.";
   }
@@ -977,11 +990,11 @@ function submissionLabel(kind: SubmissionKind) {
 
 function predictionFromScore(
   perField: Array<{
-    field: FindingKey;
-    actual: FindingValue | null;
+    field: string;
+    actual: string | null;
   }>,
-): Partial<AnswerKey> {
-  return buildScoredValues(perField) as Partial<AnswerKey>;
+) {
+  return buildScoredValues(perField);
 }
 
 function parseJsonObject(value: string) {
