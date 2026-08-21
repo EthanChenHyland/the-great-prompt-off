@@ -100,6 +100,21 @@ export function buildAnswerKeyStoragePayload(
   return payload;
 }
 
+export function buildVersionedAnswerKeyStoragePayload(
+  answerValues: Record<string, unknown>,
+  mode: ChallengeModeDefinition = defaultChallengeMode,
+) {
+  return {
+    mode_id: mode.id,
+    schema_version: mode.version,
+    ...buildAnswerKeyStoragePayload(answerValues, mode),
+  };
+}
+
+export function canUseLegacySixFieldAnswerKey(mode: ChallengeModeDefinition) {
+  return mode.id === defaultChallengeMode.id && mode.version === defaultChallengeMode.version;
+}
+
 export function validateAnswerValues(
   value: unknown,
   mode: ChallengeModeDefinition,

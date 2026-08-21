@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@/app/lib/supabase/admin";
 import { fallbackChallengeConfig } from "@/app/lib/challenge-config";
 import { challenge as mockChallenge } from "@/app/lib/challenge-constants";
 import { getPublicChallengeModeMetadata } from "@/app/lib/challenge-modes";
+import { resolveChallengeMode } from "@/app/lib/schema-storage";
 import { getFriendlyModelName } from "@/app/lib/model-display";
 import {
   getOpenRouterModel,
@@ -30,6 +31,8 @@ type ChallengeRow = {
   event_announcement: string;
   event_timer_ends_at: string | null;
   event_timer_label: string;
+  mode_id: string | null;
+  schema_version: number | null;
 };
 
 type ReportMetadataRow = {
@@ -114,7 +117,7 @@ export async function GET() {
     const { data: challenge, error: challengeError } = await supabase
       .from("challenges")
       .select(
-        "id, slug, title, description, instructions, locked_model, evaluation_model, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label",
+        "id, slug, title, description, instructions, locked_model, evaluation_model, mode_id, schema_version, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility, event_announcement, event_timer_ends_at, event_timer_label",
       )
       .eq("is_active", true)
       .order("created_at", { ascending: false })
@@ -157,6 +160,7 @@ export async function GET() {
     }
 
     const reportIds = reports.map((report) => report.id);
+    const activeMode = resolveChallengeMode(challenge.mode_id, challenge.schema_version);
     const [participantCount, answerKeyCount] = await Promise.all([
       getExactCount(
         supabase
@@ -170,6 +174,8 @@ export async function GET() {
           .from("answer_keys")
           .select("id", { count: "exact", head: true })
           .in("report_id", reportIds)
+          .eq("mode_id", activeMode.id)
+          .eq("schema_version", activeMode.version)
           .then((result) => result),
         "answer key count",
       ),

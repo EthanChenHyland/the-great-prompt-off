@@ -4,7 +4,11 @@ import path from "node:path";
 import answerKeys from "@/data/mock-answer-keys.json";
 import manifest from "@/data/mock-report-manifest.json";
 import { createSupabaseAdminClient } from "./supabase/admin";
-import { resolveChallengeMode, validateAnswerValues } from "./schema-storage";
+import {
+  canUseLegacySixFieldAnswerKey,
+  resolveChallengeMode,
+  validateAnswerValues,
+} from "./schema-storage";
 import type {
   AnswerKeyItem,
   FindingValue,
@@ -32,6 +36,8 @@ type SupabaseReportRow = {
 
 type SupabaseAnswerKeyRow = {
   report_id: string;
+  mode_id: string | null;
+  schema_version: number | null;
   answer_values: unknown;
   acl_tear: FindingValue;
   mcl_injury: FindingValue;
@@ -161,9 +167,11 @@ async function getSupabasePublicReports(): Promise<SampleReport[]> {
   const { data: answerKeyRows, error: answerKeyError } = await supabase
     .from("answer_keys")
     .select(
-      "report_id, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+      "report_id, mode_id, schema_version, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
     )
     .in("report_id", reportIds)
+    .eq("mode_id", mode.id)
+    .eq("schema_version", mode.version)
     .returns<SupabaseAnswerKeyRow[]>();
 
   if (answerKeyError) {
@@ -196,7 +204,8 @@ async function getSupabasePublicReports(): Promise<SampleReport[]> {
       split: report.split,
       text: report.report_text,
       answer_key: validateAnswerValues(
-        answerKey.answer_values ?? legacyAnswerValues,
+        answerKey.answer_values ??
+          (canUseLegacySixFieldAnswerKey(mode) ? legacyAnswerValues : null),
         mode,
       ) as SampleReport["answer_key"],
     };

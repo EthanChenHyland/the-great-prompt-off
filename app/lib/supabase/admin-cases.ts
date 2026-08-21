@@ -5,10 +5,12 @@ import {
   findingValues,
 } from "../challenge-constants";
 import {
-  buildAnswerKeyStoragePayload,
+  buildVersionedAnswerKeyStoragePayload,
+  canUseLegacySixFieldAnswerKey,
   resolveChallengeMode,
   validateAnswerValues,
 } from "../schema-storage";
+import { defaultChallengeMode } from "../challenge-modes";
 import type { FindingKey, FindingValue } from "../types";
 import { createSupabaseAdminClient } from "./admin";
 
@@ -43,6 +45,8 @@ export type AdminCaseManagerData = {
 
 type ActiveChallenge = {
   id: string;
+  mode_id: string | null;
+  schema_version: number | null;
 };
 
 type ReportRow = {
@@ -55,6 +59,8 @@ type ReportRow = {
 
 type AnswerKeyRow = {
   report_id: string;
+  mode_id: string | null;
+  schema_version: number | null;
   answer_values: unknown;
   acl_tear: AdminFindingValue;
   mcl_injury: AdminFindingValue;
@@ -67,6 +73,10 @@ type AnswerKeyRow = {
 export async function getAdminCaseManagerData(): Promise<AdminCaseManagerData> {
   const supabase = createSupabaseAdminClient();
   const challenge = await getActiveChallenge(supabase);
+  const mode = resolveChallengeMode(challenge.mode_id, challenge.schema_version);
+  if (mode.id !== defaultChallengeMode.id || mode.version !== defaultChallengeMode.version) {
+    throw new Error("Case Manager currently supports only the active six-field challenge schema.");
+  }
   const { data: reports, error: reportsError } = await supabase
     .from("reports")
     .select("id, external_id, filename, split, report_text")
@@ -85,9 +95,11 @@ export async function getAdminCaseManagerData(): Promise<AdminCaseManagerData> {
       ? supabase
           .from("answer_keys")
           .select(
-            "report_id, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+            "report_id, mode_id, schema_version, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
           )
           .in("report_id", reportIds)
+          .eq("mode_id", mode.id)
+          .eq("schema_version", mode.version)
           .returns<AnswerKeyRow[]>()
       : Promise.resolve({ data: [], error: null }),
     reportIds.length > 0
@@ -344,12 +356,13 @@ export function validateAnswerKey(value: unknown): AdminAnswerKey {
 
 async function upsertAnswerKey(reportId: string, answerKey: AdminAnswerKey) {
   const supabase = createSupabaseAdminClient();
+  const mode = defaultChallengeMode;
   const { error } = await supabase.from("answer_keys").upsert(
     {
       report_id: reportId,
-      ...buildAnswerKeyStoragePayload(answerKey),
+      ...buildVersionedAnswerKeyStoragePayload(answerKey, mode),
     },
-    { onConflict: "report_id" },
+    { onConflict: "report_id,mode_id,schema_version" },
   );
 
   if (error) {
@@ -397,7 +410,7 @@ async function getActiveChallenge(
 ) {
   const { data, error } = await supabase
     .from("challenges")
-    .select("id")
+    .select("id, mode_id, schema_version")
     .eq("is_active", true)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -431,8 +444,12 @@ function toAnswerKey(answerKey: AnswerKeyRow): AdminAnswerKey {
   };
 
   return validateAnswerValues(
-    answerKey.answer_values ?? legacyAnswerValues,
-    resolveChallengeMode(),
+    answerKey.answer_values ??
+      (answerKey.mode_id === defaultChallengeMode.id && answerKey.schema_version === 1 &&
+      canUseLegacySixFieldAnswerKey(defaultChallengeMode)
+        ? legacyAnswerValues
+        : null),
+    defaultChallengeMode,
   ) as AdminAnswerKey;
 }
 

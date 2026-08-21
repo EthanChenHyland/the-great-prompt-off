@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildAnswerKeyStoragePayload,
   buildScoredValues,
+  buildVersionedAnswerKeyStoragePayload,
+  canUseLegacySixFieldAnswerKey,
   createSchemaSnapshot,
   createRunSchemaMetadata,
   defaultChallengeMode,
@@ -45,6 +47,19 @@ describe("JSONB schema storage compatibility helpers", () => {
       answer_values: answerValues,
       ...answerValues,
     });
+  });
+
+  it("adds mode and schema metadata to versioned answer-key writes", () => {
+    expect(buildVersionedAnswerKeyStoragePayload(answerValues)).toMatchObject({
+      mode_id: "knee_mri_6_basic",
+      schema_version: 1,
+      answer_values: answerValues,
+      ...answerValues,
+    });
+  });
+
+  it("limits legacy answer-key fallback to knee MRI six-field version one", () => {
+    expect(canUseLegacySixFieldAnswerKey(defaultChallengeMode)).toBe(true);
   });
 
   it("creates an immutable-shaped schema snapshot", () => {

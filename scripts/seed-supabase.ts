@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { defaultChallengeMode } from "../app/lib/challenge-modes";
+import { buildVersionedAnswerKeyStoragePayload } from "../app/lib/schema-storage";
 import type { FindingKey, FindingValue } from "../app/lib/types";
 
 loadEnvConfig(process.cwd());
@@ -248,20 +249,14 @@ async function main() {
 
     return {
       report_id: reportId,
-      answer_values: report.answer_key,
-      acl_tear: report.answer_key.acl_tear,
-      mcl_injury: report.answer_key.mcl_injury,
-      meniscus_tear: report.answer_key.meniscus_tear,
-      fracture: report.answer_key.fracture,
-      osteoarthritis: report.answer_key.osteoarthritis,
-      effusion: report.answer_key.effusion,
+      ...buildVersionedAnswerKeyStoragePayload(report.answer_key, defaultChallengeMode),
       notes: report.notes || null,
     };
   });
 
   const { error: answerKeysError } = await supabase
     .from("answer_keys")
-    .upsert(answerKeyRows, { onConflict: "report_id" });
+    .upsert(answerKeyRows, { onConflict: "report_id,mode_id,schema_version" });
 
   if (answerKeysError) {
     throw new Error(`Failed to upsert answer keys: ${answerKeysError.message}`);

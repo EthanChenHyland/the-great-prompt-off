@@ -24,6 +24,7 @@ import {
 import { scoreModelOutput } from "@/app/lib/scoring";
 import {
   buildScoredValues,
+  canUseLegacySixFieldAnswerKey,
   createRunSchemaMetadata,
   resolveChallengeMode,
   validateAnswerValues,
@@ -83,6 +84,8 @@ type ReportRow = {
 
 type AnswerKeyRow = {
   report_id: string;
+  mode_id: string | null;
+  schema_version: number | null;
   answer_values: unknown;
   acl_tear: FindingValue;
   mcl_injury: FindingValue;
@@ -836,9 +839,11 @@ export async function getSupabaseAnswerKeysForSplit(
   const { data: answerKeys, error: answerKeysError } = await supabase
     .from("answer_keys")
     .select(
-      "report_id, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
+      "report_id, mode_id, schema_version, answer_values, acl_tear, mcl_injury, meniscus_tear, fracture, osteoarthritis, effusion",
     )
     .in("report_id", reportIds)
+    .eq("mode_id", mode.id)
+    .eq("schema_version", mode.version)
     .returns<AnswerKeyRow[]>();
 
   if (answerKeysError) {
@@ -865,7 +870,8 @@ export async function getSupabaseAnswerKeysForSplit(
       effusion: answerKey.effusion,
     };
     const answerValues = validateAnswerValues(
-      answerKey.answer_values ?? legacyAnswerValues,
+      answerKey.answer_values ??
+        (canUseLegacySixFieldAnswerKey(mode) ? legacyAnswerValues : null),
       mode,
     );
 
