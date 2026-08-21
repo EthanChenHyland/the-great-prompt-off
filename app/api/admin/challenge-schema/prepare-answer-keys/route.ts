@@ -16,21 +16,27 @@ export async function POST(request: Request) {
       createSupabaseAdminClient(),
       payload,
     );
-    return Response.json({ ...result, writesPerformed: false });
+    return Response.json(result, { status: result.ok ? 200 : 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Could not prepare answer-key import.";
-    const safeMessage =
+    const isSafeInputError =
       message.includes("challenge mode") ||
       message.includes("schema version") ||
       message.includes("preparation path") ||
-      message.includes("answer key") ||
-      message.includes("import")
-        ? message
-        : "Could not prepare answer-key import.";
+      message.includes("already exist") ||
+      message.includes("import") ||
+      message.includes("write option") ||
+      message.includes("overwrite option");
+    const isSafeStorageError = message === "Could not write twelve-field answer keys.";
+    const safeMessage = isSafeInputError || isSafeStorageError
+      ? message
+      : "Could not prepare answer-key import.";
     if (safeMessage === "Could not prepare answer-key import.") {
       console.error("[admin-answer-key-preparation] Preparation failed", message);
     }
-    return Response.json({ error: safeMessage }, { status: safeMessage === message ? 400 : 500 });
+    return Response.json(
+      { error: safeMessage },
+      { status: isSafeInputError ? 400 : 500 },
+    );
   }
 }
-

@@ -140,8 +140,8 @@ The seed script validates that each answer key has allowed values and that manif
 ## Dormant Twelve-Field Preparation
 
 The `knee_mri_12_basic` schema is currently dormant and cannot be activated by
-the admin mode selector. You can validate future answer-key preparation with
-the admin-only endpoint:
+the admin mode selector. The admin-only readiness endpoint checks answer keys
+already stored for a target mode:
 
 ```text
 POST /api/admin/challenge-schema/validate
@@ -166,27 +166,77 @@ synovitis, bakers_cyst
 ```
 
 Every value must be one of `present`, `absent`, `uncertain`, or
-`not_reported`. The validation response contains only report counts and issue
-counts; it does not return answer-key values or report text. Validation does
-not activate the mode, create submissions, or change production data.
+`not_reported`. Readiness and preparation responses contain only counts and
+safe issues; they do not return answer-key values or report text. Neither path
+activates the mode or creates submissions. Only the preparation endpoint with
+`"write": true` changes answer-key storage.
 
-### Twelve-Field Import Safety
+### Twelve-Field Import Preparation
 
-The current `answer_keys` table has one unique row per report and legacy
-six-field columns. The preparation endpoint therefore validates but does not
-write twelve-field values. This protects the active six-field answer keys from
-being overwritten.
+Run these migrations in order before writing twelve-field answer keys:
 
-Run `supabase/versioned-answer-keys.sql` before any future twelve-field import
-is allowed to write. It adds:
+1. `supabase/versioned-answer-keys.sql`
+2. `supabase/future-mode-answer-keys.sql`
+
+They add:
 
 - `answer_keys.mode_id`
 - `answer_keys.schema_version`
 - a unique constraint on `(report_id, mode_id, schema_version)`
+- nullable legacy columns for future-mode rows, with a check that keeps all six
+  legacy values required for `knee_mri_6_basic` version `1`
 
-The migration preserves existing six-field rows, but the application remains
-validation-only until a later dual-read/dual-write implementation is reviewed.
-The twelve-field mode must remain outside the activation allowlist until then.
+The migrations preserve existing six-field rows. Twelve-field rows use
+`answer_values` and do not write the legacy six-field columns. The preparation
+endpoint requires a complete item for every public and private report, so it
+does not perform partial imports.
+
+Validate without writing:
+
+```text
+POST /api/admin/challenge-schema/prepare-answer-keys
+```
+
+```json
+{
+  "modeId": "knee_mri_12_basic",
+  "schemaVersion": 1,
+  "write": false,
+  "items": [
+    {
+      "report_id_or_filename": "report_001.txt",
+      "answer_values": {
+        "acl_tear": "absent",
+        "mcl_tear": "absent",
+        "medial_meniscus_tear": "present",
+        "lateral_meniscus_tear": "absent",
+        "fracture": "absent",
+        "bone_contusion": "not_reported",
+        "medial_osteoarthritis": "present",
+        "lateral_osteoarthritis": "absent",
+        "patellofemoral_osteoarthritis": "uncertain",
+        "effusion": "present",
+        "synovitis": "not_reported",
+        "bakers_cyst": "absent"
+      }
+    }
+  ]
+}
+```
+
+After a successful validation, set `"write": true` to insert separate
+`knee_mri_12_basic` version `1` rows. Existing twelve-field rows block the
+entire import by default. Set `"overwrite": true` only when you intend to
+replace `answer_values` for matching twelve-field rows. Overwrite does not
+modify `knee_mri_6_basic` rows or their legacy columns.
+
+Each answer key must contain exactly the 12 fields shown above. Every value
+must be `present`, `absent`, `uncertain`, or `not_reported`. The response
+contains only aggregate counts and safe issue messages; it never returns
+answer values or report text.
+
+`knee_mri_12_basic` remains dormant. Importing its answer keys does not add it
+to the activation allowlist or change the active challenge mode.
 
 ## SQL Verification
 

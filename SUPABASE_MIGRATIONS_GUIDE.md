@@ -417,6 +417,58 @@ group by report_id, mode_id, schema_version
 having count(*) > 1;
 ```
 
+### `supabase/future-mode-answer-keys.sql`
+
+Run this after `supabase/versioned-answer-keys.sql` before importing dormant
+mode answer keys. It removes the legacy six columns' table-level `NOT NULL`
+requirements so a mode with a different field set can store a JSONB-only row.
+It then adds a compatibility check requiring all six legacy values on every
+`knee_mri_6_basic` version `1` row.
+
+The migration is additive and does not activate a dormant mode, overwrite an
+answer key, or remove a legacy column. Twelve-field imports remain versioned
+by `(report_id, mode_id, schema_version)`.
+
+Verify legacy compatibility and future-mode storage readiness:
+
+```sql
+select column_name, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'answer_keys'
+  and column_name in (
+    'acl_tear',
+    'mcl_injury',
+    'meniscus_tear',
+    'fracture',
+    'osteoarthritis',
+    'effusion'
+  )
+order by ordinal_position;
+```
+
+```sql
+select count(*) as invalid_six_field_compatibility_rows
+from answer_keys
+where mode_id = 'knee_mri_6_basic'
+  and schema_version = 1
+  and (
+    acl_tear is null
+    or mcl_injury is null
+    or meniscus_tear is null
+    or fracture is null
+    or osteoarthritis is null
+    or effusion is null
+  );
+```
+
+```sql
+select mode_id, schema_version, count(*)
+from answer_keys
+group by mode_id, schema_version
+order by mode_id, schema_version;
+```
+
 ## Event-Control Columns on `challenges`
 
 ### `event_phase`
@@ -497,6 +549,9 @@ These RPC functions are safer than app-side deletes because the related deletes 
   - `supabase/event-timer.sql`
   - `supabase/not-reported.sql`
   - `supabase/evaluation-model.sql`
+  - `supabase/jsonb-schema-storage.sql`
+  - `supabase/versioned-answer-keys.sql`
+  - `supabase/future-mode-answer-keys.sql` before writing dormant-mode answer keys
 - Run `npm run seed:supabase` with production Supabase environment variables.
 - Verify the active challenge has `evaluation_model`, `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.
 - Verify reset RPC functions exist and were updated from `supabase/admin-atomic-clears.sql`.

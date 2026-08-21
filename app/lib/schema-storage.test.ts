@@ -6,9 +6,9 @@ import {
   canUseLegacySixFieldAnswerKey,
   createSchemaSnapshot,
   createRunSchemaMetadata,
-  defaultChallengeMode,
   validateAnswerValues,
 } from "./schema-storage";
+import { defaultChallengeMode } from "./challenge-modes";
 
 const answerValues = {
   acl_tear: "absent",

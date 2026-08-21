@@ -3,12 +3,12 @@ import {
   defaultChallengeMode,
   isChallengeModeActivationAllowed,
   type ChallengeModeDefinition,
-} from "@/app/lib/challenge-modes";
+} from "../challenge-modes";
 import {
   buildOutputSchema,
   resolveChallengeMode,
   validateAnswerValues,
-} from "@/app/lib/schema-storage";
+} from "../schema-storage";
 
 export const CHALLENGE_MODE_ERROR = "That challenge mode is not available for activation.";
 export const SCHEMA_VERSION_ERROR =
@@ -21,6 +21,8 @@ export const ANSWER_KEY_FIELDS_ERROR =
   "An answer key does not contain exactly the fields required by the selected schema.";
 export const ANSWER_KEY_VALUE_ERROR =
   "An answer key contains a value that is not allowed for the selected schema.";
+export const EXISTING_ANSWER_KEY_ERROR =
+  "One or more answer keys already exist for this mode and schema version. Enable overwrite to replace them.";
 
 export type AdminChallengeSchemaMetadata = {
   modeId: string;
@@ -74,7 +76,8 @@ export type AnswerKeyImportIssue = {
     | "invalid_item"
     | "invalid_fields"
     | "invalid_values"
-    | "missing_report_entry";
+    | "missing_report_entry"
+    | "existing_answer_key";
   count: number;
   message: string;
 };
@@ -87,6 +90,30 @@ export type AnswerKeyImportValidationResult = {
   itemCount: number;
   validItemCount: number;
   issues: AnswerKeyImportIssue[];
+};
+
+export type AnswerKeyImportWriteRow = {
+  report_id: string;
+  mode_id: string;
+  schema_version: number;
+  answer_values: Record<string, string>;
+};
+
+export type AnswerKeyImportPreparation = {
+  validation: AnswerKeyImportValidationResult;
+  rows: AnswerKeyImportWriteRow[];
+};
+
+export type AnswerKeyImportWritePlan = {
+  blocked: boolean;
+  insertedCount: number;
+  updatedCount: number;
+  skippedCount: number;
+};
+
+export type AnswerKeyImportWriteOperations = {
+  insert: (rows: readonly AnswerKeyImportWriteRow[]) => Promise<void>;
+  upsert: (rows: readonly AnswerKeyImportWriteRow[]) => Promise<void>;
 };
 
 export function getChallengeModeForValidation(
@@ -253,6 +280,14 @@ export function validateAnswerKeyImportPayload(
   reports: readonly AdminSchemaReportRow[],
   mode: ChallengeModeDefinition,
 ): AnswerKeyImportValidationResult {
+  return prepareAnswerKeyImportPayload(payload, reports, mode).validation;
+}
+
+export function prepareAnswerKeyImportPayload(
+  payload: unknown,
+  reports: readonly AdminSchemaReportRow[],
+  mode: ChallengeModeDefinition,
+): AnswerKeyImportPreparation {
   const items =
     typeof payload === "object" && payload !== null && "items" in payload &&
     Array.isArray(payload.items)
@@ -269,6 +304,7 @@ export function validateAnswerKeyImportPayload(
     if (report.external_id) reportsByIdentifier.set(report.external_id, report);
   }
   const seenReports = new Set<string>();
+  const rows: AnswerKeyImportWriteRow[] = [];
   let validItemCount = 0;
 
   if (items) {
@@ -290,7 +326,13 @@ export function validateAnswerKeyImportPayload(
       }
       seenReports.add(report.id);
       try {
-        validateAnswerValues(record.answer_values, mode);
+        const answerValues = validateAnswerValues(record.answer_values, mode);
+        rows.push({
+          report_id: report.id,
+          mode_id: mode.id,
+          schema_version: mode.version,
+          answer_values: answerValues,
+        });
         validItemCount += 1;
       } catch (error) {
         const message = error instanceof Error ? error.message : "";
@@ -312,6 +354,7 @@ export function validateAnswerKeyImportPayload(
     invalid_fields: "One or more imported answer keys do not contain exactly the required fields.",
     invalid_values: "One or more imported answer keys contain values outside the allowed labels.",
     missing_report_entry: "One or more public or private reports are missing from the import.",
+    existing_answer_key: EXISTING_ANSWER_KEY_ERROR,
   };
   const issues = [...issueCounts.entries()].map(([type, count]) => ({
     type,
@@ -324,12 +367,57 @@ export function validateAnswerKeyImportPayload(
   );
 
   return {
-    ok: issues.length === 0,
-    modeId: mode.id,
-    schemaVersion: mode.version,
-    reportCounts,
-    itemCount: items?.length || 0,
-    validItemCount,
-    issues,
+    validation: {
+      ok: issues.length === 0,
+      modeId: mode.id,
+      schemaVersion: mode.version,
+      reportCounts,
+      itemCount: items?.length || 0,
+      validItemCount,
+      issues,
+    },
+    rows,
   };
+}
+
+export function createAnswerKeyImportWritePlan(
+  rows: readonly AnswerKeyImportWriteRow[],
+  existingReportIds: ReadonlySet<string>,
+  overwrite: boolean,
+): AnswerKeyImportWritePlan {
+  const updatedCount = rows.filter((row) => existingReportIds.has(row.report_id)).length;
+
+  if (updatedCount > 0 && !overwrite) {
+    return {
+      blocked: true,
+      insertedCount: 0,
+      updatedCount: 0,
+      skippedCount: rows.length,
+    };
+  }
+
+  return {
+    blocked: false,
+    insertedCount: rows.length - updatedCount,
+    updatedCount,
+    skippedCount: 0,
+  };
+}
+
+export async function executeAnswerKeyImportWrite(
+  rows: readonly AnswerKeyImportWriteRow[],
+  existingReportIds: ReadonlySet<string>,
+  overwrite: boolean,
+  operations: AnswerKeyImportWriteOperations,
+) {
+  const plan = createAnswerKeyImportWritePlan(rows, existingReportIds, overwrite);
+  if (plan.blocked) return plan;
+
+  if (overwrite) {
+    await operations.upsert(rows);
+  } else {
+    await operations.insert(rows);
+  }
+
+  return plan;
 }

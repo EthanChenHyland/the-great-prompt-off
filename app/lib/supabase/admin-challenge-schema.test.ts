@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   answerKeyFields,
   answerKeyValues,
@@ -11,8 +11,11 @@ import {
   CHALLENGE_MODE_ERROR,
   MISSING_SCHEMA_VALUES_ERROR,
   createChallengeSchemaMetadata,
+  createAnswerKeyImportWritePlan,
+  executeAnswerKeyImportWrite,
   getChallengeModeForValidation,
   getActivatableChallengeMode,
+  prepareAnswerKeyImportPayload,
   validateAnswerKeyImportPayload,
   validateTargetAnswerKeyCoverage,
   validateTargetAnswerKeys,
@@ -151,6 +154,125 @@ describe("admin challenge schema validation", () => {
     expect(result).not.toHaveProperty("answer_values");
   });
 
+  it("prepares a separate versioned twelve-field row without legacy columns", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const preparation = prepareAnswerKeyImportPayload(
+      {
+        modeId: mode.id,
+        schemaVersion: mode.version,
+        write: true,
+        items: [{ report_id_or_filename: "external-001", answer_values: answerValues }],
+      },
+      [{ ...makeReport("report-001"), external_id: "external-001" }],
+      mode,
+    );
+
+    expect(preparation.validation.ok).toBe(true);
+    expect(preparation.rows).toEqual([{
+      report_id: "report-001",
+      mode_id: "knee_mri_12_basic",
+      schema_version: 1,
+      answer_values: answerValues,
+    }]);
+    expect(Object.keys(preparation.rows[0])).toEqual([
+      "report_id",
+      "mode_id",
+      "schema_version",
+      "answer_values",
+    ]);
+    expect(preparation.validation).not.toHaveProperty("answer_values");
+  });
+
+  it("plans inserts without overwriting another mode's rows", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const rows = prepareAnswerKeyImportPayload(
+      {
+        items: [{ report_id_or_filename: "report-001", answer_values: answerValues }],
+      },
+      [makeReport("report-001")],
+      mode,
+    ).rows;
+
+    const plan = createAnswerKeyImportWritePlan(rows, new Set(), false);
+
+    expect(plan).toEqual({
+      blocked: false,
+      insertedCount: 1,
+      updatedCount: 0,
+      skippedCount: 0,
+    });
+    expect(rows[0].mode_id).not.toBe("knee_mri_6_basic");
+  });
+
+  it("rejects existing twelve-field rows unless overwrite is explicit", () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const rows = prepareAnswerKeyImportPayload(
+      {
+        items: [{ report_id_or_filename: "report-001", answer_values: answerValues }],
+      },
+      [makeReport("report-001")],
+      mode,
+    ).rows;
+
+    expect(createAnswerKeyImportWritePlan(rows, new Set(["report-001"]), false)).toEqual({
+      blocked: true,
+      insertedCount: 0,
+      updatedCount: 0,
+      skippedCount: 1,
+    });
+    expect(createAnswerKeyImportWritePlan(rows, new Set(["report-001"]), true)).toEqual({
+      blocked: false,
+      insertedCount: 0,
+      updatedCount: 1,
+      skippedCount: 0,
+    });
+  });
+
+  it("writes only through the requested insert or overwrite operation", async () => {
+    const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
+    const answerValues = Object.fromEntries(
+      mode.fields.map((field) => [field.key, "not_reported"]),
+    );
+    const rows = prepareAnswerKeyImportPayload(
+      {
+        items: [{ report_id_or_filename: "report-001", answer_values: answerValues }],
+      },
+      [makeReport("report-001")],
+      mode,
+    ).rows;
+    const insert = vi.fn(async () => undefined);
+    const upsert = vi.fn(async () => undefined);
+
+    await executeAnswerKeyImportWrite(rows, new Set(), false, { insert, upsert });
+    expect(insert).toHaveBeenCalledWith(rows);
+    expect(upsert).not.toHaveBeenCalled();
+
+    insert.mockClear();
+    await executeAnswerKeyImportWrite(rows, new Set(["report-001"]), true, {
+      insert,
+      upsert,
+    });
+    expect(insert).not.toHaveBeenCalled();
+    expect(upsert).toHaveBeenCalledWith(rows);
+
+    upsert.mockClear();
+    await executeAnswerKeyImportWrite(rows, new Set(["report-001"]), false, {
+      insert,
+      upsert,
+    });
+    expect(insert).not.toHaveBeenCalled();
+    expect(upsert).not.toHaveBeenCalled();
+  });
+
   it("rejects unknown, duplicate, missing, extra, and invalid import entries", () => {
     const mode = getChallengeModeForValidation("knee_mri_12_basic", 1);
     const complete = Object.fromEntries(
@@ -177,6 +299,7 @@ describe("admin challenge schema validation", () => {
     expect(result.issues.map((issue) => issue.type)).toEqual(
       expect.arrayContaining([
         "unknown_report",
+        "duplicate_report",
         "invalid_fields",
         "invalid_values",
         "missing_report_entry",
