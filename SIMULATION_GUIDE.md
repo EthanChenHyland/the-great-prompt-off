@@ -130,6 +130,26 @@ endpoint reads real participants, prompt runs, submissions, attempts, or real
 analytics. Responses exclude answer values, report text, strategy snapshots,
 per-report predictions, private contents, hidden prompts, and raw outputs.
 
+## Phase 9G: Aggregate CSV Export and Reproducibility
+
+Authenticated organizers can export safe per-profile aggregates from:
+
+- `GET /api/admin/simulations/export` for the 100 most recent completed batches.
+- `GET /api/admin/simulations/export?batchId={uuid}` for one completed batch.
+
+The CSV contains batch timing, mode/version, evaluator, report scope/count,
+field count, profile identity/version/label, score totals, JSON validity, and
+missing/invalid diagnostics. Cells use the shared formula-injection-safe CSV
+encoder. The export does not include report-level items, answer values, report
+text, private contents, strategies, hidden prompts, raw outputs, participant
+data, or secrets.
+
+Opening a batch detail also shows a reproducibility summary with its mode and
+schema version, evaluator, report scope, selected profile IDs/versions, counts,
+and deterministic/synthetic disclaimer. The stored schema snapshot remains
+server-only; the UI receives a canonical SHA-256 hash so organizers can compare
+contracts without receiving the snapshot payload.
+
 ### Manual Verification
 
 ```sql

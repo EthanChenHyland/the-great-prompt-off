@@ -6,6 +6,11 @@ import {
 } from "@/app/lib/challenge-modes";
 import { getSimulationProfile } from "@/app/lib/simulation-profiles";
 import { simulationProfiles } from "@/app/lib/simulation-profiles";
+import type { SimulationAnalyticsRun } from "@/app/lib/simulation-analytics";
+import {
+  buildSimulationReproducibilitySummary,
+  type SimulationBatchWithSchema,
+} from "@/app/lib/simulation-reproducibility";
 import {
   executeDeterministicSimulation,
   runDeterministicSimulation,
@@ -276,10 +281,11 @@ export async function getAdminSimulationBatch(
   const { data: runs, error } = await supabase
     .from("simulation_runs")
     .select(
-      "id, profile_id, profile_version, profile_label, correct_fields, total_fields, score, valid_json_count, invalid_json_count, missing_field_count, invalid_value_count, completed_report_count, created_at",
+      "id, simulation_batch_id, profile_id, profile_version, profile_label, correct_fields, total_fields, score, valid_json_count, invalid_json_count, missing_field_count, invalid_value_count, completed_report_count, created_at",
     )
     .eq("simulation_batch_id", batch.id)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .returns<SimulationAnalyticsRun[]>();
 
   if (error) {
     throw new SimulationDataUnavailableError(
@@ -287,7 +293,26 @@ export async function getAdminSimulationBatch(
     );
   }
 
-  return { ok: true, batch, profiles: runs ?? [] };
+  const safeBatch = {
+    id: batch.id,
+    mode_id: batch.mode_id,
+    schema_version: batch.schema_version,
+    evaluator_type: batch.evaluator_type,
+    report_scope: batch.report_scope,
+    status: batch.status,
+    report_count: batch.report_count,
+    field_count: batch.field_count,
+    profile_count: batch.profile_count,
+    total_evaluations: batch.total_evaluations,
+    created_at: batch.created_at,
+    completed_at: batch.completed_at,
+  };
+  return {
+    ok: true,
+    batch: safeBatch,
+    profiles: runs ?? [],
+    reproducibility: buildSimulationReproducibilitySummary(batch, runs ?? []),
+  };
 }
 
 export async function deleteAdminSimulationBatch(
@@ -384,11 +409,11 @@ async function getActiveChallengeBatch(
   const { data, error } = await supabase
     .from("simulation_batches")
     .select(
-      "id, mode_id, schema_version, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at",
+      "id, mode_id, schema_version, schema_snapshot, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at",
     )
     .eq("id", batchId)
     .eq("challenge_id", challenge.id)
-    .maybeSingle();
+    .maybeSingle<SimulationBatchWithSchema>();
 
   if (error) {
     throw new SimulationDataUnavailableError(

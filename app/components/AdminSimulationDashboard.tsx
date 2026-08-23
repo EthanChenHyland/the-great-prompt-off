@@ -72,6 +72,25 @@ type SimulationDetailResponse = {
   ok: true;
   batch: SimulationBatch;
   profiles: SimulationProfileResult[];
+  reproducibility: {
+    batchId: string;
+    modeId: string;
+    schemaVersion: number;
+    schemaSnapshotHash: string;
+    evaluatorType: string;
+    reportScope: SimulationReportScope;
+    profiles: Array<{
+      profileId: string;
+      profileVersion: number;
+      profileLabel: string;
+    }>;
+    reportCount: number;
+    fieldCount: number;
+    totalEvaluations: number;
+    deterministic: true;
+    synthetic: true;
+    disclaimer: string;
+  };
 };
 
 const simulationEndpoint = "/api/admin/simulations";
@@ -405,9 +424,14 @@ export function AdminSimulationDashboard() {
       </section>
 
       <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-5 py-4">
-          <h2 className="text-xl font-semibold text-slate-950">Recent simulation batches</h2>
-          <p className="mt-1 text-sm text-slate-600">The 25 most recent batches for the active challenge.</p>
+        <div className="flex flex-col gap-3 border-b border-slate-200 px-5 py-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-950">Recent simulation batches</h2>
+            <p className="mt-1 text-sm text-slate-600">The 25 most recent batches for the active challenge.</p>
+          </div>
+          <button type="button" onClick={() => downloadSimulationCsv()} className="inline-flex h-10 w-fit items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700">
+            Export completed batches CSV
+          </button>
         </div>
         {data?.batches.length ? (
           <div className="overflow-auto">
@@ -437,6 +461,7 @@ export function AdminSimulationDashboard() {
                     <td className="px-4 py-3">
                       <div className="flex gap-2">
                         <button type="button" onClick={() => void loadDetail(batch.id)} className="text-sm font-semibold text-teal-700 hover:text-teal-900">View</button>
+                        {batch.status === "completed" ? <button type="button" onClick={() => downloadSimulationCsv(batch.id)} className="text-sm font-semibold text-slate-700 hover:text-teal-900">Export</button> : null}
                         <button type="button" onClick={() => void deleteBatch(batch)} disabled={working} className="text-sm font-semibold text-rose-700 hover:text-rose-900 disabled:opacity-50">Delete</button>
                       </div>
                     </td>
@@ -482,6 +507,8 @@ export function AdminSimulationDashboard() {
 }
 
 function SimulationBatchDetail({ detail }: { detail: SimulationDetailResponse }) {
+  const reproducibility = detail.reproducibility;
+
   return (
     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-200 px-5 py-4">
@@ -494,6 +521,36 @@ function SimulationBatchDetail({ detail }: { detail: SimulationDetailResponse })
           <span>{detail.batch.total_evaluations} evaluations</span>
           <span>Completed {formatTimestamp(detail.batch.completed_at)}</span>
         </div>
+        <button type="button" onClick={() => downloadSimulationCsv(detail.batch.id)} className="mt-4 inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700">
+          Export this batch CSV
+        </button>
+      </div>
+      <div className="border-b border-slate-200 bg-slate-50 px-5 py-5">
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-700">Reproducibility summary</p>
+            <h3 className="mt-2 text-lg font-semibold text-slate-950">Deterministic batch contract</h3>
+          </div>
+          <span className="w-fit rounded-md border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-900">Synthetic / deterministic</span>
+        </div>
+        <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-4">
+          <ReproducibilityItem label="Mode" value={`${reproducibility.modeId} v${reproducibility.schemaVersion}`} />
+          <ReproducibilityItem label="Evaluator" value={formatIdentifier(reproducibility.evaluatorType)} />
+          <ReproducibilityItem label="Report scope" value={reproducibility.reportScope} />
+          <ReproducibilityItem label="Reports / fields" value={`${reproducibility.reportCount} / ${reproducibility.fieldCount}`} />
+          <ReproducibilityItem label="Total evaluations" value={String(reproducibility.totalEvaluations)} />
+          <div className="border-l-2 border-slate-300 pl-3 sm:col-span-2 xl:col-span-3">
+            <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schema snapshot hash</dt>
+            <dd className="mt-1 break-all font-mono text-xs text-slate-800">{reproducibility.schemaSnapshotHash}</dd>
+          </div>
+        </dl>
+        <div className="mt-4 border-t border-slate-200 pt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Selected profiles</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {reproducibility.profiles.map((profile) => <span key={`${profile.profileId}:${profile.profileVersion}`} className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs text-slate-700">{profile.profileLabel} · {profile.profileId} v{profile.profileVersion}</span>)}
+          </div>
+        </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">{reproducibility.disclaimer}</p>
       </div>
       {detail.profiles.length ? (
         <div className="overflow-auto">
@@ -531,6 +588,15 @@ function SimulationBatchDetail({ detail }: { detail: SimulationDetailResponse })
   );
 }
 
+function ReproducibilityItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="border-l-2 border-slate-300 pl-3">
+      <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</dt>
+      <dd className="mt-1 font-semibold text-slate-900">{value}</dd>
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: SimulationBatch["status"] }) {
   const style = status === "completed"
     ? "border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -563,4 +629,11 @@ function formatIdentifier(value: string) {
 
 function formatPercent(value: number) {
   return `${Math.round(Number(value) * 10) / 10}%`;
+}
+
+function downloadSimulationCsv(batchId?: string) {
+  const url = batchId
+    ? `/api/admin/simulations/export?batchId=${encodeURIComponent(batchId)}`
+    : "/api/admin/simulations/export";
+  window.location.assign(url);
 }

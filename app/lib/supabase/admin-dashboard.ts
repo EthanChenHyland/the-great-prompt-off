@@ -1,5 +1,6 @@
 import "server-only";
 
+import { safeCsvCell, toCsv } from "@/app/lib/csv";
 import { randomBytes } from "node:crypto";
 import { isEventPhase, type EventPhase } from "@/app/lib/event-phase";
 import {
@@ -762,27 +763,4 @@ function createParticipantAccessCode() {
   return `GPO-${code.slice(0, 4)}-${code.slice(4, 8)}`;
 }
 
-const dangerousCsvFormulaPrefixes = new Set(["=", "+", "-", "@"]);
-
-export function safeCsvCell(value: unknown) {
-  const rawValue = value === null || value === undefined ? "" : String(value);
-  const trimmedLeft = rawValue.trimStart();
-  const safeValue =
-    trimmedLeft &&
-    dangerousCsvFormulaPrefixes.has(trimmedLeft[0])
-      ? `'${rawValue}`
-      : rawValue;
-
-  // Examples protected: =HYPERLINK("bad"), +SUM(1,2), -10, @cmd, and leading-whitespace variants.
-  return `"${safeValue.replaceAll('"', '""')}"`;
-}
-
-export function toCsv(rows: unknown[][]) {
-  return rows
-    .map((row) =>
-      row
-        .map((cell) => safeCsvCell(cell))
-        .join(","),
-    )
-    .join("\n");
-}
+export { safeCsvCell, toCsv };

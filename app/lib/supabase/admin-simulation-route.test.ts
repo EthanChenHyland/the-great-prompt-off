@@ -51,6 +51,15 @@ describe("admin simulation dry-run route", () => {
         "api",
         "admin",
         "simulations",
+        "export",
+        "route.ts",
+      ),
+      path.join(
+        process.cwd(),
+        "app",
+        "api",
+        "admin",
+        "simulations",
         "[batchId]",
         "route.ts",
       ),
@@ -119,5 +128,62 @@ describe("admin simulation dry-run route", () => {
     expect(component).not.toContain("raw_model_output");
     expect(component).not.toContain("/api/submissions");
     expect(component).not.toContain("/api/admin/challenge-schema");
+  });
+
+  it("exports completed simulation aggregates with active-challenge and optional batch scoping", () => {
+    const service = readFileSync(
+      path.join(
+        process.cwd(),
+        "app",
+        "lib",
+        "supabase",
+        "admin-simulation-exports.ts",
+      ),
+      "utf8",
+    );
+
+    expect(service).toContain('.from("simulation_batches")');
+    expect(service).toContain('.from("simulation_runs")');
+    expect(service).toContain('.eq("challenge_id", challenge.id)');
+    expect(service).toContain('.eq("status", "completed")');
+    expect(service).toContain('batchQuery.eq("id", batchId)');
+    expect(service).not.toContain('.from("simulation_run_items")');
+    expect(service).not.toContain('.from("participants")');
+    expect(service).not.toContain('.from("prompt_runs")');
+    expect(service).not.toContain('.from("prompt_run_items")');
+    expect(service).not.toContain('.from("submissions")');
+    expect(service).not.toContain('.from("reports")');
+    expect(service).not.toContain('.from("answer_keys")');
+  });
+
+  it("does not expose source content through exports or reproducibility UI", () => {
+    const exportService = readFileSync(
+      path.join(
+        process.cwd(),
+        "app",
+        "lib",
+        "supabase",
+        "admin-simulation-exports.ts",
+      ),
+      "utf8",
+    );
+    const component = readFileSync(
+      path.join(
+        process.cwd(),
+        "app",
+        "components",
+        "AdminSimulationDashboard.tsx",
+      ),
+      "utf8",
+    );
+
+    for (const source of [exportService, component]) {
+      expect(source).not.toContain("answer_values");
+      expect(source).not.toContain("report_text");
+      expect(source).not.toContain("strategy_snapshot");
+      expect(source).not.toContain("raw_model_output");
+    }
+    expect(component).toContain("schemaSnapshotHash");
+    expect(component).not.toContain("schema_snapshot");
   });
 });
