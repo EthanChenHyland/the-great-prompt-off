@@ -34,9 +34,8 @@ Example request body:
 
 Dormant modes such as `knee_mri_12_basic` can be dry-run only when matching versioned answer keys exist for the requested reports. A dry-run does not imply that provenance requirements or activation readiness have passed.
 
-Future phases may add an admin GUI, optional real-model rehearsal, and
-simulation-only analytics. Those features should remain separate from real
-event storage.
+Future phases may add optional real-model rehearsal and deeper simulation-only
+analytics. Those features should remain separate from real event storage.
 
 ## Phase 9C: Isolated Storage
 
@@ -92,6 +91,23 @@ per-report scored values, hidden instructions, or raw model output.
 
 Persistent simulation remains deterministic mock evaluation. It makes no
 OpenRouter calls and must not be interpreted as a real model benchmark.
+
+## Phase 9E: Admin Simulation Dashboard
+
+Authenticated organizers can open `/admin/simulations` to run deterministic
+simulation batches, inspect recent aggregate results, delete one batch, or clear
+all simulation data for the active challenge. The run form uses only the admin
+simulation endpoints and sends `modeId`, `schemaVersion`, `reportScope`, and
+selected built-in `profileIds`.
+
+Dormant modes are labeled rehearsal-only. Running a simulation does not activate
+or allowlist a mode. The dashboard displays batch and per-profile aggregates but
+does not display report text, answer-key values, strategy snapshots, per-report
+predictions, raw model output, or participant data.
+
+Deleting one batch requires its batch ID. Clearing all simulation data requires
+the exact confirmation text `CLEAR SIMULATIONS`. Both actions operate only on
+the isolated simulation tables.
 
 ### Manual Verification
 

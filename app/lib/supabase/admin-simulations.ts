@@ -1,6 +1,11 @@
 import "server-only";
 
+import {
+  challengeModes,
+  isChallengeModeActivationAllowed,
+} from "@/app/lib/challenge-modes";
 import { getSimulationProfile } from "@/app/lib/simulation-profiles";
+import { simulationProfiles } from "@/app/lib/simulation-profiles";
 import {
   executeDeterministicSimulation,
   runDeterministicSimulation,
@@ -195,22 +200,72 @@ export async function listAdminSimulationBatches(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
 ) {
   const challenge = await getActiveChallenge(supabase);
-  const { data, error } = await supabase
-    .from("simulation_batches")
-    .select(
-      "id, mode_id, schema_version, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at",
-    )
-    .eq("challenge_id", challenge.id)
-    .order("created_at", { ascending: false })
-    .limit(25);
+  const [{ data, error }, { data: reportRows, error: reportError }] =
+    await Promise.all([
+      supabase
+        .from("simulation_batches")
+        .select(
+          "id, mode_id, schema_version, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at",
+        )
+        .eq("challenge_id", challenge.id)
+        .order("created_at", { ascending: false })
+        .limit(25),
+      supabase
+        .from("reports")
+        .select("split")
+        .eq("challenge_id", challenge.id)
+        .in("split", ["public", "private"]),
+    ]);
 
-  if (error) {
+  if (error || reportError) {
     throw new SimulationDataUnavailableError(
       "Simulation history is temporarily unavailable.",
     );
   }
 
-  return { ok: true, batches: data ?? [] };
+  const activeMode = resolveChallengeMode(
+    challenge.mode_id,
+    challenge.schema_version,
+  );
+  const reportCounts = (reportRows ?? []).reduce(
+    (counts, report) => {
+      if (report.split === "public") {
+        counts.public += 1;
+      } else if (report.split === "private") {
+        counts.private += 1;
+      }
+      return counts;
+    },
+    { public: 0, private: 0 },
+  );
+
+  return {
+    ok: true,
+    batches: data ?? [],
+    configuration: {
+      activeModeId: activeMode.id,
+      modes: Object.values(challengeModes).map((mode) => ({
+        id: mode.id,
+        version: mode.version,
+        title: mode.title,
+        fieldCount: mode.fields.length,
+        active:
+          mode.id === activeMode.id && mode.version === activeMode.version,
+        rehearsalOnly: !isChallengeModeActivationAllowed(mode.id),
+      })),
+      profiles: simulationProfiles.map((profile) => ({
+        id: profile.id,
+        version: profile.version,
+        label: profile.label,
+        description: profile.description,
+        purpose: profile.purpose,
+      })),
+      reportCounts: {
+        ...reportCounts,
+        all: reportCounts.public + reportCounts.private,
+      },
+    },
+  };
 }
 
 export async function getAdminSimulationBatch(
