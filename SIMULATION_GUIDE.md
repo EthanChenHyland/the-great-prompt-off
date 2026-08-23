@@ -34,7 +34,9 @@ Example request body:
 
 Dormant modes such as `knee_mri_12_basic` can be dry-run only when matching versioned answer keys exist for the requested reports. A dry-run does not imply that provenance requirements or activation readiness have passed.
 
-Future phases may add isolated simulation tables, an admin GUI, optional real-model rehearsal, and simulation-only analytics. Those features should remain separate from real event storage.
+Future phases may add an admin GUI, optional real-model rehearsal, and
+simulation-only analytics. Those features should remain separate from real
+event storage.
 
 ## Phase 9C: Isolated Storage
 
@@ -60,8 +62,36 @@ Future API routes must require an admin session before calling either RPC.
 Participant and anonymous database roles have no direct simulation-table or
 cleanup-function access.
 
-Phase 9B dry-runs still do not write to these tables. Persistence begins only
-after a later application phase deliberately adds dual-tested simulation writes.
+Phase 9B dry-runs still do not write to these tables.
+
+## Phase 9D: Persistent Deterministic Simulations
+
+The following admin-only endpoints use the isolated simulation tables:
+
+- `POST /api/admin/simulations/run` runs and saves a deterministic simulation.
+- `GET /api/admin/simulations` lists the 25 most recent batches for the active challenge.
+- `GET /api/admin/simulations/{batchId}` returns one batch and safe per-profile aggregates.
+- `DELETE /api/admin/simulations/{batchId}` deletes one batch after the request confirms the batch ID.
+- `DELETE /api/admin/simulations` clears simulation data for the active challenge after confirming `CLEAR SIMULATIONS`.
+
+The persistent run endpoint accepts the same `modeId`, `schemaVersion`,
+`reportScope`, and `profileIds` payload as the dry-run endpoint. It writes:
+
+- one `simulation_batches` row
+- one `simulation_runs` row per selected profile
+- one `simulation_run_items` row per profile/report evaluation
+
+Writes are isolated from real event storage. If a run or item write fails after
+the batch is created, the server calls `admin_delete_simulation_batch` to clean
+up the partial batch. It does not write participants, attempts, real prompt
+runs, submissions, or leaderboard data.
+
+Responses and retrieval endpoints contain aggregate batch/profile metadata
+only. They do not return answer-key values, report text, strategy snapshots,
+per-report scored values, hidden instructions, or raw model output.
+
+Persistent simulation remains deterministic mock evaluation. It makes no
+OpenRouter calls and must not be interpreted as a real model benchmark.
 
 ### Manual Verification
 

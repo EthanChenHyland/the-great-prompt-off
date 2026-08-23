@@ -2,10 +2,14 @@ import "server-only";
 
 import { getSimulationProfile } from "@/app/lib/simulation-profiles";
 import {
+  executeDeterministicSimulation,
   runDeterministicSimulation,
   type SimulationReportScope,
 } from "@/app/lib/simulation-runner";
-import { resolveChallengeMode } from "@/app/lib/schema-storage";
+import {
+  createSchemaSnapshot,
+  resolveChallengeMode,
+} from "@/app/lib/schema-storage";
 import { createSupabaseAdminClient } from "./admin";
 import {
   getActiveChallenge,
@@ -14,8 +18,255 @@ import {
 
 export class SimulationInputError extends Error {}
 export class SimulationDataUnavailableError extends Error {}
+export class SimulationPersistenceError extends Error {}
+export class SimulationNotFoundError extends Error {}
 
 export async function runAdminSimulationDryRun(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  payload: unknown,
+) {
+  const context = await loadSimulationContext(supabase, payload);
+
+  return runDeterministicSimulation({
+    mode: context.mode,
+    reportScope: context.input.reportScope,
+    reports: context.reports,
+    profileIds: context.input.profileIds,
+  });
+}
+
+export async function runAndPersistAdminSimulation(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  payload: unknown,
+) {
+  const context = await loadSimulationContext(supabase, payload);
+  const execution = executeDeterministicSimulation({
+    mode: context.mode,
+    reportScope: context.input.reportScope,
+    reports: context.reports,
+    profileIds: context.input.profileIds,
+  });
+  let batchId: string | null = null;
+
+  try {
+    const { data: batch, error: batchError } = await supabase
+      .from("simulation_batches")
+      .insert({
+        challenge_id: context.challengeId,
+        mode_id: context.mode.id,
+        schema_version: context.mode.version,
+        schema_snapshot: createSchemaSnapshot(context.mode),
+        evaluator_type: "deterministic_mock",
+        model: null,
+        report_scope: context.input.reportScope,
+        status: "running",
+        report_count: execution.summary.reportCount,
+        field_count: execution.summary.fieldCount,
+        profile_count: execution.runs.length,
+        total_evaluations: execution.summary.totalEvaluations,
+      })
+      .select("id")
+      .single<{ id: string }>();
+
+    if (batchError || !batch) {
+      throw new Error(batchError?.message || "Simulation batch insert failed.");
+    }
+    batchId = batch.id;
+
+    const { data: storedRuns, error: runsError } = await supabase
+      .from("simulation_runs")
+      .insert(
+        execution.runs.map((run) => ({
+          simulation_batch_id: batch.id,
+          profile_id: run.profileId,
+          profile_version: run.profileVersion,
+          profile_label: run.profileLabel,
+          strategy_snapshot: run.strategySnapshot,
+          correct_fields: run.correctFields,
+          total_fields: run.totalFields,
+          score: run.score,
+          valid_json_count: run.validJsonCount,
+          invalid_json_count: run.invalidJsonCount,
+          missing_field_count: run.missingFieldCount,
+          invalid_value_count: run.invalidValueCount,
+          completed_report_count: run.completedReportCount,
+        })),
+      )
+      .select("id, profile_id, profile_version")
+      .returns<Array<{ id: string; profile_id: string; profile_version: number }>>();
+
+    if (runsError || !storedRuns || storedRuns.length !== execution.runs.length) {
+      throw new Error(runsError?.message || "Simulation run insert failed.");
+    }
+
+    const runIdByProfile = new Map(
+      storedRuns.map((run) => [profileKey(run.profile_id, run.profile_version), run.id]),
+    );
+    const itemRows = execution.runs.flatMap((run) => {
+      const simulationRunId = runIdByProfile.get(
+        profileKey(run.profileId, run.profileVersion),
+      );
+      if (!simulationRunId) {
+        throw new Error("Stored simulation run mapping is incomplete.");
+      }
+
+      return run.items.map((item) => ({
+        simulation_run_id: simulationRunId,
+        report_id: item.reportId,
+        correct_fields: item.correctFields,
+        total_fields: item.totalFields,
+        score: item.score,
+        valid_json: item.validJson,
+        missing_fields: item.missingFields,
+        invalid_fields: item.invalidFields,
+        scored_values: item.scoredValues,
+      }));
+    });
+
+    if (itemRows.length > 0) {
+      const { error: itemsError } = await supabase
+        .from("simulation_run_items")
+        .insert(itemRows);
+      if (itemsError) {
+        throw new Error(itemsError.message);
+      }
+    }
+
+    const { error: completionError } = await supabase
+      .from("simulation_batches")
+      .update({
+        status: "completed",
+        completed_at: new Date().toISOString(),
+        error_message: null,
+      })
+      .eq("id", batch.id);
+    if (completionError) {
+      throw new Error(completionError.message);
+    }
+
+    return {
+      ...execution.summary,
+      persisted: true as const,
+      batchId: batch.id,
+      messages: [
+        "Deterministic simulation saved to isolated simulation storage.",
+        "No participants, attempts, real prompt runs, submissions, or leaderboard rows were created.",
+      ],
+    };
+  } catch (error) {
+    if (batchId) {
+      const { error: cleanupError } = await supabase.rpc(
+        "admin_delete_simulation_batch",
+        { target_batch_id: batchId },
+      );
+      if (cleanupError) {
+        console.error("[admin-simulation] Partial batch cleanup failed", {
+          batchId,
+          message: cleanupError.message,
+        });
+        const { error: failedStatusError } = await supabase
+          .from("simulation_batches")
+          .update({
+            status: "failed",
+            completed_at: new Date().toISOString(),
+            error_message: "Simulation persistence failed; cleanup is required.",
+          })
+          .eq("id", batchId);
+        if (failedStatusError) {
+          console.error("[admin-simulation] Failed status update failed", {
+            batchId,
+            message: failedStatusError.message,
+          });
+        }
+      }
+    }
+
+    console.error("[admin-simulation] Persistent simulation failed", {
+      batchId,
+      message: error instanceof Error ? error.message : "Unknown storage error",
+    });
+    throw new SimulationPersistenceError(
+      "The simulation was not saved. No real event data was changed.",
+    );
+  }
+}
+
+export async function listAdminSimulationBatches(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+) {
+  const challenge = await getActiveChallenge(supabase);
+  const { data, error } = await supabase
+    .from("simulation_batches")
+    .select(
+      "id, mode_id, schema_version, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at",
+    )
+    .eq("challenge_id", challenge.id)
+    .order("created_at", { ascending: false })
+    .limit(25);
+
+  if (error) {
+    throw new SimulationDataUnavailableError(
+      "Simulation history is temporarily unavailable.",
+    );
+  }
+
+  return { ok: true, batches: data ?? [] };
+}
+
+export async function getAdminSimulationBatch(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  batchId: string,
+) {
+  const batch = await getActiveChallengeBatch(supabase, batchId);
+  const { data: runs, error } = await supabase
+    .from("simulation_runs")
+    .select(
+      "id, profile_id, profile_version, profile_label, correct_fields, total_fields, score, valid_json_count, invalid_json_count, missing_field_count, invalid_value_count, completed_report_count, created_at",
+    )
+    .eq("simulation_batch_id", batch.id)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new SimulationDataUnavailableError(
+      "Simulation summary is temporarily unavailable.",
+    );
+  }
+
+  return { ok: true, batch, profiles: runs ?? [] };
+}
+
+export async function deleteAdminSimulationBatch(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  batchId: string,
+) {
+  const batch = await getActiveChallengeBatch(supabase, batchId);
+  const { error } = await supabase.rpc("admin_delete_simulation_batch", {
+    target_batch_id: batch.id,
+  });
+
+  if (error) {
+    throw new SimulationPersistenceError("The simulation batch could not be deleted.");
+  }
+
+  return { ok: true, deletedBatchId: batch.id };
+}
+
+export async function clearAdminSimulationData(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+) {
+  const challenge = await getActiveChallenge(supabase);
+  const { error } = await supabase.rpc("admin_clear_simulation_data", {
+    target_challenge_id: challenge.id,
+  });
+
+  if (error) {
+    throw new SimulationPersistenceError("Simulation data could not be cleared.");
+  }
+
+  return { ok: true };
+}
+
+async function loadSimulationContext(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   payload: unknown,
 ) {
@@ -40,24 +291,21 @@ export async function runAdminSimulationDryRun(
         getSupabaseAnswerKeysForSplit(supabase, challenge.id, split, mode),
       ),
     );
-    const reports = reportSets.flat().map((report) => ({
-      id: report.id,
-      split: report.split as "public" | "private",
-      answerKey: report.answer_key,
-    }));
+    const reports = reportSets.flat().map((report) => {
+      if (!report.supabaseReportId) {
+        throw new Error("A simulation report is missing its database ID.");
+      }
 
-    return runDeterministicSimulation({
-      mode,
-      reportScope: input.reportScope,
-      reports,
-      profileIds: input.profileIds,
+      return {
+        id: report.supabaseReportId,
+        split: report.split as "public" | "private",
+        answerKey: report.answer_key,
+      };
     });
-  } catch (error) {
-    if (error instanceof SimulationInputError) {
-      throw error;
-    }
 
-    console.error("[admin-simulation] Dry-run data loading failed", {
+    return { challengeId: challenge.id, input, mode, reports };
+  } catch (error) {
+    console.error("[admin-simulation] Simulation data loading failed", {
       modeId: mode.id,
       schemaVersion: mode.version,
       reportScope: input.reportScope,
@@ -67,6 +315,46 @@ export async function runAdminSimulationDryRun(
       "Matching reports and answer keys are not available for this simulation.",
     );
   }
+}
+
+async function getActiveChallengeBatch(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  batchId: string,
+) {
+  if (!isUuid(batchId)) {
+    throw new SimulationInputError("A valid simulation batch ID is required.");
+  }
+
+  const challenge = await getActiveChallenge(supabase);
+  const { data, error } = await supabase
+    .from("simulation_batches")
+    .select(
+      "id, mode_id, schema_version, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at",
+    )
+    .eq("id", batchId)
+    .eq("challenge_id", challenge.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new SimulationDataUnavailableError(
+      "Simulation summary is temporarily unavailable.",
+    );
+  }
+  if (!data) {
+    throw new SimulationNotFoundError("Simulation batch not found.");
+  }
+
+  return data;
+}
+
+function profileKey(profileId: string, profileVersion: number) {
+  return `${profileId}:${profileVersion}`;
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value,
+  );
 }
 
 function parseSimulationInput(payload: unknown) {

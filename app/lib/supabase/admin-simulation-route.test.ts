@@ -22,4 +22,42 @@ describe("admin simulation dry-run route", () => {
     expect(route).not.toContain("extractReportWithOpenRouter");
     expect(route).not.toMatch(/\.(insert|upsert|update|delete)\s*\(/);
   });
+
+  it("protects persistent, retrieval, and cleanup routes with admin auth", () => {
+    const routePaths = [
+      path.join(process.cwd(), "app", "api", "admin", "simulations", "run", "route.ts"),
+      path.join(process.cwd(), "app", "api", "admin", "simulations", "route.ts"),
+      path.join(
+        process.cwd(),
+        "app",
+        "api",
+        "admin",
+        "simulations",
+        "[batchId]",
+        "route.ts",
+      ),
+    ];
+
+    for (const routePath of routePaths) {
+      expect(readFileSync(routePath, "utf8")).toContain("requireAdminSession");
+    }
+  });
+
+  it("persists and cleans up only isolated simulation data", () => {
+    const service = readFileSync(
+      path.join(process.cwd(), "app", "lib", "supabase", "admin-simulations.ts"),
+      "utf8",
+    );
+
+    expect(service).toContain('.from("simulation_batches")');
+    expect(service).toContain('.from("simulation_runs")');
+    expect(service).toContain('.from("simulation_run_items")');
+    expect(service).toContain('"admin_delete_simulation_batch"');
+    expect(service).toContain('"admin_clear_simulation_data"');
+    expect(service).not.toContain('.from("participants")');
+    expect(service).not.toContain('.from("prompt_runs")');
+    expect(service).not.toContain('.from("prompt_run_items")');
+    expect(service).not.toContain('.from("submissions")');
+    expect(service).not.toContain('.from("participant_attempt_overrides")');
+  });
 });

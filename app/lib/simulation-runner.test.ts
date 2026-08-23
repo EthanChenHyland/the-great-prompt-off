@@ -8,7 +8,10 @@ import {
   kneeMri12BasicMode,
 } from "./challenge-modes";
 import { simulationProfiles } from "./simulation-profiles";
-import { runDeterministicSimulation } from "./simulation-runner";
+import {
+  executeDeterministicSimulation,
+  runDeterministicSimulation,
+} from "./simulation-runner";
 
 function allPresentAnswerKey(
   mode: typeof defaultChallengeMode | typeof kneeMri12BasicMode,
@@ -95,21 +98,34 @@ describe("deterministic simulation dry-run", () => {
     expect(serialized).not.toContain("systemPrompt");
   });
 
-  it("has no OpenRouter dependency or event-table mutation path", () => {
+  it("produces persistence details without expected answers or raw output", () => {
+    const execution = executeDeterministicSimulation({
+      mode: defaultChallengeMode,
+      reportScope: "public",
+      reports: [{
+        id: "00000000-0000-4000-8000-000000000001",
+        split: "public",
+        answerKey: allPresentAnswerKey(defaultChallengeMode),
+      }],
+      profileIds: ["strong_all_fields"],
+    });
+    const serialized = JSON.stringify(execution.runs);
+
+    expect(execution.runs).toHaveLength(1);
+    expect(execution.runs[0].items).toHaveLength(1);
+    expect(execution.runs[0].items[0].totalFields).toBe(6);
+    expect(serialized).not.toContain("answerKey");
+    expect(serialized).not.toContain("expected");
+    expect(serialized).not.toContain("reportText");
+    expect(serialized).not.toContain("rawModelOutput");
+  });
+
+  it("has no OpenRouter dependency", () => {
     const runner = readFileSync(
       path.join(process.cwd(), "app", "lib", "simulation-runner.ts"),
       "utf8",
     );
-    const adminService = readFileSync(
-      path.join(process.cwd(), "app", "lib", "supabase", "admin-simulations.ts"),
-      "utf8",
-    );
 
     expect(runner).not.toContain("openrouter");
-    expect(adminService).not.toMatch(/\.(insert|upsert|update|delete)\s*\(/);
-    expect(adminService).not.toContain('.from("participants")');
-    expect(adminService).not.toContain('.from("prompt_runs")');
-    expect(adminService).not.toContain('.from("prompt_run_items")');
-    expect(adminService).not.toContain('.from("submissions")');
   });
 });

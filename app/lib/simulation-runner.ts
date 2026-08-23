@@ -39,6 +39,34 @@ export type SimulationDryRunResult = {
   messages: string[];
 };
 
+export type DeterministicSimulationExecution = {
+  summary: SimulationDryRunResult;
+  runs: Array<{
+    profileId: string;
+    profileVersion: number;
+    profileLabel: string;
+    strategySnapshot: string;
+    correctFields: number;
+    totalFields: number;
+    score: number;
+    validJsonCount: number;
+    invalidJsonCount: number;
+    missingFieldCount: number;
+    invalidValueCount: number;
+    completedReportCount: number;
+    items: Array<{
+      reportId: string;
+      correctFields: number;
+      totalFields: number;
+      score: number;
+      validJson: boolean;
+      missingFields: string[];
+      invalidFields: string[];
+      scoredValues: Record<string, string>;
+    }>;
+  }>;
+};
+
 export function runDeterministicSimulation({
   mode,
   reportScope,
@@ -50,6 +78,25 @@ export function runDeterministicSimulation({
   reports: readonly SimulationAnswerKeyReport[];
   profileIds?: readonly string[];
 }): SimulationDryRunResult {
+  return executeDeterministicSimulation({
+    mode,
+    reportScope,
+    reports,
+    profileIds,
+  }).summary;
+}
+
+export function executeDeterministicSimulation({
+  mode,
+  reportScope,
+  reports,
+  profileIds,
+}: {
+  mode: ChallengeModeDefinition;
+  reportScope: SimulationReportScope;
+  reports: readonly SimulationAnswerKeyReport[];
+  profileIds?: readonly string[];
+}): DeterministicSimulationExecution {
   if (reports.length === 0) {
     throw new Error("No matching reports and answer keys are available for this simulation.");
   }
@@ -59,65 +106,104 @@ export function runDeterministicSimulation({
     throw new Error("Select at least one simulation profile.");
   }
 
-  const profileResults = profiles.map((profile) => {
-    // Build the participant strategy snapshot even though Phase 9B does not
-    // persist or return it. This keeps profile definitions schema-aware.
-    profile.buildStrategy(mode);
-    const scores = reports.map((report) => {
+  const executions = profiles.map((profile) => {
+    const strategySnapshot = profile.buildStrategy(mode);
+    const evaluations = reports.map((report) => {
       const prediction = createDeterministicPrediction(
         profile,
         report.answerKey,
         mode,
       );
-      return scoreModelOutput(JSON.stringify(prediction), report.answerKey, mode);
+      const score = scoreModelOutput(
+        JSON.stringify(prediction),
+        report.answerKey,
+        mode,
+      );
+
+      return { report, prediction, score };
     });
-    const totalFields = scores.reduce(
-      (total, score) => total + score.per_field.length,
+    const totalFields = evaluations.reduce(
+      (total, evaluation) => total + evaluation.score.per_field.length,
       0,
     );
-    const correctFields = scores.reduce(
-      (total, score) =>
-        total + score.per_field.filter((field) => field.correct).length,
+    const correctFields = evaluations.reduce(
+      (total, evaluation) =>
+        total + evaluation.score.per_field.filter((field) => field.correct).length,
       0,
     );
-    const validJsonCount = scores.filter((score) => score.valid_json).length;
+    const validJsonCount = evaluations.filter(
+      (evaluation) => evaluation.score.valid_json,
+    ).length;
+    const missingFieldCount = evaluations.reduce(
+      (total, evaluation) => total + evaluation.score.missing_fields.length,
+      0,
+    );
+    const invalidValueCount = evaluations.reduce(
+      (total, evaluation) => total + evaluation.score.invalid_fields.length,
+      0,
+    );
+    const aggregateScore =
+      totalFields === 0 ? 0 : (correctFields / totalFields) * 100;
 
     return {
-      id: profile.id,
-      version: profile.version,
-      label: profile.label,
-      description: profile.description,
-      purpose: profile.purpose,
-      score: totalFields === 0 ? 0 : (correctFields / totalFields) * 100,
-      correctFields,
-      totalFields,
-      validJsonRate: (validJsonCount / scores.length) * 100,
-      missingFieldsCount: scores.reduce(
-        (total, score) => total + score.missing_fields.length,
-        0,
-      ),
-      invalidValuesCount: scores.reduce(
-        (total, score) => total + score.invalid_fields.length,
-        0,
-      ),
+      summary: {
+        id: profile.id,
+        version: profile.version,
+        label: profile.label,
+        description: profile.description,
+        purpose: profile.purpose,
+        score: aggregateScore,
+        correctFields,
+        totalFields,
+        validJsonRate: (validJsonCount / evaluations.length) * 100,
+        missingFieldsCount: missingFieldCount,
+        invalidValuesCount: invalidValueCount,
+      },
+      persistence: {
+        profileId: profile.id,
+        profileVersion: profile.version,
+        profileLabel: profile.label,
+        strategySnapshot,
+        correctFields,
+        totalFields,
+        score: aggregateScore,
+        validJsonCount,
+        invalidJsonCount: evaluations.length - validJsonCount,
+        missingFieldCount,
+        invalidValueCount,
+        completedReportCount: evaluations.length,
+        items: evaluations.map(({ report, prediction, score }) => ({
+          reportId: report.id,
+          correctFields: score.per_field.filter((field) => field.correct).length,
+          totalFields: score.per_field.length,
+          score: score.overall_score,
+          validJson: score.valid_json,
+          missingFields: score.missing_fields,
+          invalidFields: score.invalid_fields.map((field) => field.field),
+          scoredValues: prediction,
+        })),
+      },
     };
   });
 
   return {
-    ok: true,
-    deterministic: true,
-    persisted: false,
-    modeId: mode.id,
-    schemaVersion: mode.version,
-    reportScope,
-    reportCount: reports.length,
-    fieldCount: mode.fields.length,
-    totalEvaluations: reports.length * profiles.length,
-    profiles: profileResults,
-    messages: [
-      "Deterministic dry-run only. These results are synthetic and are not a real LLM benchmark.",
-      "No participants, attempts, prompt runs, submissions, or leaderboard rows were created.",
-    ],
+    summary: {
+      ok: true,
+      deterministic: true,
+      persisted: false,
+      modeId: mode.id,
+      schemaVersion: mode.version,
+      reportScope,
+      reportCount: reports.length,
+      fieldCount: mode.fields.length,
+      totalEvaluations: reports.length * profiles.length,
+      profiles: executions.map((execution) => execution.summary),
+      messages: [
+        "Deterministic dry-run only. These results are synthetic and are not a real LLM benchmark.",
+        "No participants, attempts, prompt runs, submissions, or leaderboard rows were created.",
+      ],
+    },
+    runs: executions.map((execution) => execution.persistence),
   };
 }
 
