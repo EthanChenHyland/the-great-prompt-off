@@ -109,6 +109,27 @@ Deleting one batch requires its batch ID. Clearing all simulation data requires
 the exact confirmation text `CLEAR SIMULATIONS`. Both actions operate only on
 the isolated simulation tables.
 
+## Phase 9F: Simulation-Only Analytics
+
+The `/admin/simulations` dashboard also loads aggregate deterministic trends
+from two admin-only endpoints:
+
+- `GET /api/admin/simulations/analytics`
+- `GET /api/admin/simulations/compare?leftBatchId=...&rightBatchId=...`
+
+Analytics use completed rows from `simulation_batches` and `simulation_runs`
+only. They show batch history, average score by profile/mode/report scope, JSON
+validity, missing and invalid diagnostics, profile rankings, and strategy
+separation. Weak strategy separation uses the blank, nonsense, and vague
+profiles; strong separation uses the basic and strong all-fields profiles. The
+partial-field profile is excluded from that comparison.
+
+The comparison tool accepts two completed batches belonging to the active
+challenge and reports right-minus-left score and diagnostic deltas. Neither
+endpoint reads real participants, prompt runs, submissions, attempts, or real
+analytics. Responses exclude answer values, report text, strategy snapshots,
+per-report predictions, private contents, hidden prompts, and raw outputs.
+
 ### Manual Verification
 
 ```sql

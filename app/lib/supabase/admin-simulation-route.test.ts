@@ -33,6 +33,24 @@ describe("admin simulation dry-run route", () => {
         "api",
         "admin",
         "simulations",
+        "analytics",
+        "route.ts",
+      ),
+      path.join(
+        process.cwd(),
+        "app",
+        "api",
+        "admin",
+        "simulations",
+        "compare",
+        "route.ts",
+      ),
+      path.join(
+        process.cwd(),
+        "app",
+        "api",
+        "admin",
+        "simulations",
         "[batchId]",
         "route.ts",
       ),
@@ -59,5 +77,47 @@ describe("admin simulation dry-run route", () => {
     expect(service).not.toContain('.from("prompt_run_items")');
     expect(service).not.toContain('.from("submissions")');
     expect(service).not.toContain('.from("participant_attempt_overrides")');
+  });
+
+  it("reads simulation analytics only from isolated simulation tables", () => {
+    const service = readFileSync(
+      path.join(
+        process.cwd(),
+        "app",
+        "lib",
+        "supabase",
+        "admin-simulation-analytics.ts",
+      ),
+      "utf8",
+    );
+
+    expect(service).toContain('.from("simulation_batches")');
+    expect(service).toContain('.from("simulation_runs")');
+    expect(service).not.toContain('.from("simulation_run_items")');
+    expect(service).not.toContain('.from("participants")');
+    expect(service).not.toContain('.from("prompt_runs")');
+    expect(service).not.toContain('.from("prompt_run_items")');
+    expect(service).not.toContain('.from("submissions")');
+    expect(service).not.toContain('.from("reports")');
+    expect(service).not.toContain('.from("answer_keys")');
+  });
+
+  it("keeps simulation analytics UI free of source and private result fields", () => {
+    const component = readFileSync(
+      path.join(
+        process.cwd(),
+        "app",
+        "components",
+        "AdminSimulationAnalytics.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(component).not.toContain("answer_values");
+    expect(component).not.toContain("report_text");
+    expect(component).not.toContain("strategy_snapshot");
+    expect(component).not.toContain("raw_model_output");
+    expect(component).not.toContain("/api/submissions");
+    expect(component).not.toContain("/api/admin/challenge-schema");
   });
 });

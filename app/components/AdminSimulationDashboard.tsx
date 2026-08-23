@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { AdminSimulationAnalytics } from "@/app/components/AdminSimulationAnalytics";
 import {
   buildSimulationRunPayload,
   getSimulationEvaluationEstimate,
@@ -86,6 +87,7 @@ export function AdminSimulationDashboard() {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [analyticsRefreshVersion, setAnalyticsRefreshVersion] = useState(0);
 
   const loadBatches = useCallback(async () => {
     setLoading(true);
@@ -177,6 +179,7 @@ export function AdminSimulationDashboard() {
       setNotice("Deterministic simulation completed and was saved in isolated simulation storage.");
       await loadBatches();
       await loadDetail(payload.batchId);
+      setAnalyticsRefreshVersion((version) => version + 1);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -221,6 +224,7 @@ export function AdminSimulationDashboard() {
       }
       setNotice("Simulation batch deleted. Real event data was not changed.");
       await loadBatches();
+      setAnalyticsRefreshVersion((version) => version + 1);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -247,6 +251,7 @@ export function AdminSimulationDashboard() {
       setClearConfirmation("");
       setNotice("All simulation data for the active challenge was cleared. Real event data was not changed.");
       await loadBatches();
+      setAnalyticsRefreshVersion((version) => version + 1);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -260,6 +265,11 @@ export function AdminSimulationDashboard() {
         ? current.filter((id) => id !== profileId)
         : [...current, profileId],
     );
+  }
+
+  async function refreshSimulationData() {
+    await loadBatches();
+    setAnalyticsRefreshVersion((version) => version + 1);
   }
 
   return (
@@ -383,7 +393,7 @@ export function AdminSimulationDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => void loadBatches()}
+                onClick={() => void refreshSimulationData()}
                 disabled={working || loading}
                 className="inline-flex h-10 items-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 hover:border-teal-600 hover:text-teal-700 disabled:opacity-50"
               >
@@ -441,6 +451,8 @@ export function AdminSimulationDashboard() {
       </section>
 
       {detail ? <SimulationBatchDetail detail={detail} /> : null}
+
+      <AdminSimulationAnalytics refreshVersion={analyticsRefreshVersion} />
 
       <section className="rounded-lg border border-rose-200 bg-white p-5 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-rose-700">Simulation cleanup</p>
@@ -550,5 +562,5 @@ function formatIdentifier(value: string) {
 }
 
 function formatPercent(value: number) {
-  return `${Math.round(Number(value) * 100)}%`;
+  return `${Math.round(Number(value) * 10) / 10}%`;
 }
