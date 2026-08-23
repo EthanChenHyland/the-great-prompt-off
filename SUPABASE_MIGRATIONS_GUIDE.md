@@ -541,6 +541,74 @@ where provenance = 'clinician_adjudicated'
   and (adjudicated_by is null or adjudicated_at is null);
 ```
 
+### `supabase/simulation-storage.sql`
+
+What it adds:
+
+- `simulation_batches`
+- `simulation_runs`
+- `simulation_run_items`
+- `admin_delete_simulation_batch(target_batch_id uuid)`
+- `admin_clear_simulation_data(target_challenge_id uuid)`
+
+Why it exists:
+
+Simulation history needs to remain completely separate from real participants,
+attempts, prompt runs, submissions, leaderboards, configuration locking, and
+event analytics. Deleting a simulation batch cascades only through its own
+simulation runs and items.
+
+Security:
+
+The tables have RLS enabled and explicitly revoke access from `public`, `anon`,
+and `authenticated`. The tables and cleanup functions are granted only to the
+Supabase `service_role`. Any future application route calling these functions
+must also enforce the existing admin session server-side.
+
+Required before production:
+
+Only before deploying a future phase that persists simulation results. Phase
+9B deterministic dry-runs remain read-only and do not use these tables.
+
+Score convention:
+
+Simulation scores use the same `0` to `100` percentage scale as real stored
+submission scores.
+
+How to verify:
+
+```sql
+select table_name
+from information_schema.tables
+where table_schema = 'public'
+  and table_name in (
+    'simulation_batches',
+    'simulation_runs',
+    'simulation_run_items'
+  )
+order by table_name;
+
+select
+  (select count(*) from simulation_batches) as simulation_batches,
+  (select count(*) from simulation_runs) as simulation_runs,
+  (select count(*) from simulation_run_items) as simulation_run_items;
+
+select
+  (select count(*) from prompt_runs) as prompt_runs,
+  (select count(*) from prompt_run_items) as prompt_run_items,
+  (select count(*) from submissions) as submissions;
+
+select n.nspname as schema_name, p.proname as function_name
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'admin_delete_simulation_batch',
+    'admin_clear_simulation_data'
+  )
+order by p.proname;
+```
+
 ## Event-Control Columns on `challenges`
 
 ### `event_phase`
@@ -625,6 +693,7 @@ These RPC functions are safer than app-side deletes because the related deletes 
   - `supabase/versioned-answer-keys.sql`
   - `supabase/future-mode-answer-keys.sql` before writing dormant-mode answer keys
   - `supabase/answer-key-provenance.sql` before using provenance-aware imports/readiness
+  - `supabase/simulation-storage.sql` before a future phase persists simulation results
 - Run `npm run seed:supabase` with production Supabase environment variables.
 - Verify the active challenge has `evaluation_model`, `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.
 - Verify reset RPC functions exist and were updated from `supabase/admin-atomic-clears.sql`.
