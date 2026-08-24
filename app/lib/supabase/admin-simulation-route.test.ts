@@ -23,6 +23,75 @@ describe("admin simulation dry-run route", () => {
     expect(route).not.toMatch(/\.(insert|upsert|update|delete)\s*\(/);
   });
 
+  it("keeps reference reads and writes isolated to simulation storage", () => {
+    const service = readFileSync(
+      path.join(
+        process.cwd(),
+        "app",
+        "lib",
+        "supabase",
+        "admin-simulation-references.ts",
+      ),
+      "utf8",
+    );
+
+    expect(service).toContain('.from("simulation_batches")');
+    expect(service).toContain('.from("simulation_runs")');
+    expect(service).toContain('"admin_set_simulation_reference"');
+    expect(service).toContain('"admin_clear_simulation_reference"');
+    expect(service).not.toContain('.from("participants")');
+    expect(service).not.toContain('.from("prompt_runs")');
+    expect(service).not.toContain('.from("prompt_run_items")');
+    expect(service).not.toContain('.from("submissions")');
+    expect(service).not.toContain('.from("reports")');
+    expect(service).not.toContain('.from("answer_keys")');
+  });
+
+  it("limits reference storage and replacement to completed deterministic batches", () => {
+    const migration = readFileSync(
+      path.join(process.cwd(), "supabase", "simulation-reference-batches.sql"),
+      "utf8",
+    );
+
+    expect(migration).toContain("add column if not exists is_reference");
+    expect(migration).toContain("status = 'completed'");
+    expect(migration).toContain("evaluator_type = 'deterministic_mock'");
+    expect(migration).toContain("simulation_batches_one_reference_per_challenge_idx");
+    expect(migration).toContain("admin_set_simulation_reference");
+    expect(migration).toContain("admin_clear_simulation_reference");
+    expect(migration).not.toContain("public.prompt_runs");
+    expect(migration).not.toContain("public.prompt_run_items");
+    expect(migration).not.toContain("public.submissions");
+    expect(migration).not.toContain("public.participants");
+  });
+
+  it("requires confirmation for reference mutations and keeps their UI aggregate-only", () => {
+    const dashboard = readFileSync(
+      path.join(process.cwd(), "app", "components", "AdminSimulationDashboard.tsx"),
+      "utf8",
+    );
+    const panel = readFileSync(
+      path.join(
+        process.cwd(),
+        "app",
+        "components",
+        "AdminSimulationReferencePanel.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(dashboard).toContain("Mark as reference");
+    expect(dashboard).toContain("window.confirm");
+    expect(panel).toContain("CLEAR REFERENCE");
+    expect(panel).toContain("Simulation-only regression checking");
+    for (const source of [dashboard, panel]) {
+      expect(source).not.toContain("answer_values");
+      expect(source).not.toContain("report_text");
+      expect(source).not.toContain("strategy_snapshot");
+      expect(source).not.toContain("raw_model_output");
+    }
+  });
+
   it("protects persistent, retrieval, and cleanup routes with admin auth", () => {
     const routePaths = [
       path.join(process.cwd(), "app", "api", "admin", "simulations", "run", "route.ts"),
@@ -34,6 +103,15 @@ describe("admin simulation dry-run route", () => {
         "admin",
         "simulations",
         "analytics",
+        "route.ts",
+      ),
+      path.join(
+        process.cwd(),
+        "app",
+        "api",
+        "admin",
+        "simulations",
+        "reference",
         "route.ts",
       ),
       path.join(

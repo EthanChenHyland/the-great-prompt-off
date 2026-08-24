@@ -150,6 +150,33 @@ and deterministic/synthetic disclaimer. The stored schema snapshot remains
 server-only; the UI receives a canonical SHA-256 hash so organizers can compare
 contracts without receiving the snapshot payload.
 
+## Phase 9H: Reference Batches and Regression Checks
+
+Run `supabase/simulation-reference-batches.sql` before using reference
+baselines. The additive migration stores reference metadata only on
+`simulation_batches` and adds service-role-only RPCs for setting or clearing a
+reference. Each challenge can have at most one reference, and only a completed
+`deterministic_mock` batch is eligible. Replacing a reference clears the old
+reference metadata atomically.
+
+On `/admin/simulations`, an organizer can mark a completed batch as the current
+reference, clear it with confirmation, and compare recent completed batches to
+it. Comparisons use candidate-minus-reference deltas for each profile and for
+aggregate JSON validity, missing fields, and invalid values. Warnings appear
+when:
+
+- the average or a profile score changes by more than 5 percentage points;
+- JSON validity decreases;
+- missing fields increase;
+- invalid values increase; or
+- the mode, schema version, report scope, or profile set does not match.
+
+These checks are deterministic simulation regression signals, not clinical
+validation. They do not affect challenge configuration, real submissions,
+leaderboards, attempts, event progress, or real analytics. Responses and the UI
+remain aggregate-only and do not include report text, answer values, strategies,
+raw outputs, or participant data.
+
 ### Manual Verification
 
 ```sql

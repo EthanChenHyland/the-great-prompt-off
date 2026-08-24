@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminSimulationAnalytics } from "@/app/components/AdminSimulationAnalytics";
+import { AdminSimulationReferencePanel } from "@/app/components/AdminSimulationReferencePanel";
 import {
   buildSimulationRunPayload,
   getSimulationEvaluationEstimate,
@@ -39,6 +40,8 @@ type SimulationBatch = {
   total_evaluations: number;
   created_at: string;
   completed_at: string | null;
+  is_reference: boolean;
+  reference_label: string | null;
 };
 
 type SimulationProfileResult = {
@@ -107,6 +110,7 @@ export function AdminSimulationDashboard() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [analyticsRefreshVersion, setAnalyticsRefreshVersion] = useState(0);
+  const [referenceRefreshVersion, setReferenceRefreshVersion] = useState(0);
 
   const loadBatches = useCallback(async () => {
     setLoading(true);
@@ -199,6 +203,7 @@ export function AdminSimulationDashboard() {
       await loadBatches();
       await loadDetail(payload.batchId);
       setAnalyticsRefreshVersion((version) => version + 1);
+      setReferenceRefreshVersion((version) => version + 1);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -244,6 +249,7 @@ export function AdminSimulationDashboard() {
       setNotice("Simulation batch deleted. Real event data was not changed.");
       await loadBatches();
       setAnalyticsRefreshVersion((version) => version + 1);
+      setReferenceRefreshVersion((version) => version + 1);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -271,6 +277,7 @@ export function AdminSimulationDashboard() {
       setNotice("All simulation data for the active challenge was cleared. Real event data was not changed.");
       await loadBatches();
       setAnalyticsRefreshVersion((version) => version + 1);
+      setReferenceRefreshVersion((version) => version + 1);
     } catch (requestError) {
       setError(getErrorMessage(requestError));
     } finally {
@@ -289,6 +296,45 @@ export function AdminSimulationDashboard() {
   async function refreshSimulationData() {
     await loadBatches();
     setAnalyticsRefreshVersion((version) => version + 1);
+    setReferenceRefreshVersion((version) => version + 1);
+  }
+
+  async function markReference(batch: SimulationBatch) {
+    const label = window.prompt(
+      "Optional reference label (80 characters maximum):",
+      batch.reference_label || `Reference ${formatTimestamp(batch.created_at)}`,
+    );
+    if (label === null) return;
+    if (label.trim().length > 80) {
+      setError("Reference label must be 80 characters or fewer.");
+      return;
+    }
+    if (!window.confirm(`Mark ${batch.id} as the simulation reference? This will replace the current reference baseline. No batch results or real event data will be changed.`)) {
+      return;
+    }
+
+    setWorking(true);
+    setError("");
+    try {
+      const response = await fetch(`${simulationEndpoint}/reference`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ batchId: batch.id, label: label.trim() || null }),
+      });
+      await readJson<{ ok: true }>(response);
+      setNotice("Simulation reference baseline updated. Real event data was not changed.");
+      await loadBatches();
+      setReferenceRefreshVersion((version) => version + 1);
+    } catch (requestError) {
+      setError(getErrorMessage(requestError));
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  function handleReferenceChanged() {
+    void loadBatches();
+    setReferenceRefreshVersion((version) => version + 1);
   }
 
   return (
@@ -452,7 +498,7 @@ export function AdminSimulationDashboard() {
                 {data.batches.map((batch) => (
                   <tr key={batch.id} className="border-t border-slate-100 align-top">
                     <td className="px-4 py-3">{formatTimestamp(batch.created_at)}</td>
-                    <td className="px-4 py-3"><span className="font-semibold">{batch.mode_id}</span><br /><span className="text-xs text-slate-500">v{batch.schema_version}</span></td>
+                    <td className="px-4 py-3"><span className="font-semibold">{batch.mode_id}</span><br /><span className="text-xs text-slate-500">v{batch.schema_version}</span>{batch.is_reference ? <span className="mt-1 block w-fit rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-xs font-semibold text-cyan-900">Reference</span> : null}</td>
                     <td className="px-4 py-3 capitalize">{batch.report_scope}</td>
                     <td className="px-4 py-3">{formatIdentifier(batch.evaluator_type)}</td>
                     <td className="px-4 py-3">{batch.report_count} / {batch.field_count}</td>
@@ -462,6 +508,7 @@ export function AdminSimulationDashboard() {
                       <div className="flex gap-2">
                         <button type="button" onClick={() => void loadDetail(batch.id)} className="text-sm font-semibold text-teal-700 hover:text-teal-900">View</button>
                         {batch.status === "completed" ? <button type="button" onClick={() => downloadSimulationCsv(batch.id)} className="text-sm font-semibold text-slate-700 hover:text-teal-900">Export</button> : null}
+                        {batch.status === "completed" && !batch.is_reference ? <button type="button" onClick={() => void markReference(batch)} disabled={working} className="text-sm font-semibold text-cyan-700 hover:text-cyan-900 disabled:opacity-50">Mark as reference</button> : null}
                         <button type="button" onClick={() => void deleteBatch(batch)} disabled={working} className="text-sm font-semibold text-rose-700 hover:text-rose-900 disabled:opacity-50">Delete</button>
                       </div>
                     </td>
@@ -476,6 +523,11 @@ export function AdminSimulationDashboard() {
       </section>
 
       {detail ? <SimulationBatchDetail detail={detail} /> : null}
+
+      <AdminSimulationReferencePanel
+        refreshVersion={referenceRefreshVersion}
+        onReferenceChanged={handleReferenceChanged}
+      />
 
       <AdminSimulationAnalytics refreshVersion={analyticsRefreshVersion} />
 

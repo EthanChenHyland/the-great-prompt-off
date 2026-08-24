@@ -31,6 +31,12 @@ export class SimulationDataUnavailableError extends Error {}
 export class SimulationPersistenceError extends Error {}
 export class SimulationNotFoundError extends Error {}
 
+type StoredSimulationBatch = SimulationBatchWithSchema & {
+  is_reference: boolean;
+  reference_label: string | null;
+  reference_notes: string | null;
+};
+
 export async function runAdminSimulationDryRun(
   supabase: ReturnType<typeof createSupabaseAdminClient>,
   payload: unknown,
@@ -210,7 +216,7 @@ export async function listAdminSimulationBatches(
       supabase
         .from("simulation_batches")
         .select(
-          "id, mode_id, schema_version, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at",
+          "id, mode_id, schema_version, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at, is_reference, reference_label",
         )
         .eq("challenge_id", challenge.id)
         .order("created_at", { ascending: false })
@@ -306,6 +312,9 @@ export async function getAdminSimulationBatch(
     total_evaluations: batch.total_evaluations,
     created_at: batch.created_at,
     completed_at: batch.completed_at,
+    is_reference: batch.is_reference,
+    reference_label: batch.reference_label,
+    reference_notes: batch.reference_notes,
   };
   return {
     ok: true,
@@ -409,11 +418,11 @@ async function getActiveChallengeBatch(
   const { data, error } = await supabase
     .from("simulation_batches")
     .select(
-      "id, mode_id, schema_version, schema_snapshot, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at",
+      "id, mode_id, schema_version, schema_snapshot, evaluator_type, report_scope, status, report_count, field_count, profile_count, total_evaluations, created_at, completed_at, is_reference, reference_label, reference_notes",
     )
     .eq("id", batchId)
     .eq("challenge_id", challenge.id)
-    .maybeSingle<SimulationBatchWithSchema>();
+    .maybeSingle<StoredSimulationBatch>();
 
   if (error) {
     throw new SimulationDataUnavailableError(

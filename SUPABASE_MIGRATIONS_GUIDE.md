@@ -609,6 +609,59 @@ where n.nspname = 'public'
 order by p.proname;
 ```
 
+### `supabase/simulation-reference-batches.sql`
+
+What it adds:
+
+- `simulation_batches.is_reference`
+- Optional `simulation_batches.reference_label` and `reference_notes`
+- One-reference-per-challenge and completed-deterministic eligibility checks
+- `admin_set_simulation_reference(...)`
+- `admin_clear_simulation_reference(...)`
+
+Why it exists:
+
+This migration lets organizers use one completed deterministic simulation batch
+as a regression reference. It modifies only `simulation_batches`; replacing or
+clearing a reference does not write to real participants, prompt runs,
+submissions, attempts, leaderboards, or event analytics.
+
+Required before production:
+
+Yes, before using reference controls on `/admin/simulations`. Apply
+`supabase/simulation-storage.sql` first.
+
+How to verify:
+
+```sql
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'simulation_batches'
+  and column_name in ('is_reference', 'reference_label', 'reference_notes')
+order by column_name;
+
+select challenge_id, count(*) as reference_count
+from simulation_batches
+where is_reference = true
+group by challenge_id
+having count(*) > 1;
+
+select id, challenge_id, status, evaluator_type, reference_label
+from simulation_batches
+where is_reference = true;
+
+select n.nspname as schema_name, p.proname as function_name
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public'
+  and p.proname in (
+    'admin_set_simulation_reference',
+    'admin_clear_simulation_reference'
+  )
+order by p.proname;
+```
+
 ## Event-Control Columns on `challenges`
 
 ### `event_phase`
@@ -694,6 +747,7 @@ These RPC functions are safer than app-side deletes because the related deletes 
   - `supabase/future-mode-answer-keys.sql` before writing dormant-mode answer keys
   - `supabase/answer-key-provenance.sql` before using provenance-aware imports/readiness
   - `supabase/simulation-storage.sql` before a future phase persists simulation results
+  - `supabase/simulation-reference-batches.sql` before using simulation reference baselines
 - Run `npm run seed:supabase` with production Supabase environment variables.
 - Verify the active challenge has `evaluation_model`, `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.
 - Verify reset RPC functions exist and were updated from `supabase/admin-atomic-clears.sql`.
