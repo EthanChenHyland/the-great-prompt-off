@@ -3,6 +3,21 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 describe("admin simulation dry-run route", () => {
+  it("does not request a challenge-level schema snapshot", () => {
+    const source = readFileSync(
+      path.join(process.cwd(), "app", "lib", "supabase", "submission-workflow.ts"),
+      "utf8",
+    );
+    const helperStart = source.indexOf("export async function getActiveChallenge");
+    const helperEnd = source.indexOf("async function getParticipantByCode", helperStart);
+    const helper = source.slice(helperStart, helperEnd);
+
+    expect(helperStart).toBeGreaterThan(-1);
+    expect(helperEnd).toBeGreaterThan(helperStart);
+    expect(helper).toContain("schema_version");
+    expect(helper).not.toContain("schema_snapshot");
+  });
+
   it("requires admin auth and delegates only to the dry-run service", () => {
     const route = readFileSync(
       path.join(

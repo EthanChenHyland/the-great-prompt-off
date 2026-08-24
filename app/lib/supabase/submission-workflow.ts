@@ -47,7 +47,6 @@ type ActiveChallenge = {
   evaluation_model: string | null;
   mode_id: string | null;
   schema_version: number | null;
-  schema_snapshot: Record<string, unknown> | null;
   public_submission_limit: number;
   final_submission_limit: number;
   event_phase: EventPhase;
@@ -731,7 +730,7 @@ export async function getActiveChallenge(
   const { data, error } = await supabase
     .from("challenges")
     .select(
-      "id, locked_model, evaluation_model, mode_id, schema_version, schema_snapshot, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
+      "id, locked_model, evaluation_model, mode_id, schema_version, public_submission_limit, final_submission_limit, event_phase, leaderboard_visibility",
     )
     .eq("is_active", true)
     .order("created_at", { ascending: false })
