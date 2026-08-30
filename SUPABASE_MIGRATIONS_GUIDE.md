@@ -735,6 +735,9 @@ These RPC functions are safer than app-side deletes because the related deletes 
 
 - Run all required SQL migration files in the production Supabase SQL Editor:
   - `supabase/schema.sql` for a fresh database, or the incremental migration files for an existing database.
+  - `supabase/access-code-migration.sql` for databases created before the current access-code format.
+  - `supabase/admin-v1-5-migration.sql` for databases missing participant email/active fields.
+  - `supabase/participant-attempt-overrides.sql`
   - `supabase/admin-atomic-clears.sql`
   - `supabase/event-controls.sql`
   - `supabase/leaderboard-visibility.sql`
@@ -746,7 +749,8 @@ These RPC functions are safer than app-side deletes because the related deletes 
   - `supabase/versioned-answer-keys.sql`
   - `supabase/future-mode-answer-keys.sql` before writing dormant-mode answer keys
   - `supabase/answer-key-provenance.sql` before using provenance-aware imports/readiness
-  - `supabase/simulation-storage.sql` before a future phase persists simulation results
+  - `supabase/challenge-schema-update.sql` before using guarded schema updates
+  - `supabase/simulation-storage.sql` before persisting deterministic simulation results
   - `supabase/simulation-reference-batches.sql` before using simulation reference baselines
 - Run `npm run seed:supabase` with production Supabase environment variables.
 - Verify the active challenge has `evaluation_model`, `event_phase`, `leaderboard_visibility`, `event_announcement`, `event_timer_label`, and `event_timer_ends_at`.

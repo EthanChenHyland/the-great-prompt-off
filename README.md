@@ -1,217 +1,212 @@
 # The Great Prompt-Off
 
-The Great Prompt-Off is a prototype workshop platform for a live prompt-engineering challenge. Participants write prompts that ask an evaluation model to extract structured findings from synthetic, non-PHI knee MRI reports.
+The Great Prompt-Off is a full-stack workshop platform for running a live prompt-engineering challenge. Participants design clinical extraction strategies for synthetic, non-PHI knee MRI reports, test them on a public set, and submit once against a hidden final set.
 
-The project is built as both a usable event tool and a learning project for understanding AI evaluation pipelines, data structure, scoring, security boundaries, and live-event operations.
+The project is a production-oriented prototype built to explore evaluation design, schema-driven scoring, privacy boundaries, live-event operations, and safe AI integration.
 
-## What It Does
+[View the deployed application](https://the-great-prompt-off.vercel.app) | [Architecture](PROJECT_ARCHITECTURE.md) | [10-minute demo checklist](PROJECT_DEMO_CHECKLIST.md)
 
-Participants compete by writing prompts that produce a structured output with six findings:
+> The public deployment shows the participant entry screen. Participant access codes and the admin secret are intentionally not included in this repository.
 
-- `acl_tear`
-- `mcl_injury`
-- `meniscus_tear`
-- `fracture`
-- `osteoarthritis`
-- `effusion`
+## What The Project Demonstrates
 
-The accepted output values are:
+- A complete participant workflow with access-code sessions, saved prompt drafts, public Test Attempts, and a one-time Final Submission.
+- Server-side event controls for practice, final, ended, announcements, timers, and leaderboard visibility.
+- Strict, explainable scoring over schema-defined fields and controlled labels.
+- OpenRouter evaluation with a hidden output contract, strategy gating, concurrency limits, timeouts, and participant-safe error messages.
+- Supabase/Postgres persistence for reports, versioned answer keys, runs, submissions, event configuration, and admin operations.
+- Forward-compatible challenge schemas, provenance-aware answer-key readiness, guarded activation, and immutable run snapshots.
+- An isolated deterministic Simulation Lab with batch history, analytics, comparisons, CSV exports, and reference regression checks.
+- Security-focused details including server-only credentials, prompt length limits, CSV formula protection, admin route guards, and private final-result sanitization.
+- A Vitest regression suite covering scoring, schemas, activation safeguards, simulations, and privacy-sensitive response shapes.
 
-- `present`
-- `absent`
-- `uncertain`
-- `not_reported`
+## Current Challenge
 
-Participants get counted Test Attempts on public reports, then one locked Final Submission on hidden reports. Organizers control the event from an admin dashboard.
+The active mode is `knee_mri_6_basic` v1. It scores six findings:
 
-## Why It Exists
+```text
+acl_tear
+mcl_injury
+meniscus_tear
+fracture
+osteoarthritis
+effusion
+```
 
-The goal is to make prompt engineering concrete for a clinical/medical imaging workshop:
+Each field accepts exactly one controlled value:
 
-- participants use clinical reasoning to design extraction prompts
-- the app evaluates whether the model returns a consistent machine-readable output
-- organizers can run the event live with phases, timers, progress monitoring, and a projector leaderboard
-- the codebase demonstrates how prompts, reports, model outputs, answer keys, scores, and submissions move through a real system
+```text
+present | absent | uncertain | not_reported
+```
 
-## Key Features
+The scorer allows structural JSON recovery, but it does not translate clinical phrases such as `intact`, `partial tear`, `trace`, `yes`, or `no` into accepted labels. `not_reported` is distinct from `absent`: silence or insufficient evidence is not an explicit negative finding.
 
-- Access-code participant login with friendly participant labels.
-- Participant clinical extraction prompt editor with platform-controlled output formatting.
-- Strict scoring against controlled values: `present`, `absent`, `uncertain`, `not_reported`.
-- Public Test Attempts with sanitized feedback and format diagnostics.
-- One locked Final Submission with private/sanitized feedback.
-- Supabase-backed reports, answer keys, prompt runs, run items, and submissions.
-- OpenRouter-backed model evaluation when configured.
-- Admin event phases: not started, practice, final, ended.
-- Admin leaderboard visibility controls.
-- Live announcement banner and display-only timer.
-- Participant progress monitor.
-- Projector leaderboard at `/display/leaderboard`.
-- Admin Case Manager for controlled report/answer-key edits.
-- Reset tools and one-participant rescue tools.
-- Scoring regression tests with Vitest.
-- Seed report `.txt` files stored outside `public/`.
-- Security hardening for prompt length, provider errors, and CSV exports.
+Two future schemas, `knee_mri_12_basic` and `shoulder_mri_basic`, are present for compatibility tests and rehearsal tooling. They are dormant, not activation-allowlisted, and not available to participants.
 
-## Participant Flow
+## User Flows
 
-1. Participant enters an organizer-provided access code.
-2. The app shows a friendly label such as `P001`.
-3. Participant writes clinical extraction instructions. Output formatting is handled by the platform.
-4. During practice, participant uses counted Test Attempts on public reports.
-5. Participant reviews score feedback and format diagnostics.
-6. During final, participant submits once on hidden reports.
-7. Participant sees only sanitized final feedback.
+### Participant
 
-## Organizer/Admin Flow
+1. Enter an organizer-issued access code.
+2. Wait for the organizer to open practice.
+3. Write a clinical extraction strategy; the platform supplies the output-format contract.
+4. Use counted Test Attempts against five public reports and review sanitized diagnostics.
+5. Submit once during the final phase against 45 hidden reports.
+6. See aggregate final status and score without private reports, answer keys, or raw final model output.
 
-Organizers log in at `/admin`.
+### Organizer
 
-Admin tools include:
+1. Sign in at `/admin` with the server-configured admin secret.
+2. Verify Supabase, report coverage, answer keys, model configuration, and event cleanliness.
+3. Control phases, leaderboard visibility, announcements, and the display-only timer.
+4. Monitor participant progress, grant a narrow extra Test Attempt, and manage event data.
+5. Run public-report model calibration and schema-readiness preflights.
+6. Use `/admin/simulations` for isolated deterministic rehearsals that never enter real event results.
+7. Export results and finish with the projector leaderboard at `/display/leaderboard`.
 
-- health/readiness check
-- event phase controls
-- leaderboard visibility controls
-- announcement and timer controls
-- participant progress monitor
-- workshop analytics dashboard
-- admin-only baseline difficulty calibration on public reports
-- participant management
-- extra Test Attempt override
-- CSV exports
-- reset workshop run data
-- live Case Manager
-- projector leaderboard link
+## Architecture
 
-Main routes:
+```mermaid
+flowchart LR
+    P[Participant UI] --> A[Next.js App Router]
+    O[Admin UI] --> A
+    D[Projector UI] --> A
+    A --> S[(Supabase / Postgres)]
+    A --> R[OpenRouter]
+    A --> L[Strict schema-aware scorer]
+    R --> L
+    L --> S
+```
 
-- `/` participant login
-- `/challenge` participant workspace
-- `/admin` organizer dashboard
-- `/admin/participants` participant management
-- `/admin/results` results and leaderboard monitoring
-- `/admin/analytics` read-only workshop analytics
-- `/admin/cases` admin-only Case Manager
-- `/admin/help` organizer help
-- `/display/leaderboard` projector leaderboard
+- **View:** participant, admin, analytics, simulation, and projector pages in `app/`.
+- **Controller:** App Router handlers in `app/api/` and server workflows in `app/lib/supabase/`.
+- **Model:** Supabase tables plus the challenge schema registry in `app/lib/challenge-modes.ts`.
+- **Evaluation:** the server sends the participant strategy and synthetic report to OpenRouter, then independently validates and scores the returned JSON.
 
-## Data And Privacy Model
+Public Test Attempts and Final Submissions use the same scorer. Practice leaderboards rank each participant's best public attempt; final and ended leaderboards use Final Submission scores only.
 
-Reports are synthetic and non-PHI.
+For a table-by-table explanation and complete data flow, see [PROJECT_ARCHITECTURE.md](PROJECT_ARCHITECTURE.md).
 
-After seeding, Supabase is the live source of truth:
+## Data And Privacy Boundaries
 
-- `reports` stores report text and public/private split
-- `answer_keys` stores hidden expected labels
-- `prompt_runs` stores prompt evaluation runs
-- `prompt_run_items` stores per-report outputs and diagnostics
-- `submissions` stores counted Test Attempts and Final Submissions
-- `participants` stores participant labels, access-code records, and admin metadata
+Supabase is the live source of truth after seeding:
 
-Local report `.txt` files live in `seed-data/mock-reports/` for seeding and development fallback only. They are intentionally not under `public/`, because files under `public/` are directly browser-accessible.
+- `reports` stores synthetic report text and the public/private split.
+- `answer_keys` stores versioned, server-only expected labels and provenance.
+- `prompt_runs` and `prompt_run_items` store evaluation metadata and per-report results.
+- `submissions` stores counted Test Attempts and Final Submissions.
+- `simulation_*` tables store isolated deterministic rehearsal data only.
 
-Participants should not see:
+Local synthetic report files are kept in `seed-data/mock-reports/`, outside `public/`. They are seed/development assets and are not directly served by Next.js.
 
-- answer keys
-- private report text
-- raw final model outputs
-- access code lists
-- server secrets
-
-Admins can see report text and answer keys through protected admin tools.
+Participant responses never include answer keys, private report text, access-code lists, hidden system instructions, server secrets, or raw final model outputs. Supabase service-role credentials and the OpenRouter API key are used only in server code.
 
 ## Tech Stack
 
-- Next.js app router
-- React
-- TypeScript
+- Next.js 16 App Router
+- React 19 and TypeScript
+- Tailwind CSS 4
 - Supabase/Postgres
-- OpenRouter model evaluation
-- Vitest for scoring regression tests
-- Vercel-oriented deployment
-
-## Scoring At A High Level
-
-The scorer compares the model output against the hidden answer key for each report.
-
-The output must use exactly the six required fields and one of the controlled labels:
-
-- `present`
-- `absent`
-- `uncertain`
-- `not_reported` when the report does not provide enough information to determine a finding.
-
-The scorer allows structural recovery, such as JSON inside markdown fences or a single nested report object, but it does not translate clinical phrases into labels. For example, phrases like `intact`, `partial tear`, `trace`, `yes`, or `no` are invalid values.
-
-The participant controls the clinical extraction strategy. The server supplies a hidden formatting/task-contract instruction to the evaluation model so formatting is consistent without giving the participant a medical answer strategy. This hidden instruction does not contain report-specific answers or clinical reasoning hints.
-
-Strategy gating treats vague commands such as `extract all findings` as
-underspecified. A short participant prompt can still be usable, but it must
-provide real evidence-to-label mapping logic rather than only asking the model
-to read, summarize, or return findings.
-
-`OPENROUTER_MODEL` remains the fallback model. Admins can optionally select a
-challenge-specific evaluation model from `/admin`; the override is used for
-new real submissions and calibration until it is cleared. Admin Health Check
-shows the resolved model, the environment fallback, and the challenge override.
-Previous runs retain their recorded model. Calibration does not create
-submissions or affect attempts. Compare candidate models with the same public
-report set before an event; if weak baselines score high, use a weaker model or
-plan a harder report set.
-
-The current six-field challenge is temporary and may later be replaced with a
-harder 12-finding challenge. The no-assumption rule remains important:
-`not_reported` means the report is silent or insufficient, `absent` requires
-explicit negative evidence, and `uncertain` is reserved for ambiguous evidence.
-The hidden server instruction enforces this contract without solving the
-clinical task.
-
-Admin calibration includes blank and nonsense baselines. With the current
-evaluation contract, these should score low because a usable participant
-strategy is required. If they remain high, use a weaker approved model or a
-harder report set.
-
-The admin selector intentionally limits challenge overrides to these five
-approved models, ordered by current calibration usefulness:
-
-- `google/gemini-2.5-flash` (Recommended)
-- `qwen/qwen-2.5-7b-instruct` (Alternative)
-- `mistralai/mistral-small-3.2-24b-instruct` (Alternative)
-- `google/gemini-2.5-flash-lite` (Not recommended currently)
-- `meta-llama/llama-3.2-1b-instruct` (Experimental / very weak)
-
-Custom model IDs cannot be saved through the admin UI. Availability and pricing
-depend on the OpenRouter account, so run calibration after changing models.
-Gemma was removed from the approved list because it was unreliable in this
-setup. Future 12-finding reports may require retuning this list.
-
-Regression tests in `app/lib/scoring.test.ts` help prevent accidental return to overly lenient scoring.
+- OpenRouter chat-completions API
+- Vitest and ESLint
+- Vercel deployment and cron
+- GitHub Actions keep-alive workflow
 
 ## Run Locally
 
-Install dependencies:
+### Prerequisites
+
+- Node.js `20.9.0` or newer
+- npm
+- A Supabase project
+- An OpenRouter API key only if real model evaluation is enabled
+
+### 1. Clone and install
 
 ```bash
-npm install
+git clone https://github.com/EthanChenHyland/the-great-prompt-off.git
+cd the-great-prompt-off
+npm ci
 ```
 
-Create `.env.local` for local development. Do not commit real secrets.
+### 2. Configure the environment
 
-Start the dev server:
+Copy `.env.example` to `.env.local`:
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+On macOS/Linux:
 
 ```bash
-npm run dev
+cp .env.example .env.local
 ```
 
-Seed Supabase after applying the required SQL migrations:
+Configure these values without committing `.env.local`:
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Browser-safe Supabase key for the client helper. Never substitute the service-role key. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Server-only database access for protected workflows and seeding. |
+| `ADMIN_SECRET` | Yes | Protects `/admin` and admin mutation routes. |
+| `PARTICIPANT_SESSION_SECRET` | Recommended | Signs participant session tokens. If omitted, the server falls back to the service-role key. |
+| `USE_REAL_LLM` | Yes | `true` uses OpenRouter; any other value uses the deterministic local evaluator. |
+| `OPENROUTER_API_KEY` | When `USE_REAL_LLM=true` | Server-only OpenRouter credential. |
+| `OPENROUTER_MODEL` | Recommended | Fallback model when the active challenge has no approved override. |
+| `OPENROUTER_CONCURRENCY` | Optional | Concurrent report evaluations, clamped from 1 to 10; default is 3. |
+| `ALLOW_LOCAL_FALLBACK` | Optional | Development-only fallback. Keep `false` in production so database failures fail closed. |
+| `KEEPALIVE_SECRET` | Optional | Protects the read-only Supabase health endpoint and scheduled pings. |
+
+`EVENT_PHASE` and `LEADERBOARD_VISIBILITY` are optional seed-time overrides. Their defaults are `not_started` and `practice`.
+
+### 3. Prepare Supabase
+
+For a new project:
+
+1. Run `supabase/schema.sql` in the Supabase SQL Editor.
+2. Apply the current additive migrations listed in [SUPABASE_MIGRATIONS_GUIDE.md](SUPABASE_MIGRATIONS_GUIDE.md) and [PROJECT_DEMO_CHECKLIST.md](PROJECT_DEMO_CHECKLIST.md).
+3. Verify the expected columns, RPCs, and answer-key coverage with the SQL in those guides.
+
+App code does not apply SQL migrations automatically. `supabase/schema.sql` is the baseline schema, not a replacement for every later migration.
+
+Seed the synthetic workshop dataset:
 
 ```bash
 npm run seed:supabase
 ```
 
-## Checks
+The seed command upserts one active challenge, 50 synthetic reports, versioned six-field answer keys, and 50 mock participants. It preserves participant access codes only when they already match the current format. Review the target Supabase project before running it, especially against production.
 
-Run:
+### 4. Start the application
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000). Useful local routes:
+
+- `/` participant entry
+- `/challenge` participant workspace
+- `/admin` organizer dashboard
+- `/admin/analytics` workshop analytics and model calibration
+- `/admin/cases` report and active answer-key management
+- `/admin/simulations` isolated deterministic simulation lab
+- `/display/leaderboard` projection-friendly leaderboard
+
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local Next.js development server. |
+| `npm run test` | Run the Vitest regression suite once. |
+| `npm run lint` | Run ESLint. |
+| `npm run build` | Create a production build. |
+| `npm run start` | Serve an existing production build. |
+| `npm run seed:supabase` | Upsert the synthetic challenge dataset into the configured Supabase project. |
+
+Before deploying or rehearsing an event, run:
 
 ```bash
 npm run test
@@ -219,51 +214,38 @@ npm run lint
 npm run build
 ```
 
-## Supabase Keep-Alive Health Check
+## Deployment
 
-The app includes a lightweight read-only endpoint at
-`/api/health/supabase`. It performs a tiny active-challenge metadata read from
-Supabase and returns only safe status JSON. It does not read reports, answer
-keys, prompts, raw model outputs, access codes, secrets, or environment values.
-It does not write to the database and does not call OpenRouter.
+The repository is designed for Vercel:
 
-`vercel.json` schedules this endpoint once per day as a low-frequency
-development convenience. `.github/workflows/supabase-keepalive.yml` provides
-an optional backup ping every 6 hours. It defaults to the current production
-deployment at `https://the-great-prompt-off.vercel.app`. A GitHub repository
-variable named `KEEPALIVE_URL` can override that origin if the deployment moves.
+1. Import the GitHub repository into Vercel.
+2. Configure the same environment variables for the intended environment.
+3. Apply and verify Supabase migrations separately.
+4. Seed only the intended database.
+5. Deploy and complete [DEMO_CHECKLIST.md](DEMO_CHECKLIST.md).
 
-Optional protection: set `KEEPALIVE_SECRET` and send it as
-`x-keepalive-secret: <secret>`. The endpoint also accepts
-`Authorization: Bearer <secret>` for schedulers that use bearer tokens. To
-protect the GitHub backup, set a GitHub Actions secret named
-`KEEPALIVE_SECRET` to the same value configured in the deployment. Do not store
-the value in the repository.
+`vercel.json` calls the read-only `/api/health/supabase` endpoint daily. `.github/workflows/supabase-keepalive.yml` provides a backup ping every six hours and defaults to the deployed project URL. These pings make no database writes and no OpenRouter calls; they are a development convenience, not an event-readiness check.
 
-Scheduled keep-alives are not a replacement for the real pre-event Supabase
-readiness checks in `DEMO_CHECKLIST.md`. GitHub runs scheduled workflows from
-the default branch, so the workflow must be merged and enabled before it can
-run automatically. It can also be tested manually from the Actions tab.
+## Repository Guide
 
-## More Documentation
+- [PROJECT_ARCHITECTURE.md](PROJECT_ARCHITECTURE.md): system design, tables, APIs, and data flow.
+- [PROJECT_DEMO_CHECKLIST.md](PROJECT_DEMO_CHECKLIST.md): concise advisor demo and staging rehearsal.
+- [DEMO_CHECKLIST.md](DEMO_CHECKLIST.md): full live-event run of show.
+- [SUPABASE_MIGRATIONS_GUIDE.md](SUPABASE_MIGRATIONS_GUIDE.md): SQL migrations and verification.
+- [REPORT_IMPORT_GUIDE.md](REPORT_IMPORT_GUIDE.md): versioned answer-key import and provenance workflow.
+- [SIMULATION_GUIDE.md](SIMULATION_GUIDE.md): deterministic simulation architecture and endpoints.
+- [MEETING_UPDATE.md](MEETING_UPDATE.md): project progress mapped to advisor feedback.
 
-- `PROJECT_ARCHITECTURE.md`: how the whole system works and where data lives.
-- `DEMO_CHECKLIST.md`: rehearsal and live event run-of-show checklist.
-- `MEETING_UPDATE.md`: progress summary since the doctor meeting.
-- `SUPABASE_MIGRATIONS_GUIDE.md`: database migration and verification guide.
-- `REPORT_IMPORT_GUIDE.md`: how to add/import synthetic reports.
-- `supabase/README.md`: Supabase schema, seeding, and admin database notes.
+## Current Limitations
 
-## Current Status And Future Directions
+- This is a workshop prototype, not a clinical diagnostic system.
+- The included reports are synthetic and the current six-field dataset is for demonstration and calibration.
+- The twelve-field knee and shoulder schemas are dormant; real clinician-adjudicated twelve-field data is not included.
+- Simulation is deterministic and synthetic. It is useful for regression rehearsal, not a real-LLM benchmark or clinical validation.
+- Expensive and sensitive routes have natural attempt/session guards but do not yet use a distributed rate limiter.
+- Model evaluation is synchronous; a larger final report set may need a background queue.
+- The test suite focuses on pure logic, route contracts, safeguards, and static privacy regressions rather than full browser or live-Supabase integration tests.
 
-Current status: event-ready prototype with live admin controls, Supabase-backed storage, OpenRouter evaluation, strict scoring, regression tests, and operational documentation.
+## License
 
-Likely future improvements:
-
-- formal rate limiting for login, validation, and expensive evaluation routes
-- configurable challenge definitions beyond knee MRI
-- admin model selection with fairness locking
-- optional formatting-helper mode
-- stronger automated tests around submission workflows
-- async/background evaluation if final report sets grow
-- fuller security review before broader deployment
+This project is available under the [MIT License](LICENSE).
