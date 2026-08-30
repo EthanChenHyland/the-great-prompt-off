@@ -229,7 +229,7 @@ It does not write to the database and does not call OpenRouter.
 
 `vercel.json` schedules this endpoint once per day as a low-frequency
 development convenience. `.github/workflows/supabase-keepalive.yml` provides
-an optional backup ping every 12 hours. It defaults to the current production
+an optional backup ping every 6 hours. It defaults to the current production
 deployment at `https://the-great-prompt-off.vercel.app`. A GitHub repository
 variable named `KEEPALIVE_URL` can override that origin if the deployment moves.
 
