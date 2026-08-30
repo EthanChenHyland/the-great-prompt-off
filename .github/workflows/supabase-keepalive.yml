@@ -1,0 +1,37 @@
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "17 */12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check keep-alive configuration
+        env:
+          KEEPALIVE_URL: ${{ vars.KEEPALIVE_URL }}
+        run: |
+          if [ -z "$KEEPALIVE_URL" ]; then
+            echo "::error::Set the KEEPALIVE_URL repository variable to the production site URL."
+            exit 1
+          fi
+
+      - name: Ping the read-only Supabase health endpoint
+        env:
+          KEEPALIVE_URL: ${{ vars.KEEPALIVE_URL }}
+          KEEPALIVE_SECRET: ${{ secrets.KEEPALIVE_SECRET }}
+        run: |
+          url="${KEEPALIVE_URL%/}/api/health/supabase"
+          args=(--fail --silent --show-error --retry 2 --max-time 30 --output /dev/null)
+
+          if [ -n "$KEEPALIVE_SECRET" ]; then
+            args+=(-H "x-keepalive-secret: $KEEPALIVE_SECRET")
+          fi
+
+          curl "${args[@]}" "$url"

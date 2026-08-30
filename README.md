@@ -228,12 +228,22 @@ keys, prompts, raw model outputs, access codes, secrets, or environment values.
 It does not write to the database and does not call OpenRouter.
 
 `vercel.json` schedules this endpoint once per day as a low-frequency
-development convenience. This is not a replacement for the real pre-event
-Supabase readiness checks in `DEMO_CHECKLIST.md`.
+development convenience. `.github/workflows/supabase-keepalive.yml` provides
+an optional backup ping every 12 hours. The backup workflow requires a GitHub
+repository variable named `KEEPALIVE_URL` containing the deployed site origin,
+for example `https://your-project.example`.
 
 Optional protection: set `KEEPALIVE_SECRET` and send it as
 `x-keepalive-secret: <secret>`. The endpoint also accepts
-`Authorization: Bearer <secret>` for schedulers that use bearer tokens.
+`Authorization: Bearer <secret>` for schedulers that use bearer tokens. To
+protect the GitHub backup, set a GitHub Actions secret named
+`KEEPALIVE_SECRET` to the same value configured in the deployment. Do not store
+the value in the repository.
+
+Scheduled keep-alives are not a replacement for the real pre-event Supabase
+readiness checks in `DEMO_CHECKLIST.md`. GitHub runs scheduled workflows from
+the default branch, so the workflow must be merged and enabled before it can
+run automatically. It can also be tested manually from the Actions tab.
 
 ## More Documentation
 
