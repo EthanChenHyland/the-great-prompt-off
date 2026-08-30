@@ -20,7 +20,7 @@ import { createSupabaseAdminClient } from "./admin";
 
 export const calibrationBaselines = [
   { id: "blank", label: "Blank prompt", prompt: "" },
-  { id: "nonsense", label: "Nonsense prompt", prompt: "goon goon" },
+  { id: "nonsense", label: "Nonsense prompt", prompt: "This Prompt is Nonsense. " },
   {
     id: "partial-acl",
     label: "Partial ACL-only strategy",
